@@ -1,0 +1,22 @@
+---
+title: "intro-to-mmspower"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{intro-to-mmspower}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+## This is a baseline vignette
+```{r setup}
+library(MMSpower)
+```
+```{r} 
+hello_mmspower()
+```
