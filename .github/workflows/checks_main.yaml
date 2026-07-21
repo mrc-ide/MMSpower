@@ -2,10 +2,10 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [develop]
+    branches: [main, master]
   pull_request:
-    branches: [develop]
-name: R-CMD-check.yaml
+
+name: checks_main.yaml
 
 permissions: read-all
 

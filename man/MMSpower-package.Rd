@@ -4,9 +4,9 @@
 \name{MMSpower-package}
 \alias{MMSpower}
 \alias{MMSpower-package}
-\title{MMSpower: Malaria Molecular Surveillance Sample Size and Study Design Power Calculations}
+\title{MMSpower: Malaria Molecular Surveillance (MMS) Sample Size and Study Design Power Calculations}
 \description{
-What the package does (one paragraph).
+This package has basic functions needed for MMS power calculations.
 }
 \seealso{
 Useful links:

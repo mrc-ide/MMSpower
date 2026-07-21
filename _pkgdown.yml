@@ -1,0 +1,7 @@
+url: https://mrc-ide.github.io/MMSpower/
+
+home:
+  sidebar: false
+  links:
+  - text: Browse source code
+    href: https://github.com/mrc-ide/MMSpower
