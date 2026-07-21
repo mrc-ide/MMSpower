@@ -1,12 +1,18 @@
 Package: MMSpower
-Title: Malaria Molecular Surveillance Sample Size and Study Design Power Calculations
+Title: Malaria Molecular Surveillance (MMS) Sample Size and Study Design Power Calculations
 Version: 0.0.0.9000
 Authors@R: 
     person("Sequoia", "Leuba", , "s.leuba21@imperial.ac.uk", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Description: This package has basic functions needed for MMS power calculations.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 URL: https://github.com/mrc-ide/MMSpower
 BugReports: https://github.com/mrc-ide/MMSpower/issues
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
