@@ -113,9 +113,40 @@ test_that("perfect test is identity: se=sp=1 changes nothing", {
 })
 
 test_that("input validation catches bad arguments", {
-  expect_error(estimate_prevalence(x = c(3, 5), n = c(10)),   "length")
-  expect_error(estimate_prevalence(x = 60,       n = 50),     "x <= n")
+  expect_error(estimate_prevalence(x = c(3, 5), n = c(10)),
+               "length")
+  expect_error(estimate_prevalence(x = 60, n = 50),
+               "cannot exceed")
   expect_error(estimate_prevalence(x = 10, n = 50,
-                                   sensitivity = 0.3,
-                                   specificity = 0.3),        "must exceed 1")
+                                   sensitivity = 0.3, specificity = 0.3),
+               "must exceed 1")
+  # negative counts
+  expect_error(estimate_prevalence(x = -1, n = 100),
+               "non-negative")
+  # conf_level out of range
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = 0), "`conf_level`")
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = 1), "`conf_level`")
+  # icc out of range when supplied
+  expect_error(estimate_prevalence(x = 30, n = 100, icc =  2),  "`icc`")
+  expect_error(estimate_prevalence(x = 30, n = 100, icc = -0.1), "`icc`")
+  # fpc_N must be positive
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N =   0), "`fpc_N`")
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = -10), "`fpc_N`")
+  # fpc_N smaller than sample
+  expect_error(estimate_prevalence(x = c(3,3), n = c(10,10), fpc_N = 5),
+               "at least as large")
+})
+
+test_that("round-trip: estimate_prevalence recovers design_precision MOE (SRS)", {
+  # design_precision(0.3, 0.05) -> n = 323
+  # observe exactly 30% -> x = round(0.3 * 323) = 97
+  res <- estimate_prevalence(x = 97, n = 323)
+  expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
+})
+
+test_that("round-trip: estimate_prevalence recovers design_precision MOE (clustered)", {
+  # design_precision(0.3, 0.05, n_per_site=10, icc=0.05) -> 47 sites of 10
+  # observe 30% per site -> x = 3 per site
+  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+  expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
 })

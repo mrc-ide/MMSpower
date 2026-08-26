@@ -79,7 +79,20 @@ estimate_prevalence <- function(x,
                                 sensitivity = 1,
                                 specificity = 1) {
 
-  stopifnot(length(x) == length(n), all(x <= n), all(n > 0))
+  if (length(x) != length(n))
+    stop("`x` and `n` must have the same length")
+  if (any(n <= 0))
+    stop("`n` must be positive for every cluster")
+  if (any(x < 0))
+    stop("`x` must be non-negative")
+  if (any(x > n))
+    stop("`x` cannot exceed `n` in any cluster")
+  if (conf_level <= 0 || conf_level >= 1)
+    stop("`conf_level` must be in (0, 1)")
+  if (!is.null(icc) && (icc < 0 || icc > 1))
+    stop("`icc` must be in [0, 1]")
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
+    stop("`fpc_N` must be a positive number")
   if (sensitivity <= 0 || sensitivity > 1)
     stop("`sensitivity` must be in (0, 1]")
   if (specificity <= 0 || specificity > 1)
@@ -90,6 +103,9 @@ estimate_prevalence <- function(x,
 
   n_clusters <- length(n)
   n_total    <- sum(n)
+
+  if (!is.null(fpc_N) && fpc_N < n_total)
+    stop("`fpc_N` (", fpc_N, ") must be at least as large as total sample size (", n_total, ")")
   p_hat      <- sum(x) / n_total   # apparent prevalence
 
   # -----------------------------------------------------------------
