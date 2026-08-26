@@ -166,11 +166,27 @@ test_that("round-trip: estimate_prevalence recovers design_precision MOE (SRS)",
   expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
 })
 
-test_that("round-trip: estimate_prevalence recovers design_precision MOE (clustered)", {
+test_that("round-trip: estimate_prevalence recovers design_precision MOE (clustered, icc supplied)", {
   # design_precision(0.3, 0.05, n_per_site=10, icc=0.05) -> 47 sites of 10
   # observe 30% per site -> x = 3 per site
+  # icc MUST be supplied explicitly: identical clusters give estimated icc=0 (no between-cluster
+  # variance to estimate from), which would return moe ≈ 0.041, not 0.05.
   res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
   expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
+})
+
+test_that("round-trip caveat: without icc supplied, identical clusters estimate icc=0 and round-trip fails", {
+  # This test documents the limitation: the clustered round-trip only holds when icc is supplied.
+  # Identical cluster prevalences → var_obs = 0 → estimated icc = 0 → deff = 1 → moe ≈ SRS moe.
+  # design_precision assumed icc=0.05 and returned n=468 (47 sites x 10); EP without icc gives
+  # moe ≈ 0.041 (SRS-like), not the 0.05 that design_precision targeted.
+  res_no_icc  <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
+  res_with_icc <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+
+  expect_equal(res_no_icc$icc_used, 0, tolerance = 1e-10)   # estimated from identical clusters
+  expect_equal(res_no_icc$deff,     1, tolerance = 1e-10)
+  expect_lt(res_no_icc$margin_of_error, 0.05)                # narrower than intended
+  expect_equal(res_with_icc$margin_of_error, 0.05, tolerance = 5e-3)  # correct only with icc
 })
 
 # ---- Round 4: 15 new edge cases ----
