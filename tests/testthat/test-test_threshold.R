@@ -390,3 +390,138 @@ test_that("TT-S15: unequal cluster sizes estimated ICC is non-negative and consi
                tolerance = 1e-10)
   expect_true(is.finite(res$statistic))
 })
+
+# ── Second batch of stress tests: TT-S16 through TT-S30 ──────────────────────
+
+test_that("TT-S16: fpc_N = n_total with clustering → warning but result is valid", {
+  # When n_eff << n_total (clustering), fpc_N = n_total still leaves fpc > 0.
+  # The warning fires (misleadingly) but the computation succeeds.
+  expect_warning(
+    res <- test_threshold(x = c(5, 5), n = c(50, 50), threshold = 0.05,
+                          icc = 0.5, fpc_N = 100),
+    "surveyed"
+  )
+  expect_true(is.finite(res$statistic))
+})
+
+test_that("TT-S17: all-singleton clusters (n=1 each) → icc skipped, finite result", {
+  # n_bar = 1 triggers the short-circuit in ICC estimation
+  res <- test_threshold(x = c(1, 0, 1, 0, 1), n = c(1, 1, 1, 1, 1),
+                        threshold = 0.30)
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff, 1)
+  expect_true(is.finite(res$statistic))
+})
+
+test_that("TT-S18: icc=0 forces deff=1 even with maximally heterogeneous clusters", {
+  res_forced <- test_threshold(x = c(0, 20, 0, 20), n = rep(20, 4),
+                               threshold = 0.30, icc = 0)
+  expect_equal(res_forced$deff, 1)
+  # Estimated ICC on the same data must give deff > 1
+  res_est <- test_threshold(x = c(0, 20, 0, 20), n = rep(20, 4),
+                            threshold = 0.30)
+  expect_gt(res_est$deff, 1)
+  # And a larger z magnitude under SRS (n_eff = n_total, not deflated)
+  expect_gt(abs(res_forced$statistic), abs(res_est$statistic))
+})
+
+test_that("TT-S19: perfectly bimodal clusters → estimated ICC clamped to 1, deff = n_bar", {
+  # Half clusters all-zero, half all-positive: maximum within-cluster homogeneity
+  res <- test_threshold(
+    x = c(rep(0, 5), rep(10, 5)),
+    n = rep(10, 10),
+    threshold = 0.30
+  )
+  expect_equal(res$icc_used, 1, tolerance = 1e-10)  # clamped to 1
+  expect_equal(res$deff, 10, tolerance = 1e-10)       # n_bar = 10
+})
+
+test_that("TT-S20: p_hat exactly at null → z = 0, p_value = 0.5 for 'greater'", {
+  # Perfect test: theta_app = threshold = 0.10; x/n = 0.10 exactly
+  res <- test_threshold(x = 10, n = 100, threshold = 0.10)
+  expect_equal(res$statistic, 0, tolerance = 1e-10)
+  expect_equal(res$p_value, 0.5, tolerance = 1e-10)
+  expect_false(res$reject)
+})
+
+test_that("TT-S21: conf_level=0.9999 → CI nearly spans [0, 1] for middling prevalence", {
+  res <- test_threshold(x = 8, n = 100, threshold = 0.05, conf_level = 0.9999)
+  expect_lt(res$ci_lower, 0.02)
+  expect_gt(res$ci_upper, 0.12)
+  expect_true(res$ci_upper > res$ci_lower)
+})
+
+test_that("TT-S22: two-sided p_value = 2 × one-sided p_value when z > 0", {
+  r_g  <- test_threshold(x = 12, n = 100, threshold = 0.05, alternative = "greater")
+  r_2s <- test_threshold(x = 12, n = 100, threshold = 0.05, alternative = "two.sided")
+  expect_gt(r_g$statistic, 0)  # verify z > 0
+  expect_equal(r_2s$p_value, 2 * r_g$p_value, tolerance = 1e-12)
+})
+
+test_that("TT-S23: larger n with same rate → strictly larger |z|", {
+  r_small <- test_threshold(x = 8,  n = 100,  threshold = 0.05)
+  r_large <- test_threshold(x = 80, n = 1000, threshold = 0.05)
+  expect_equal(r_small$statistic / r_large$statistic, 1 / sqrt(10), tolerance = 1e-6)
+})
+
+test_that("TT-S24: prevalence is always inside its own Wald CI", {
+  for (x_val in c(0, 1, 5, 50, 95, 99, 100)) {
+    res <- test_threshold(x = x_val, n = 100, threshold = 0.30)
+    expect_lte(res$ci_lower, res$prevalence + 1e-10)
+    expect_gte(res$ci_upper, res$prevalence - 1e-10)
+  }
+})
+
+test_that("TT-S25: supplied icc → deff = 1 + (n_bar - 1) * icc exactly", {
+  res <- test_threshold(x = c(3, 7, 5), n = c(30, 30, 30),
+                        threshold = 0.15, icc = 0.3)
+  expect_equal(res$deff, 1 + (30 - 1) * 0.3, tolerance = 1e-10)
+  expect_equal(res$icc_used, 0.3)
+})
+
+test_that("TT-S26: single cluster with icc=NULL → icc_used=0, deff=1", {
+  res <- test_threshold(x = 15, n = 200, threshold = 0.05)
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff, 1)
+  expect_equal(res$n_eff, 200)
+})
+
+test_that("TT-S27: imperfect test RG-corrects prevalence below raw apparent rate", {
+  # Raw rate = 20/100 = 0.20; se=0.80, sp=0.90 → correction = 0.70
+  # True prev = (0.20 - 0.10) / 0.70 ≈ 0.1429
+  res <- test_threshold(x = 20, n = 100, threshold = 0.10,
+                        sensitivity = 0.80, specificity = 0.90)
+  expect_lt(res$prevalence, 0.20)
+  expect_equal(res$prevalence, (0.20 - 0.10) / 0.70, tolerance = 1e-6)
+})
+
+test_that("TT-S28: 'less' alternative with x=0 (p=0 far below threshold) → reject", {
+  # z = (0 - theta_app) / se_null << 0 → one-sided p << 0.05
+  res <- test_threshold(x = 0, n = 100, threshold = 0.20, alternative = "less")
+  expect_lt(res$statistic, -4)
+  expect_true(res$reject)
+})
+
+test_that("TT-S29: return list has all documented names regardless of clustering mode", {
+  expected <- c("statistic", "p_value", "reject", "threshold", "alternative",
+                "prevalence", "ci_lower", "ci_upper", "n_total", "n_eff",
+                "conf_level", "sensitivity", "specificity", "icc_used", "deff", "fpc_N")
+  # SRS
+  expect_named(test_threshold(x = 5, n = 100, threshold = 0.10), expected)
+  # Supplied ICC
+  expect_named(test_threshold(x = c(5, 10), n = c(50, 50), threshold = 0.10, icc = 0.05),
+               expected)
+  # FPC
+  expect_named(test_threshold(x = 5, n = 100, threshold = 0.10, fpc_N = 1000), expected)
+})
+
+test_that("TT-S30: p_value in [0, 1] for all alternatives and extreme x values", {
+  for (alt in c("greater", "less", "two.sided")) {
+    for (x_val in c(0, 1, 50, 99, 100)) {
+      res <- test_threshold(x = x_val, n = 100, threshold = 0.50, alternative = alt)
+      expect_gte(res$p_value, 0)
+      expect_lte(res$p_value, 1 + 1e-12)
+      expect_true(is.logical(res$reject) && !is.na(res$reject))
+    }
+  }
+})
