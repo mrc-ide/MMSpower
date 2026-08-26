@@ -248,12 +248,12 @@ test_that("EP-7: character x gives informative type error (not NA/NaN/Inf messag
   )
 })
 
-test_that("EP-8: fpc_N = n_total (census) gives warning and moe=0", {
-  expect_warning(
-    res <- estimate_prevalence(x = 30, n = 100, fpc_N = 100),
-    "entire population"
+test_that("EP-8: fpc_N = n_total (SRS census) → error: n_eff = fpc_N, variance undefined", {
+  # SRS: n_eff = n_total = fpc_N → fpc = 0 → CI undefined. Clustered case is valid.
+  expect_error(
+    estimate_prevalence(x = 30, n = 100, fpc_N = 100),
+    "n_eff"
   )
-  expect_equal(res$moe, 0)
 })
 
 test_that("EP-9: sensitivity=0.5, specificity=1 doubles the prevalence estimate", {

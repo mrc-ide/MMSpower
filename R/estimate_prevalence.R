@@ -219,10 +219,6 @@ estimate_prevalence <- function(x,
     stop("`fpc_N` = ", fpc_N, " is less than the total sample size = ", n_total, ". ",
          "The population must be at least as large as the sample. ",
          "Check your inputs, or set `fpc_N = NULL` to skip the FPC.")
-  if (!is.null(fpc_N) && fpc_N == n_total)
-    warning("`fpc_N` equals the total sample size (", n_total, "): you have surveyed the ",
-            "entire population, so sampling variance is zero and the CI collapses to a point. ",
-            "Set `fpc_N = NULL` if this is not intended.")
 
   p_hat <- sum(x) / n_total   # apparent prevalence
 
@@ -254,6 +250,14 @@ estimate_prevalence <- function(x,
   }
 
   n_eff <- n_total / deff
+
+  # Check after computing n_eff: if fpc_N <= n_eff the FPC collapses to 0
+  # and the CI is undefined. For SRS (deff=1) this is fpc_N == n_total; for
+  # clustered data n_eff < n_total so fpc_N = n_total is still valid.
+  if (!is.null(fpc_N) && fpc_N <= n_eff)
+    stop("`fpc_N` (", fpc_N, ") is <= the effective sample size n_eff (", round(n_eff, 2),
+         "). Sampling variance is zero and the CI is undefined. For SRS this means ",
+         "you have surveyed the entire population; set `fpc_N = NULL` if no FPC is needed.")
 
   # FPC factor (1 when fpc_N is NULL)
   fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_eff) / (fpc_N - 1)) else 1
