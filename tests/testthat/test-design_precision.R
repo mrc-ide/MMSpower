@@ -106,4 +106,16 @@ test_that("input validation catches bad arguments", {
                "cluster structure")
   expect_error(design_precision(0.3, 0.05, n_sites = 50, n_per_site = 10, icc = 0.05),
                "at most one")
+  # conf_level out of range
+  expect_error(design_precision(0.3, 0.05, conf_level = 0),  "`conf_level`")
+  expect_error(design_precision(0.3, 0.05, conf_level = 1),  "`conf_level`")
+  # fpc_N must be positive
+  expect_error(design_precision(0.3, 0.05, fpc_N =  0),  "`fpc_N`")
+  expect_error(design_precision(0.3, 0.05, fpc_N = -50), "`fpc_N`")
+  # n_per_site must be a positive integer
+  expect_error(design_precision(0.3, 0.05, n_per_site = 0,    icc = 0.05), "`n_per_site`")
+  expect_error(design_precision(0.3, 0.05, n_per_site = 10.7, icc = 0.05), "`n_per_site`")
+  # n_sites must be a positive integer
+  expect_error(design_precision(0.3, 0.05, n_sites = 0,    icc = 0.05), "`n_sites`")
+  expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05), "`n_sites`")
 })

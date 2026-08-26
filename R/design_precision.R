@@ -107,6 +107,14 @@ design_precision <- function(prevalence,
     stop("`icc` must be in [0, 1]")
   if (!is.null(n_sites) && !is.null(n_per_site))
     stop("Supply at most one of `n_sites` or `n_per_site`, not both")
+  if (!is.null(n_sites) && (!is.numeric(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
+    stop("`n_sites` must be a positive integer")
+  if (!is.null(n_per_site) && (!is.numeric(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
+    stop("`n_per_site` must be a positive integer")
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
+    stop("`fpc_N` must be a positive number")
+  if (conf_level <= 0 || conf_level >= 1)
+    stop("`conf_level` must be in (0, 1)")
 
   # icc > 0 with no cluster structure is underspecified:
   # Deff = 1 + (n_bar - 1)*icc requires knowing n_bar, which requires
