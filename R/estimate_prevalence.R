@@ -1,149 +1,166 @@
-#' Estimate true prevalence from observed test positives
+#' Estimate prevalence and its precision
 #'
-#' Returns a bias-corrected prevalence estimate and confidence interval.
-#' Apparent prevalence (positives / n) is corrected for imperfect diagnostic
-#' sensitivity and specificity using the Rogan-Gladen method.  The Wilson
-#' score interval is computed on the apparent prevalence scale and then
-#' linearly transformed to the true-prevalence scale.
+#' Analysis function: given observed data, what is the prevalence and how
+#' precise is our estimate? Implements the classical Wald confidence
+#' interval (Module 1), generalized to account for clustering via the
+#' design effect (Module 5): p_hat +/- z * sqrt(p_hat*(1-p_hat) /
+#' (n * Deff)).
 #'
-#' Optional clustering arguments (`n_per_site`, `icc`) widen the CI via the
-#' Kish design effect.  Optional `fpc_N` narrows it via a finite-population
-#' correction.
+#' If `icc` is not supplied, it is estimated directly from the data
+#' as the ratio of observed-to-expected variance across clusters (Module
+#' 5's design-effect worked example), rather than assumed to be 0 --
+#' assuming independence by default would understate uncertainty for any
+#' genuinely clustered survey.
 #'
-#' @param positives Integer. Observed number of positive test results.
-#' @param n Integer. Total number of samples tested.
-#' @param sensitivity Numeric in (0, 1]. Diagnostic sensitivity; default 1
-#'   (perfect test).
-#' @param specificity Numeric in (0, 1]. Diagnostic specificity; default 1
-#'   (perfect test).
-#' @param conf_level Numeric in (0, 1). Confidence level; default 0.95.
-#' @param n_per_site Optional integer. Samples per site (cluster size).
-#'   Used to compute the Kish design effect together with `icc`.
-#' @param n_sites Optional integer. Number of sites / clusters (informational
-#'   only; required alongside `n_per_site` for FPC).
-#' @param icc Numeric >= 0. Intraclass correlation coefficient; default 0.
-#' @param fpc_N Optional integer. Finite population size.  When supplied,
-#'   requires `n_per_site` and `n_sites` to compute the sampled fraction.
+#' For a Bayesian treatment of the same problem (posterior distribution
+#' over prevalence and ICC jointly, rather than a plug-in point estimate
+#' of ICC), see `DRpower::get_prevalence()` -- not wrapped here,
+#' since the two approaches answer the question differently and
+#' shouldn't be silently mixed behind one interface.
 #'
-#' @return An object of class `"mms_estimate"` (a named list) with:
-#'   \item{prevalence}{Rogan-Gladen corrected true-prevalence point estimate}
-#'   \item{ci}{Named numeric vector `c(lower, upper)` on true-prevalence scale}
-#'   \item{conf_level}{Confidence level used}
-#'   \item{apparent_prev}{Observed apparent prevalence (positives / n)}
-#'   \item{apparent_ci}{Wilson CI on apparent prevalence scale}
-#'   \item{n}{Total samples}
-#'   \item{positives}{Observed positives}
-#'   \item{sensitivity}{Sensitivity used}
-#'   \item{specificity}{Specificity used}
-#'   \item{design_effect}{Kish DEFF applied (1 = no clustering)}
+#' @param x Integer vector of positive counts per cluster/site.
+#' @param n Integer vector of total samples per cluster/site (same length as x).
+#' @param icc Optional. Intra-cluster correlation coefficient. If `NULL`,
+#'   ICC is estimated from the data (Module 5 worked-example method). Set
+#'   explicitly to `0` to force the simple-random-sampling case with no
+#'   clustering adjustment.
+#' @param fpc_N Optional. Total population size, for a finite-population
+#'   correction. `NULL` = no FPC applied.
+#' @param conf_level Confidence level. Defaults to 0.95.
+#' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (perfect
+#'   test). When less than 1, the Rogan-Gladen correction is applied to
+#'   convert apparent prevalence to true prevalence. See Details.
+#' @param specificity Diagnostic specificity in (0, 1]; default 1 (perfect
+#'   test).
 #'
-#' @references
-#' Rogan WJ, Gladen B (1978). "Estimating prevalence from the results of a
-#' screening test." *Am J Epidemiol* 107(1):71-76.
+#' @details
+#' **Rogan-Gladen correction** (applied when `sensitivity < 1` or
+#' `specificity < 1`): an imperfect test inflates apparent prevalence via
+#' false positives and deflates it via false negatives. The correction
+#' unscrambles these two biases:
 #'
-#' MMS-SD workshop Module 2 (margin-of-error estimation) and Module 5
-#' (design effect / ICC).
+#' \deqn{p_{\text{true}} = \frac{p_{\text{apparent}} - (1 - \text{specificity})}
+#'       {\text{sensitivity} + \text{specificity} - 1}}
+#'
+#' The correction is a linear transform, so it is applied directly to the
+#' Wald CI endpoints as well as the point estimate. For most PCR-based MMS
+#' assays, sensitivity and specificity are effectively 1 and no correction
+#' is needed.
+#'
+#' @return A list with:
+#'   \item{prevalence}{Point estimate of true prevalence}
+#'   \item{ci_lower}{Lower confidence limit}
+#'   \item{ci_upper}{Upper confidence limit}
+#'   \item{margin_of_error}{Half-width of CI on the true-prevalence scale}
+#'   \item{icc_used}{ICC applied (estimated from data or supplied)}
+#'   \item{deff}{Design effect applied}
+#'   \item{n_total}{Total samples}
+#'   \item{n_eff}{Effective sample size (n_total / deff)}
 #'
 #' @export
+#'
 #' @examples
-#' # Perfect test: 30 positives from 100 samples
-#' estimate_prevalence(positives = 30, n = 100)
+#' # Single site / simple random sample (no clustering)
+#' estimate_prevalence(x = 8, n = 50)
 #'
-#' # Imperfect test (sensitivity 90 %, specificity 95 %)
-#' estimate_prevalence(30, 100, sensitivity = 0.9, specificity = 0.95)
+#' # Multi-site, clustered data -- ICC estimated from the data
+#' estimate_prevalence(
+#'   x = c(0, 4, 0, 22, 25, 16, 12, 8),
+#'   n = c(60, 80, 70, 100, 40, 60, 50, 90)
+#' )
 #'
-#' # With clustering: 10 samples per site, ICC = 0.05
-#' estimate_prevalence(30, 100, n_per_site = 10, icc = 0.05)
-estimate_prevalence <- function(
-  positives,
-  n,
-  sensitivity = 1,
-  specificity = 1,
-  conf_level  = 0.95,
-  n_per_site  = NULL,
-  n_sites     = NULL,
-  icc         = 0,
-  fpc_N       = NULL
-) {
-  # ---- validation ----
-  if (!is.numeric(positives) || length(positives) != 1 || positives < 0)
-    stop("`positives` must be a single non-negative number")
-  if (!is.numeric(n) || length(n) != 1 || n <= 0)
-    stop("`n` must be a single positive number")
-  if (positives > n)
-    stop("`positives` cannot exceed `n`")
-  if (!is.numeric(sensitivity) || sensitivity <= 0 || sensitivity > 1)
+#' # Imperfect diagnostic test
+#' estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
+estimate_prevalence <- function(x,
+                                n,
+                                icc         = NULL,
+                                fpc_N       = NULL,
+                                conf_level  = 0.95,
+                                sensitivity = 1,
+                                specificity = 1) {
+
+  stopifnot(length(x) == length(n), all(x <= n), all(n > 0))
+  if (sensitivity <= 0 || sensitivity > 1)
     stop("`sensitivity` must be in (0, 1]")
-  if (!is.numeric(specificity) || specificity <= 0 || specificity > 1)
+  if (specificity <= 0 || specificity > 1)
     stop("`specificity` must be in (0, 1]")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)
     stop("`sensitivity` + `specificity` must exceed 1 for Rogan-Gladen correction")
-  if (!is.numeric(conf_level) || conf_level <= 0 || conf_level >= 1)
-    stop("`conf_level` must be in (0, 1)")
 
-  # ---- design effect ----
-  design <- .sampling_design(n_per_site = n_per_site, n_sites = n_sites, icc = icc)
+  n_clusters <- length(n)
+  n_total    <- sum(n)
+  p_hat      <- sum(x) / n_total   # apparent prevalence
 
-  # ---- apparent prevalence and Wilson CI ----
-  p_app <- positives / n
-  z     <- qnorm((1 + conf_level) / 2)
-  n_eff <- n / design$deff   # effective n: smaller → wider CI when DEFF > 1
+  # -----------------------------------------------------------------
+  # Design effect / ICC (Module 5)
+  #
+  #   Deff    = Var_obs / Var_SRS
+  #   Var_SRS = mean(p_hat*(1-p_hat) / n_i)   expected under independence
+  #   Var_obs = sample variance of per-cluster prevalences
+  #   ICC     = (Deff - 1) / (n_bar - 1)
+  # -----------------------------------------------------------------
+  n_bar <- mean(n)
 
-  w      <- .wilson_ci(p_app, n_eff, z)
-  ci_app <- c(lower = w$lower, upper = w$upper)
+  if (is.null(icc)) {
+    if (n_clusters < 2) {
+      # Can't estimate Deff from a single cluster -- no clustering adjustment.
+      icc_used <- 0
+      deff     <- 1
+    } else {
+      p_i     <- x / n
+      var_obs <- stats::var(p_i)
+      var_srs <- mean(p_hat * (1 - p_hat) / n)
 
-  # ---- finite-population correction (narrows CI) ----
-  if (!is.null(fpc_N)) {
-    if (is.null(n_per_site) || is.null(n_sites))
-      warning("`fpc_N` supplied without `n_per_site` and `n_sites`; using `n` as sampled fraction")
-    n_sampled  <- if (!is.null(n_per_site) && !is.null(n_sites)) n_per_site * n_sites else n
-    fpc_factor <- sqrt(1 - n_sampled / fpc_N)
-    center     <- (ci_app["lower"] + ci_app["upper"]) / 2
-    half_width <- (ci_app["upper"] - ci_app["lower"]) / 2 * fpc_factor
-    ci_app     <- c(lower = center - half_width, upper = center + half_width)
+      deff <- if (var_srs > 0) var_obs / var_srs else 1
+      deff <- max(deff, 1)   # Deff < 1 not meaningful here
+
+      icc_used <- (deff - 1) / (n_bar - 1)
+      icc_used <- min(max(icc_used, 0), 1)
+    }
+  } else {
+    icc_used <- icc
+    deff     <- 1 + (n_bar - 1) * icc_used
   }
 
-  # ---- Rogan-Gladen correction: apparent → true prevalence ----
-  p_true  <- .rogan_gladen(p_app,   sensitivity, specificity)
-  ci_true <- .rogan_gladen(ci_app,  sensitivity, specificity)
+  n_eff <- n_total / deff
 
-  # clamp to [0, 1]
-  p_true  <- max(0, min(1, p_true))
-  ci_true <- pmax(0, pmin(1, ci_true))
-  names(ci_true) <- c("lower", "upper")
+  # Finite-population correction
+  fpc <- if (!is.null(fpc_N)) {
+    sqrt((fpc_N - n_eff) / (fpc_N - 1))
+  } else {
+    1
+  }
 
-  structure(
-    list(
-      prevalence    = p_true,
-      ci            = ci_true,
-      conf_level    = conf_level,
-      apparent_prev = p_app,
-      apparent_ci   = ci_app,
-      n             = n,
-      positives     = positives,
-      sensitivity   = sensitivity,
-      specificity   = specificity,
-      design_effect = design$deff
-    ),
-    class = "mms_estimate"
+  # -----------------------------------------------------------------
+  # Wald interval on apparent prevalence (Module 1 + Module 5)
+  # -----------------------------------------------------------------
+  z            <- stats::qnorm(1 - (1 - conf_level) / 2)
+  se           <- sqrt(p_hat * (1 - p_hat) / n_eff) * fpc
+  moe_apparent <- z * se
+
+  ci_lo_app <- max(p_hat - moe_apparent, 0)
+  ci_hi_app <- min(p_hat + moe_apparent, 1)
+
+  # -----------------------------------------------------------------
+  # Rogan-Gladen correction: apparent -> true prevalence
+  # Identity transform when sensitivity = specificity = 1.
+  # -----------------------------------------------------------------
+  rg <- function(p) (p - (1 - specificity)) / correction
+
+  prevalence <- max(0, min(1, rg(p_hat)))
+  ci_lower   <- max(0, min(1, rg(ci_lo_app)))
+  ci_upper   <- max(0, min(1, rg(ci_hi_app)))
+  moe        <- moe_apparent / correction   # MOE on true-prevalence scale
+
+  list(
+    prevalence      = prevalence,
+    ci_lower        = ci_lower,
+    ci_upper        = ci_upper,
+    margin_of_error = moe,
+    icc_used        = icc_used,
+    deff            = deff,
+    n_total         = n_total,
+    n_eff           = n_eff
   )
-}
-
-#' @export
-print.mms_estimate <- function(x, digits = 1, ...) {
-  pct <- function(v) sprintf("%.*f%%", digits, 100 * v)
-  cat(sprintf(
-    "Prevalence: %s  (%s–%s %d%% CI)\n",
-    pct(x$prevalence), pct(x$ci["lower"]), pct(x$ci["upper"]),
-    round(100 * x$conf_level)
-  ))
-  if (x$sensitivity < 1 || x$specificity < 1)
-    cat(sprintf(
-      "  Apparent prevalence %s corrected via Rogan-Gladen (se=%.2f, sp=%.2f)\n",
-      pct(x$apparent_prev), x$sensitivity, x$specificity
-    ))
-  if (x$design_effect > 1)
-    cat(sprintf("  Design effect (DEFF): %.2f\n", x$design_effect))
-  invisible(x)
 }
