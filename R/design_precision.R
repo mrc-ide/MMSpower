@@ -18,7 +18,7 @@
 #' @param n_per_site Optional integer. Fixed samples per site (cluster size).
 #'   When supplied with `icc > 0`, Deff is non-circular (cluster size is
 #'   known). Cannot be used if `n_sites` is also given.
-#' @param icc Numeric in [0, 1]. Intra-cluster correlation; default 0 (SRS).
+#' @param icc Numeric in \[0, 1\]. Intra-cluster correlation; default 0 (SRS).
 #'   If `icc > 0`, at least one of `n_sites` or `n_per_site` must be given
 #'   -- without a cluster structure, Deff is not computable.
 #' @param fpc_N Optional integer. Total population size, for a
