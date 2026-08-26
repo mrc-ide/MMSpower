@@ -137,6 +137,28 @@ test_that("input validation catches bad arguments", {
                "at least as large")
 })
 
+test_that("n_bar=1 (clusters of 1) does not produce Inf/NaN ICC", {
+  # Kish formula has (n_bar-1) in denominator; n_bar=1 means division by zero.
+  # Should fall back to icc=0, deff=1, not crash or return NaN.
+  res <- estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1))
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff,     1)
+  expect_true(is.finite(res$prevalence))
+  expect_true(is.finite(res$margin_of_error))
+})
+
+test_that("deff and icc_used are mutually consistent after clamping", {
+  # Extreme clustering: all variation between sites, none within.
+  # Raw deff could imply icc > 1; after clamping, deff must be recomputed.
+  res <- estimate_prevalence(
+    x = c(0, 0, 10, 10),
+    n = c(10, 10, 10, 10)
+  )
+  expect_equal(res$deff, 1 + (10 - 1) * res$icc_used, tolerance = 1e-10)
+  expect_lte(res$icc_used, 1)
+  expect_gte(res$icc_used, 0)
+})
+
 test_that("round-trip: estimate_prevalence recovers design_precision MOE (SRS)", {
   # design_precision(0.3, 0.05) -> n = 323
   # observe exactly 30% -> x = round(0.3 * 323) = 97

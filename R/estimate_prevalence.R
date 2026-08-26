@@ -80,32 +80,53 @@ estimate_prevalence <- function(x,
                                 specificity = 1) {
 
   if (length(x) != length(n))
-    stop("`x` and `n` must have the same length")
+    stop("`x` and `n` must have the same length ",
+         "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
+         "Each element of `x` is the positive count for one cluster and each ",
+         "element of `n` is that cluster's total.")
   if (any(n <= 0))
-    stop("`n` must be positive for every cluster")
+    stop("`n` must be positive for every cluster ",
+         "(found n[", which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], "). ",
+         "A cluster with zero or negative total is undefined.")
   if (any(x < 0))
-    stop("`x` must be non-negative")
+    stop("`x` must be non-negative ",
+         "(found x[", which(x < 0)[1], "] = ", x[which(x < 0)[1]], "). ",
+         "Counts cannot be negative.")
   if (any(x > n))
-    stop("`x` cannot exceed `n` in any cluster")
+    stop("`x` cannot exceed `n` ",
+         "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
+         " > n[", which(x > n)[1], "] = ", n[which(x > n)[1]], "). ",
+         "Positive counts cannot exceed the total tested per cluster.")
   if (conf_level <= 0 || conf_level >= 1)
-    stop("`conf_level` must be in (0, 1)")
+    stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
+         "Use, e.g., 0.95 for a 95% confidence interval.")
   if (!is.null(icc) && (icc < 0 || icc > 1))
-    stop("`icc` must be in [0, 1]")
+    stop("`icc` must be in [0, 1] (got ", icc, "). ",
+         "Values outside this range imply negative within-cluster variance, ",
+         "which is not possible. To estimate ICC from the data, leave `icc = NULL`.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a positive number")
+    stop("`fpc_N` must be a positive number representing the total population size ",
+         "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (sensitivity <= 0 || sensitivity > 1)
-    stop("`sensitivity` must be in (0, 1]")
+    stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
+         "A sensitivity of 0 means the test never detects true positives.")
   if (specificity <= 0 || specificity > 1)
-    stop("`specificity` must be in (0, 1]")
+    stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
+         "A specificity of 0 means the test always returns a false positive.")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)
-    stop("`sensitivity` + `specificity` must exceed 1 for Rogan-Gladen correction")
+    stop("sensitivity + specificity must exceed 1 for the Rogan-Gladen correction ",
+         "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
+         "With se + sp <= 1 the test performs at or below chance and true prevalence ",
+         "is not identifiable from apparent prevalence.")
 
   n_clusters <- length(n)
   n_total    <- sum(n)
 
   if (!is.null(fpc_N) && fpc_N < n_total)
-    stop("`fpc_N` (", fpc_N, ") must be at least as large as total sample size (", n_total, ")")
+    stop("`fpc_N` = ", fpc_N, " is less than the total sample size = ", n_total, ". ",
+         "The population must be at least as large as the sample. ",
+         "Check your inputs, or set `fpc_N = NULL` to skip the FPC.")
   p_hat      <- sum(x) / n_total   # apparent prevalence
 
   # -----------------------------------------------------------------
@@ -119,8 +140,9 @@ estimate_prevalence <- function(x,
   n_bar <- mean(n)
 
   if (is.null(icc)) {
-    if (n_clusters < 2) {
-      # Can't estimate Deff from a single cluster -- no clustering adjustment.
+    if (n_clusters < 2 || n_bar == 1) {
+      # Can't estimate ICC: single cluster, or every cluster has exactly 1
+      # observation (Kish formula has n_bar-1 in the denominator → div/0).
       icc_used <- 0
       deff     <- 1
     } else {
@@ -133,6 +155,7 @@ estimate_prevalence <- function(x,
 
       icc_used <- (deff - 1) / (n_bar - 1)
       icc_used <- min(max(icc_used, 0), 1)
+      deff     <- 1 + (n_bar - 1) * icc_used  # keep pair mutually consistent
     }
   } else {
     icc_used <- icc
