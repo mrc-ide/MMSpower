@@ -92,6 +92,22 @@ design_precision <- function(prevalence,
                               fpc_N       = NULL) {
 
   # ---- validation ----
+  # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
+  # generic "missing value where TRUE/FALSE needed" with no context.
+  if (!is.finite(prevalence))
+    stop("`prevalence` must be a single finite number (got ", prevalence, ").")
+  if (!is.finite(moe))
+    stop("`moe` must be a single finite number (got ", moe, ").")
+  if (!is.finite(sensitivity))
+    stop("`sensitivity` must be a single finite number (got ", sensitivity, ").")
+  if (!is.finite(specificity))
+    stop("`specificity` must be a single finite number (got ", specificity, ").")
+  if (!is.finite(icc))
+    stop("`icc` must be a single finite number (got ", icc, "). ",
+         "Use 0 for an unclustered (SRS) design.")
+  if (!is.finite(conf_level))
+    stop("`conf_level` must be a single finite number (got ", conf_level, ").")
+
   if (prevalence <= 0 || prevalence >= 1)
     stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
          "Use a value from a pilot study, historical data, or conservative guess.")
@@ -118,14 +134,16 @@ design_precision <- function(prevalence,
     stop("Supply at most one of `n_sites` or `n_per_site`, not both. ",
          "`n_sites` fixes the number of clusters and solves for samples per cluster; ",
          "`n_per_site` fixes the cluster size and solves for the number of clusters.")
-  if (!is.null(n_sites) && (!is.numeric(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
-    stop("`n_sites` must be a positive integer (got ", n_sites, "). ",
+  if (!is.null(n_sites) &&
+      (!is.numeric(n_sites) || !is.finite(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
+    stop("`n_sites` must be a finite positive integer (got ", n_sites, "). ",
          "It represents the number of sampling clusters in your design.")
-  if (!is.null(n_per_site) && (!is.numeric(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
-    stop("`n_per_site` must be a positive integer (got ", n_per_site, "). ",
+  if (!is.null(n_per_site) &&
+      (!is.numeric(n_per_site) || !is.finite(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
+    stop("`n_per_site` must be a finite positive integer (got ", n_per_site, "). ",
          "It represents the fixed number of individuals sampled per cluster.")
-  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a positive number representing total population size ",
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
+    stop("`fpc_N` must be a finite positive number representing total population size ",
          "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (conf_level <= 0 || conf_level >= 1)
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
