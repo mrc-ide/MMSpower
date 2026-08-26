@@ -290,3 +290,62 @@ test_that("EP-15: single observation (x=1, n=1): n_bar=1 guard, icc=0, deff=1", 
   expect_equal(res$prevalence, 1)
   expect_true(is.finite(res$margin_of_error))
 })
+
+# ---- Round 5: 8 new edge cases ----
+
+test_that("EP-R5-1: n as character gives informative type error", {
+  expect_error(
+    estimate_prevalence(x = 30, n = "100"),
+    "numeric vectors"
+  )
+})
+
+test_that("EP-R5-2: length mismatch x=length 3, n=length 2 → informative error", {
+  expect_error(
+    estimate_prevalence(x = c(1, 2, 3), n = c(10, 10)),
+    "same length"
+  )
+})
+
+test_that("EP-R5-3: single large cluster (icc=NULL) gives correct narrow CI", {
+  # n=1000: moe = 1.96 * sqrt(0.3*0.7/1000) = 0.02837
+  res <- estimate_prevalence(x = 300, n = 1000)
+  expect_equal(res$prevalence, 0.3, tolerance = 1e-6)
+  expect_equal(res$deff, 1, tolerance = 1e-6)
+  expect_equal(res$margin_of_error, 0.02840, tolerance = 5e-4)
+})
+
+test_that("EP-R5-4: fpc_N = n_total+1 (near-census) dramatically reduces moe", {
+  # sampling fraction = 100/101 = 99.0%; FPC = sqrt(1/100) = 0.1
+  r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 101)
+  r_no  <- estimate_prevalence(x = 30, n = 100)
+  expect_lt(r_fpc$margin_of_error, r_no$margin_of_error / 5)
+  expect_equal(r_fpc$margin_of_error, r_no$margin_of_error * sqrt(1/100),
+               tolerance = 1e-5)
+})
+
+test_that("EP-R5-5: specificity=0 is rejected (boundary, not in (0,1])", {
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = 0), "`specificity`")
+})
+
+test_that("EP-R5-6: conf_level as vector is rejected with length error", {
+  expect_error(
+    estimate_prevalence(x = 30, n = 100, conf_level = c(0.9, 0.95)),
+    "single number"
+  )
+})
+
+test_that("EP-R5-7: unequal cluster sizes return finite, correct n_total", {
+  res <- estimate_prevalence(x = c(1, 2, 3, 4), n = c(5, 10, 15, 20))
+  expect_equal(res$n_total, 50)
+  expect_equal(res$prevalence, 10/50, tolerance = 1e-6)
+  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$icc_used))
+})
+
+test_that("EP-R5-8: RG-corrected p > 1 is clamped to 1 without error", {
+  # p_apparent=1, se=0.8, sp=0.9 → p_true = (1-0.1)/0.7 = 1.286 → clamped to 1
+  res <- estimate_prevalence(x = 1, n = 1, sensitivity = 0.8, specificity = 0.9)
+  expect_equal(res$prevalence, 1)
+  expect_true(is.finite(res$margin_of_error))
+})
