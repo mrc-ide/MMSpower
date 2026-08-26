@@ -228,7 +228,7 @@ design_precision <- function(prevalence,
     # a physically impossible design. This happens when n_sites >= n_base,
     # meaning you have more sites than you'd need people under SRS.
     if (deff <= 1) {
-      stop("n_sites = ", n_sites, " is >= the SRS sample size (n_base ≈ ",
+      stop("n_sites = ", n_sites, " is >= the SRS sample size (n_base ~= ",
            ceiling(n_base_cont), "), so each site would receive < 1 person on ",
            "average -- not a valid cluster design. ",
            "Use n_sites < ", ceiling(n_base_cont), ", or supply `n_per_site` ",
