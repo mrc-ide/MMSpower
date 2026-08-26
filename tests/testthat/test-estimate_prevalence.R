@@ -349,3 +349,124 @@ test_that("EP-R5-8: RG-corrected p > 1 is clamped to 1 without error", {
   expect_equal(res$prevalence, 1)
   expect_true(is.finite(res$margin_of_error))
 })
+
+# ---- Round 6: 15 + 1 new edge cases ----
+
+test_that("EP-R6-1: x=NA (logical NA) gives informative class error mentioning NA", {
+  expect_error(
+    estimate_prevalence(x = NA, n = 100),
+    "logical"
+  )
+  expect_error(
+    estimate_prevalence(x = NA, n = 100),
+    "NA"
+  )
+})
+
+test_that("EP-R6-2: n vector with NA gives is.finite error at position", {
+  expect_error(
+    estimate_prevalence(x = c(1, 2, 3), n = c(10, NA, 10)),
+    "NA, NaN, or infinite"
+  )
+})
+
+test_that("EP-R6-3: x negative at position 2 gives position-aware error", {
+  expect_error(
+    estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
+    "non-negative"
+  )
+})
+
+test_that("EP-R6-4: n=0 at position 2 gives position-aware error", {
+  expect_error(
+    estimate_prevalence(x = c(1, 0, 2), n = c(10, 0, 10)),
+    "positive for every cluster"
+  )
+})
+
+test_that("EP-R6-5: x=99, n=100 → CI upper clamped to 1", {
+  res <- estimate_prevalence(x = 99, n = 100)
+  expect_equal(res$prevalence, 0.99, tolerance = 1e-6)
+  expect_equal(res$ci_upper,   1.0,  tolerance = 1e-10)
+})
+
+test_that("EP-R6-6: clustering + FPC together: deff and FPC both applied", {
+  r_both <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                icc = 0.05, fpc_N = 500)
+  r_noFPC <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05)
+  # FPC reduces moe when sampling fraction is non-negligible
+  expect_lt(r_both$margin_of_error, r_noFPC$margin_of_error)
+  expect_equal(r_both$deff, 1.45, tolerance = 1e-6)
+})
+
+test_that("EP-R6-7: fractional x at position 1 gives position-aware error", {
+  expect_error(
+    estimate_prevalence(x = c(1.5, 2, 3), n = c(10, 10, 10)),
+    "whole numbers"
+  )
+})
+
+test_that("EP-R6-8: exactly 2 clusters allows ICC estimation without error", {
+  res <- estimate_prevalence(x = c(2, 4), n = c(10, 10))
+  expect_true(is.finite(res$icc_used))
+  expect_true(is.finite(res$margin_of_error))
+})
+
+test_that("EP-R6-9: sensitivity=1.1 is rejected", {
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 1.1), "`sensitivity`")
+})
+
+test_that("EP-R6-10: very low prevalence (1 positive / 50) returns valid output", {
+  res <- estimate_prevalence(x = c(0, 0, 0, 0, 1), n = rep(10, 5))
+  expect_equal(res$prevalence, 0.02, tolerance = 1e-6)
+  expect_true(is.finite(res$margin_of_error))
+  expect_gte(res$ci_lower, 0)
+})
+
+test_that("EP-R6-11: 100 clusters returns finite icc, deff, moe", {
+  set.seed(42)
+  x100 <- rbinom(100, 20, 0.2)
+  res  <- estimate_prevalence(x = x100, n = rep(20, 100))
+  expect_equal(res$n_total, 2000)
+  expect_true(is.finite(res$icc_used))
+  expect_true(is.finite(res$margin_of_error))
+  expect_gte(res$icc_used, 0)
+  expect_lte(res$icc_used, 1)
+})
+
+test_that("EP-R6-12: fractional n at position 2 gives position-aware error", {
+  expect_error(
+    estimate_prevalence(x = c(1, 2, 3), n = c(10, 10.5, 10)),
+    "whole numbers"
+  )
+})
+
+test_that("EP-R6-13: non-integer fpc_N (e.g. 100.5) is accepted", {
+  # No integer requirement on fpc_N; population size can be approximated
+  expect_no_error(
+    suppressWarnings(estimate_prevalence(x = 30, n = 100, fpc_N = 100.5))
+  )
+})
+
+test_that("EP-R6-14: icc=NULL with single cluster falls back to icc=0, deff=1", {
+  res <- estimate_prevalence(x = 30, n = 100, icc = NULL)
+  expect_equal(res$icc_used, 0, tolerance = 1e-10)
+  expect_equal(res$deff,     1, tolerance = 1e-10)
+})
+
+test_that("EP-R6-15: very unequal clusters (1 vs 1000) return finite output", {
+  res <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
+  expect_equal(res$n_total, 1001)
+  expect_equal(res$prevalence, 300/1001, tolerance = 1e-6)
+  expect_true(is.finite(res$margin_of_error))
+})
+
+test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC formula", {
+  # n_bar = mean(c(1,1,1,1)) = 1 → Kish denominator (n_bar-1) = 0 → div/0 without guard
+  # Guard: n_bar==1 → icc_used=0, deff=1 (same path as single-cluster guard)
+  res <- estimate_prevalence(x = c(0, 1, 0, 1), n = c(1, 1, 1, 1))
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff,     1)
+  expect_true(is.finite(res$prevalence))
+  expect_true(is.finite(res$margin_of_error))
+})

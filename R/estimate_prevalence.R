@@ -82,8 +82,10 @@ estimate_prevalence <- function(x,
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
   if (is.logical(x) || is.logical(n))
-    stop("`x` and `n` must be numeric, not logical. ",
-         "Did you accidentally pass TRUE/FALSE instead of counts?")
+    stop("`x` and `n` must be numeric, not logical (got class `",
+         class(x)[1], "` for x, `", class(n)[1], "` for n). ",
+         "Note: plain `NA` is logical in R — filter missing observations before calling, ",
+         "or use NA_real_ if you need a typed NA placeholder.")
   if (!is.numeric(x) || !is.numeric(n))
     stop("`x` and `n` must be numeric vectors (got class `", class(x)[1], "` for x, ",
          "`", class(n)[1], "` for n). Supply integer or double counts.")
