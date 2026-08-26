@@ -91,7 +91,7 @@ test_that("Case 6: FPC reduces required n for a small population", {
 
 test_that("return list contains all expected fields", {
   res <- design_precision(0.2, 0.05)
-  expect_named(res, c("n", "n_base", "n_sites", "n_per_site", "prevalence",
+  expect_named(res, c("n", "n_eff", "n_sites", "n_per_site", "prevalence",
                        "apparent_prev", "moe", "conf_level", "sensitivity",
                        "specificity", "icc", "deff", "fpc_N"),
                ignore.order = FALSE)
