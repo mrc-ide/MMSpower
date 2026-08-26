@@ -84,7 +84,7 @@ estimate_prevalence <- function(x,
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical (got class `",
          class(x)[1], "` for x, `", class(n)[1], "` for n). ",
-         "Note: plain `NA` is logical in R — filter missing observations before calling, ",
+         "Note: plain `NA` is logical in R -- filter missing observations before calling, ",
          "or use NA_real_ if you need a typed NA placeholder.")
   if (!is.numeric(x) || !is.numeric(n))
     stop("`x` and `n` must be numeric vectors (got class `", class(x)[1], "` for x, ",
@@ -104,10 +104,10 @@ estimate_prevalence <- function(x,
          "Each element of `x` is the positive count for one cluster and each ",
          "element of `n` is that cluster's total.")
   if (any(x != floor(x)))
-    stop("`x` must contain whole numbers — counts cannot be fractional ",
+    stop("`x` must contain whole numbers -- counts cannot be fractional ",
          "(found x[", which(x != floor(x))[1], "] = ", x[which(x != floor(x))[1]], ").")
   if (any(n != floor(n)))
-    stop("`n` must contain whole numbers — sample sizes cannot be fractional ",
+    stop("`n` must contain whole numbers -- sample sizes cannot be fractional ",
          "(found n[", which(n != floor(n))[1], "] = ", n[which(n != floor(n))[1]], ").")
   if (any(n <= 0))
     stop("`n` must be positive for every cluster ",
@@ -204,7 +204,7 @@ estimate_prevalence <- function(x,
   if (is.null(icc)) {
     if (n_clusters < 2 || n_bar == 1) {
       # Can't estimate ICC: single cluster, or every cluster has exactly 1
-      # observation (Kish formula has n_bar-1 in the denominator → div/0).
+      # observation (Kish formula has n_bar-1 in the denominator -- div/0).
       icc_used <- 0
       deff     <- 1
     } else {
