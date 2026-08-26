@@ -84,6 +84,9 @@ estimate_prevalence <- function(x,
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical. ",
          "Did you accidentally pass TRUE/FALSE instead of counts?")
+  if (!is.numeric(x) || !is.numeric(n))
+    stop("`x` and `n` must be numeric vectors (got class `", class(x)[1], "` for x, ",
+         "`", class(n)[1], "` for n). Supply integer or double counts.")
   if (length(x) == 0 || length(n) == 0)
     stop("`x` and `n` must be non-empty vectors. ",
          "Supply at least one cluster's count and total.")
@@ -180,6 +183,10 @@ estimate_prevalence <- function(x,
     stop("`fpc_N` = ", fpc_N, " is less than the total sample size = ", n_total, ". ",
          "The population must be at least as large as the sample. ",
          "Check your inputs, or set `fpc_N = NULL` to skip the FPC.")
+  if (!is.null(fpc_N) && fpc_N == n_total)
+    warning("`fpc_N` equals the total sample size (", n_total, "): you have surveyed the ",
+            "entire population, so sampling variance is zero and the CI collapses to a point. ",
+            "Set `fpc_N = NULL` if this is not intended.")
   p_hat      <- sum(x) / n_total   # apparent prevalence
 
   # -----------------------------------------------------------------
