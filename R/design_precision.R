@@ -93,38 +93,49 @@ design_precision <- function(prevalence,
 
   # ---- validation ----
   if (prevalence <= 0 || prevalence >= 1)
-    stop("`prevalence` must be in (0, 1)")
+    stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
+         "Use a value from a pilot study, historical data, or conservative guess.")
   if (moe <= 0 || moe >= 0.5)
-    stop("`moe` must be in (0, 0.5)")
+    stop("`moe` must be in (0, 0.5) (got ", moe, "). ",
+         "`moe` is the target half-width of the confidence interval, e.g. 0.05 for +/-5 pp.")
   if (sensitivity <= 0 || sensitivity > 1)
-    stop("`sensitivity` must be in (0, 1]")
+    stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
+         "A sensitivity of 0 means the test never detects true positives.")
   if (specificity <= 0 || specificity > 1)
-    stop("`specificity` must be in (0, 1]")
+    stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
+         "A specificity of 0 means the test always returns a false positive.")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)
-    stop("`sensitivity` + `specificity` must exceed 1")
+    stop("sensitivity + specificity must exceed 1 for the Rogan-Gladen correction ",
+         "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
+         "With se + sp <= 1 the test performs at or below chance and true prevalence ",
+         "is not identifiable from apparent prevalence.")
   if (icc < 0 || icc > 1)
-    stop("`icc` must be in [0, 1]")
+    stop("`icc` must be in [0, 1] (got ", icc, "). ",
+         "Values outside this range imply negative within-cluster variance, which ",
+         "is not possible. Use 0 for an unclustered (SRS) design.")
   if (!is.null(n_sites) && !is.null(n_per_site))
-    stop("Supply at most one of `n_sites` or `n_per_site`, not both")
+    stop("Supply at most one of `n_sites` or `n_per_site`, not both. ",
+         "`n_sites` fixes the number of clusters and solves for samples per cluster; ",
+         "`n_per_site` fixes the cluster size and solves for the number of clusters.")
   if (!is.null(n_sites) && (!is.numeric(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
-    stop("`n_sites` must be a positive integer")
+    stop("`n_sites` must be a positive integer (got ", n_sites, "). ",
+         "It represents the number of sampling clusters in your design.")
   if (!is.null(n_per_site) && (!is.numeric(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
-    stop("`n_per_site` must be a positive integer")
+    stop("`n_per_site` must be a positive integer (got ", n_per_site, "). ",
+         "It represents the fixed number of individuals sampled per cluster.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a positive number")
+    stop("`fpc_N` must be a positive number representing total population size ",
+         "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (conf_level <= 0 || conf_level >= 1)
-    stop("`conf_level` must be in (0, 1)")
+    stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
+         "Use, e.g., 0.95 for a 95% confidence interval.")
 
-  # icc > 0 with no cluster structure is underspecified:
-  # Deff = 1 + (n_bar - 1)*icc requires knowing n_bar, which requires
-  # knowing the cluster structure. Rather than silently assume anything,
-  # we stop and ask the caller to be explicit.
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
-    stop(
-      "`icc` > 0 but cluster structure not specified.\n",
-      "Supply `n_sites` or `n_per_site` to compute the design effect.\n",
-      "To assume simple random sampling (no clustering), set `icc = 0`."
+    stop("icc > 0 requires a cluster structure to compute the design effect ",
+         "(Deff = 1 + (n_bar - 1) * icc, where n_bar = total n / n_sites). ",
+         "Supply `n_sites` (fix the number of clusters) or `n_per_site` (fix the ",
+         "cluster size), or set `icc = 0` for an unclustered (SRS) design."
     )
 
   # ---- base sample size (SRS, apparent-prevalence scale) ----
