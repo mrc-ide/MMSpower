@@ -92,6 +92,17 @@ design_precision <- function(prevalence,
                               fpc_N       = NULL) {
 
   # ---- validation ----
+  # Reject vectors: all parameters are scalars -- a vector input causes R's
+  # generic "the condition has length > 1" error deep in an if(), not ours.
+  if (length(prevalence) != 1)
+    stop("`prevalence` must be a single number, not a vector (got length ", length(prevalence), ").")
+  if (length(moe) != 1)
+    stop("`moe` must be a single number, not a vector (got length ", length(moe), ").")
+  if (length(icc) != 1)
+    stop("`icc` must be a single number, not a vector (got length ", length(icc), ").")
+  if (length(conf_level) != 1)
+    stop("`conf_level` must be a single number, not a vector (got length ", length(conf_level), ").")
+
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
   if (!is.finite(prevalence))
@@ -126,6 +137,11 @@ design_precision <- function(prevalence,
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
          "With se + sp <= 1 the test performs at or below chance and true prevalence ",
          "is not identifiable from apparent prevalence.")
+  if (correction < 0.1)
+    warning("sensitivity + specificity = ", round(sensitivity + specificity, 4),
+            " is very close to 1 (correction = ", round(correction, 4), "). ",
+            "The Rogan-Gladen adjustment is numerically unstable here -- ",
+            "required n will be extremely large and results unreliable.")
   if (icc < 0 || icc > 1)
     stop("`icc` must be in [0, 1] (got ", icc, "). ",
          "Values outside this range imply negative within-cluster variance, which ",
@@ -195,6 +211,18 @@ design_precision <- function(prevalence,
     }
     n_cont <- n_base_cont * n_sites * (1 - icc) / denom
     deff   <- n_cont / n_base_cont
+
+    # Sanity check: deff must be > 1 when icc > 0 and we have multiple sites.
+    # deff <= 1 means n_cont <= n_sites, i.e., average cluster size < 1 --
+    # a physically impossible design. This happens when n_sites >= n_base,
+    # meaning you have more sites than you'd need people under SRS.
+    if (deff <= 1) {
+      stop("n_sites = ", n_sites, " is >= the SRS sample size (n_base ≈ ",
+           ceiling(n_base_cont), "), so each site would receive < 1 person on ",
+           "average -- not a valid cluster design. ",
+           "Use n_sites < ", ceiling(n_base_cont), ", or supply `n_per_site` ",
+           "to fix the cluster size and solve for the number of sites instead.")
+    }
   }
 
   # ---- finite-population correction ----
