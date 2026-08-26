@@ -117,6 +117,25 @@ estimate_prevalence <- function(x,
          "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
          " > n[", which(x > n)[1], "] = ", n[which(x > n)[1]], "). ",
          "Positive counts cannot exceed the total tested per cluster.")
+  # Scalar-length checks: catch vectors and NULL before comparisons fire R's
+  # generic "condition has length > 1" or "argument is of length zero" errors.
+  if (is.null(sensitivity) || length(sensitivity) != 1)
+    stop("`sensitivity` must be a single number in (0, 1] (got ",
+         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), "). ",
+         "Leave at the default (1) for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1)
+    stop("`specificity` must be a single number in (0, 1] (got ",
+         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), "). ",
+         "Leave at the default (1) for a perfect test.")
+  if (length(conf_level) != 1)
+    stop("`conf_level` must be a single number (got length = ", length(conf_level), ").")
+  if (!is.null(icc) && length(icc) != 1)
+    stop("`icc` must be a single number or NULL (got length = ", length(icc), "). ",
+         "Set `icc = NULL` to estimate ICC from the data.")
+  if (!is.null(fpc_N) && length(fpc_N) != 1)
+    stop("`fpc_N` must be a single number or NULL (got length = ", length(fpc_N), "). ",
+         "Set `fpc_N = NULL` to skip the finite-population correction.")
+
   if (!is.finite(conf_level))
     stop("`conf_level` must be a single finite number (got ", conf_level, ").")
   if (conf_level <= 0 || conf_level >= 1)
@@ -132,9 +151,13 @@ estimate_prevalence <- function(x,
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
     stop("`fpc_N` must be a finite positive number representing the total population size ",
          "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
+  if (!is.finite(sensitivity))
+    stop("`sensitivity` must be a finite number (got ", sensitivity, ").")
   if (sensitivity <= 0 || sensitivity > 1)
     stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
          "A sensitivity of 0 means the test never detects true positives.")
+  if (!is.finite(specificity))
+    stop("`specificity` must be a finite number (got ", specificity, ").")
   if (specificity <= 0 || specificity > 1)
     stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
          "A specificity of 0 means the test always returns a false positive.")
