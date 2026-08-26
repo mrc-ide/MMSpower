@@ -81,6 +81,9 @@ estimate_prevalence <- function(x,
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
+  if (is.logical(x) || is.logical(n))
+    stop("`x` and `n` must be numeric, not logical. ",
+         "Did you accidentally pass TRUE/FALSE instead of counts?")
   if (length(x) == 0 || length(n) == 0)
     stop("`x` and `n` must be non-empty vectors. ",
          "Supply at least one cluster's count and total.")
@@ -141,6 +144,11 @@ estimate_prevalence <- function(x,
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
          "With se + sp <= 1 the test performs at or below chance and true prevalence ",
          "is not identifiable from apparent prevalence.")
+  if (correction < 0.1)
+    warning("sensitivity + specificity = ", round(sensitivity + specificity, 4),
+            " is very close to 1 (correction = ", round(correction, 4), "). ",
+            "The Rogan-Gladen adjustment is numerically unstable -- ",
+            "prevalence estimates and CI will be unreliable.")
 
   n_clusters <- length(n)
   n_total    <- sum(n)
@@ -212,7 +220,11 @@ estimate_prevalence <- function(x,
   prevalence <- max(0, min(1, rg(p_hat)))
   ci_lower   <- max(0, min(1, rg(ci_lo_app)))
   ci_upper   <- max(0, min(1, rg(ci_hi_app)))
-  moe        <- moe_apparent / correction   # MOE on true-prevalence scale
+
+  # Derive moe from the actual returned CI, not the theoretical formula.
+  # When clamping occurs (prevalence near 0 or 1), the CI endpoints are
+  # truncated and moe_apparent/correction would be inconsistent with them.
+  moe <- (ci_upper - ci_lower) / 2
 
   list(
     prevalence      = prevalence,
