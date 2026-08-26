@@ -159,16 +159,19 @@ design_precision <- function(prevalence,
          "`n_sites` fixes the number of clusters and solves for samples per cluster; ",
          "`n_per_site` fixes the cluster size and solves for the number of clusters.")
   if (!is.null(n_sites) &&
-      (!is.numeric(n_sites) || !is.finite(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
-    stop("`n_sites` must be a finite positive integer (got ", n_sites, "). ",
+      (!is.numeric(n_sites) || length(n_sites) != 1 || !is.finite(n_sites) || n_sites != floor(n_sites) || n_sites < 1))
+    stop("`n_sites` must be a single finite positive integer (got ",
+         if (length(n_sites) != 1) paste0("length = ", length(n_sites)) else n_sites, "). ",
          "It represents the number of sampling clusters in your design.")
   if (!is.null(n_per_site) &&
-      (!is.numeric(n_per_site) || !is.finite(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
-    stop("`n_per_site` must be a finite positive integer (got ", n_per_site, "). ",
+      (!is.numeric(n_per_site) || length(n_per_site) != 1 || !is.finite(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
+    stop("`n_per_site` must be a single finite positive integer (got ",
+         if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, "). ",
          "It represents the fixed number of individuals sampled per cluster.")
-  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a finite positive number representing total population size ",
-         "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) || fpc_N <= 0))
+    stop("`fpc_N` must be a single finite positive number representing total population size (got ",
+         if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N,
+         "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (conf_level <= 0 || conf_level >= 1)
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
          "Use, e.g., 0.95 for a 95% confidence interval.")

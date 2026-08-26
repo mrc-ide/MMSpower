@@ -231,3 +231,45 @@ test_that("DP-15: very low prevalence (p=0.001) returns valid n and apparent_pre
   expect_gt(res$n, 0)
   expect_equal(res$apparent_prev, 0.001, tolerance = 1e-6)  # perfect test
 })
+
+# ---- Round 5: 7 new edge cases ----
+
+test_that("DP-R5-1: sensitivity=0 is rejected (boundary, not in (0,1])", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = 0), "`sensitivity`")
+})
+
+test_that("DP-R5-2: n_sites as vector gives informative length error", {
+  expect_error(
+    design_precision(0.3, 0.05, n_sites = c(10, 20), icc = 0.05),
+    "single finite positive integer"
+  )
+})
+
+test_that("DP-R5-3: conf_level=0.5 produces a small n (low confidence threshold)", {
+  # z_0.5 = qnorm(0.75) ≈ 0.674; n scales with z^2
+  r_50 <- design_precision(0.3, 0.05, conf_level = 0.50)
+  r_95 <- design_precision(0.3, 0.05)
+  expect_lt(r_50$n, r_95$n)
+  expect_equal(r_50$n / r_95$n, (qnorm(0.75) / qnorm(0.975))^2, tolerance = 0.02)
+})
+
+test_that("DP-R5-4: icc=0.999, n_per_site=2 → deff≈2, n≈2*n_base", {
+  res <- design_precision(0.3, 0.05, n_per_site = 2, icc = 0.999)
+  expect_equal(res$deff, 1.999, tolerance = 1e-3)
+  expect_equal(res$n, ceiling(design_precision(0.3, 0.05)$n * 1.999), tolerance = 1)
+})
+
+test_that("DP-R5-5: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
+  expect_error(design_precision(0.3, 0.5), "`moe`")
+})
+
+test_that("DP-R5-6: prevalence vector is rejected with length error", {
+  expect_error(design_precision(c(0.2, 0.3), 0.05), "`prevalence`")
+})
+
+test_that("DP-R5-7: n_per_site given but icc=0 → deff=1, same n as SRS", {
+  # deff = 1 + (n_per_site - 1)*0 = 1 regardless of cluster size
+  res <- design_precision(0.3, 0.05, n_per_site = 50, icc = 0)
+  expect_equal(res$deff, 1, tolerance = 1e-10)
+  expect_equal(res$n, design_precision(0.3, 0.05)$n)
+})
