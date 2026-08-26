@@ -21,6 +21,10 @@
 #' @param icc Numeric in [0, 1]. Intra-cluster correlation; default 0 (SRS).
 #'   If `icc > 0`, at least one of `n_sites` or `n_per_site` must be given
 #'   -- without a cluster structure, Deff is not computable.
+#' @param fpc_N Optional integer. Total population size, for a
+#'   finite-population correction. When supplied, the required n is
+#'   reduced by the FPC factor: n_adj = n * N / (n + N - 1). NULL (default)
+#'   means no FPC applied.
 #'
 #' @details
 #' **Rogan-Gladen variance adjustment**: the MOE formula uses the
@@ -61,6 +65,7 @@
 #'   \item{specificity}{Specificity used}
 #'   \item{icc}{ICC used}
 #'   \item{deff}{Design effect applied}
+#'   \item{fpc_N}{Population size used for FPC, or NULL}
 #'
 #' @export
 #'
@@ -83,7 +88,8 @@ design_precision <- function(prevalence,
                               conf_level  = 0.95,
                               n_sites     = NULL,
                               n_per_site  = NULL,
-                              icc         = 0) {
+                              icc         = 0,
+                              fpc_N       = NULL) {
 
   # ---- validation ----
   if (prevalence <= 0 || prevalence >= 1)
@@ -154,6 +160,11 @@ design_precision <- function(prevalence,
     deff   <- n_cont / n_base_cont
   }
 
+  # ---- finite-population correction ----
+  if (!is.null(fpc_N)) {
+    n_cont <- (n_cont * fpc_N) / (n_cont + fpc_N - 1)
+  }
+
   n_total <- ceiling(n_cont)
 
   # ---- distribute across sites ----
@@ -180,6 +191,7 @@ design_precision <- function(prevalence,
     sensitivity   = sensitivity,
     specificity   = specificity,
     icc           = icc,
-    deff          = deff
+    deff          = deff,
+    fpc_N         = fpc_N
   )
 }

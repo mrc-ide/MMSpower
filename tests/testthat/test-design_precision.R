@@ -26,6 +26,10 @@
 # Case 5  (n_sites=10, icc=0.05, p=0.30, moe=0.05):
 #   denom = 10 - 322.68*0.05 = -6.13 < 0 → infeasible
 #   min_moe = z * sqrt(0.3*0.7*0.05 / (10*1)) = 1.959964*sqrt(0.00105) ≈ 6.35%
+#
+# Case 6  (FPC, fpc_N=500, SRS):
+#   n_cont = 322.68 (SRS base)
+#   n_adj  = 322.68 * 500 / (322.68 + 500 - 1) = 161340 / 821.68 = 196.35 → ceiling → 197
 
 test_that("Case 1: perfect test, SRS returns correct n and deff", {
   res <- design_precision(prevalence = 0.3, moe = 0.05)
@@ -74,11 +78,22 @@ test_that("Case 5: infeasible n_sites produces informative error", {
   )
 })
 
+test_that("Case 6: FPC reduces required n for a small population", {
+  res_fpc  <- design_precision(0.3, 0.05, fpc_N = 500)
+  res_nofpc <- design_precision(0.3, 0.05)
+
+  # FPC-adjusted n should be smaller
+  expect_lt(res_fpc$n, res_nofpc$n)
+  # Hand-checked: n_adj = 322.68*500/(322.68+500-1) = 196.35 → 197
+  expect_equal(res_fpc$n, 197)
+  expect_equal(res_fpc$fpc_N, 500)
+})
+
 test_that("return list contains all expected fields", {
   res <- design_precision(0.2, 0.05)
   expect_named(res, c("n", "n_base", "n_sites", "n_per_site", "prevalence",
                        "apparent_prev", "moe", "conf_level", "sensitivity",
-                       "specificity", "icc", "deff"),
+                       "specificity", "icc", "deff", "fpc_N"),
                ignore.order = FALSE)
 })
 
