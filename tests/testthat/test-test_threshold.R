@@ -393,15 +393,13 @@ test_that("TT-S15: unequal cluster sizes estimated ICC is non-negative and consi
 
 # ── Second batch of stress tests: TT-S16 through TT-S30 ──────────────────────
 
-test_that("TT-S16: fpc_N = n_total with clustering → warning but result is valid", {
-  # When n_eff << n_total (clustering), fpc_N = n_total still leaves fpc > 0.
-  # The warning fires (misleadingly) but the computation succeeds.
-  expect_warning(
-    res <- test_threshold(x = c(5, 5), n = c(50, 50), threshold = 0.05,
-                          icc = 0.5, fpc_N = 100),
-    "surveyed"
-  )
+test_that("TT-S16: fpc_N = n_total with clustering → valid result (fpc > 0 because n_eff < n_total)", {
+  # With clustering n_eff << n_total, so fpc_N = n_total does NOT collapse fpc to 0.
+  # Old code wrongly warned here; fixed to check fpc_N <= n_eff instead.
+  res <- test_threshold(x = c(5, 5), n = c(50, 50), threshold = 0.05,
+                        icc = 0.5, fpc_N = 100)
   expect_true(is.finite(res$statistic))
+  expect_true(is.finite(res$p_value))
 })
 
 test_that("TT-S17: all-singleton clusters (n=1 each) → icc skipped, finite result", {
