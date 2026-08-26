@@ -486,3 +486,141 @@ test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC
   expect_true(is.finite(res$prevalence))
   expect_true(is.finite(res$moe))
 })
+
+# ---- CI methods: return list structure, validation, and method behaviour ----
+
+test_that("return list contains all expected fields (wald default)", {
+  res <- estimate_prevalence(x = 30, n = 100)
+  expect_named(res, c("prevalence", "ci_lower", "ci_upper", "moe",
+                       "moe_lower", "moe_upper", "method",
+                       "n_total", "n_eff", "conf_level",
+                       "sensitivity", "specificity", "icc_used", "deff", "fpc_N"),
+               ignore.order = FALSE)
+})
+
+test_that("wald: moe_lower = moe_upper = moe (symmetric interval)", {
+  res <- estimate_prevalence(x = 30, n = 100)
+  expect_equal(res$method, "wald")
+  expect_equal(res$moe_lower, res$moe, tolerance = 1e-10)
+  expect_equal(res$moe_upper, res$moe, tolerance = 1e-10)
+})
+
+test_that("clopper-pearson: method field set, interval valid and finite", {
+  res <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
+  expect_equal(res$method, "clopper-pearson")
+  expect_true(is.finite(res$ci_lower))
+  expect_true(is.finite(res$ci_upper))
+  expect_gte(res$ci_lower, 0)
+  expect_lte(res$ci_upper, 1)
+  expect_lte(res$ci_lower, res$prevalence)
+  expect_gte(res$ci_upper, res$prevalence)
+  # moe is average half-width
+  expect_equal(res$moe, (res$ci_upper - res$ci_lower) / 2, tolerance = 1e-10)
+})
+
+test_that("clopper-pearson: moe_lower and moe_upper are one-sided distances", {
+  res <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
+  expect_equal(res$moe_lower, res$prevalence - res$ci_lower, tolerance = 1e-10)
+  expect_equal(res$moe_upper, res$ci_upper  - res$prevalence, tolerance = 1e-10)
+  # CP is asymmetric for interior p_hat
+  expect_false(isTRUE(all.equal(res$moe_lower, res$moe_upper, tolerance = 1e-6)))
+})
+
+test_that("agresti-coull: method field set, interval valid and finite", {
+  res <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
+  expect_equal(res$method, "agresti-coull")
+  expect_true(is.finite(res$ci_lower))
+  expect_true(is.finite(res$ci_upper))
+  expect_gte(res$ci_lower, 0)
+  expect_lte(res$ci_upper, 1)
+  expect_equal(res$moe, (res$ci_upper - res$ci_lower) / 2, tolerance = 1e-10)
+})
+
+test_that("agresti-coull: moe_lower and moe_upper are one-sided distances", {
+  res <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
+  expect_equal(res$moe_lower, res$prevalence - res$ci_lower, tolerance = 1e-10)
+  expect_equal(res$moe_upper, res$ci_upper  - res$prevalence, tolerance = 1e-10)
+  # AC centres on p_tilde != p_hat, so moe_lower != moe_upper
+  expect_false(isTRUE(all.equal(res$moe_lower, res$moe_upper, tolerance = 1e-6)))
+})
+
+test_that("all three methods agree on point estimate (prevalence unchanged)", {
+  # CI method changes the interval, not the point estimate
+  wald <- estimate_prevalence(x = 15, n = 80)
+  cp   <- estimate_prevalence(x = 15, n = 80, method = "clopper-pearson")
+  ac   <- estimate_prevalence(x = 15, n = 80, method = "agresti-coull")
+  expect_equal(wald$prevalence, cp$prevalence,  tolerance = 1e-10)
+  expect_equal(wald$prevalence, ac$prevalence,  tolerance = 1e-10)
+})
+
+test_that("clopper-pearson: x=0 gives ci_lower=0 without error", {
+  res <- estimate_prevalence(x = 0, n = 50, method = "clopper-pearson")
+  expect_equal(res$ci_lower, 0)
+  expect_gt(res$ci_upper,    0)
+  expect_true(is.finite(res$ci_upper))
+})
+
+test_that("clopper-pearson: x=n gives ci_upper=1 without error", {
+  res <- estimate_prevalence(x = 50, n = 50, method = "clopper-pearson")
+  expect_equal(res$ci_upper, 1)
+  expect_lt(res$ci_lower,    1)
+  expect_true(is.finite(res$ci_lower))
+})
+
+test_that("agresti-coull: x=0 gives ci_lower >= 0 without error", {
+  res <- estimate_prevalence(x = 0, n = 50, method = "agresti-coull")
+  expect_gte(res$ci_lower, 0)
+  expect_true(is.finite(res$ci_upper))
+})
+
+test_that("clopper-pearson with imperfect test applies Rogan-Gladen to CI endpoints", {
+  res_perfect  <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
+  res_imperfect <- estimate_prevalence(x = 30, n = 100,
+                                        sensitivity = 0.9, specificity = 0.95,
+                                        method = "clopper-pearson")
+  # Imperfect test: correction = 0.85 < 1 → wider CI (moe inflated by 1/correction)
+  expect_gt(res_imperfect$moe, res_perfect$moe)
+  # Point estimate shifted by RG
+  expect_false(isTRUE(all.equal(res_imperfect$prevalence, res_perfect$prevalence)))
+})
+
+test_that("clopper-pearson with clustering widens CI via deff", {
+  res_srs      <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                       icc = 0,    method = "clopper-pearson")
+  res_clustered <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                        icc = 0.05, method = "clopper-pearson")
+  # Clustering inflates n_eff (deff > 1) → wider interval
+  expect_gt(res_clustered$ci_upper - res_clustered$ci_lower,
+            res_srs$ci_upper       - res_srs$ci_lower)
+})
+
+test_that("invalid method gives informative error", {
+  expect_error(
+    estimate_prevalence(x = 30, n = 100, method = "exact"),
+    "'wald', 'clopper-pearson', or 'agresti-coull'"
+  )
+})
+
+test_that("method as vector is rejected with informative error", {
+  expect_error(
+    estimate_prevalence(x = 30, n = 100, method = c("wald", "clopper-pearson")),
+    "single character string"
+  )
+})
+
+test_that("asymmetric method emits a message when moe_lower != moe_upper", {
+  expect_message(
+    estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"),
+    "asymmetric"
+  )
+  expect_message(
+    estimate_prevalence(x = 30, n = 100, method = "agresti-coull"),
+    "asymmetric"
+  )
+})
+
+test_that("wald emits no message about asymmetry", {
+  expect_no_message(
+    estimate_prevalence(x = 30, n = 100, method = "wald")
+  )
+})

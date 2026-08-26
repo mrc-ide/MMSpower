@@ -1,77 +1,100 @@
 #' Estimate prevalence and its precision
 #'
-#' Analysis function: given observed data, what is the prevalence and how
-#' precise is our estimate? Implements the classical Wald confidence
-#' interval (Module 1), generalized to account for clustering via the
-#' design effect (Module 5): p_hat +/- z * sqrt(p_hat*(1-p_hat) /
-#' (n * Deff)).
+#' @description
+#' Analysis function: given observed counts, returns a prevalence point
+#' estimate and confidence interval. Three CI methods are available:
 #'
-#' If `icc` is not supplied, it is estimated directly from the data
-#' as the ratio of observed-to-expected variance across clusters (Module
-#' 5's design-effect worked example), rather than assumed to be 0 --
-#' assuming independence by default would understate uncertainty for any
+#' \describe{
+#'   \item{`"wald"` (default)}{Symmetric interval: \eqn{\hat{p} \pm z \cdot SE}.
+#'     Fast and familiar; can extend below 0 or above 1 near the boundaries
+#'     (clamped to \[0, 1\]).}
+#'   \item{`"clopper-pearson"`}{Exact binomial interval via the beta distribution.
+#'     Asymmetric; conservative (guaranteed coverage). Preferred for small
+#'     samples or extreme prevalences.}
+#'   \item{`"agresti-coull"`}{Adjusted-proportion interval. Asymmetric; better
+#'     coverage than Wald for moderate n, less conservative than
+#'     Clopper-Pearson.}
+#' }
+#'
+#' All methods account for imperfect diagnostic tests (Rogan-Gladen
+#' correction), clustered sampling (Kish design effect), and
+#' finite-population corrections.
+#'
+#' If `icc` is not supplied, it is estimated from the data as the ratio
+#' of observed-to-expected variance across clusters, rather than assumed
+#' to be 0 -- assuming independence would understate uncertainty for any
 #' genuinely clustered survey.
-#'
-#' For a Bayesian treatment of the same problem (posterior distribution
-#' over prevalence and ICC jointly, rather than a plug-in point estimate
-#' of ICC), see `DRpower::get_prevalence()` -- not wrapped here,
-#' since the two approaches answer the question differently and
-#' shouldn't be silently mixed behind one interface.
 #'
 #' @param x Integer vector of positive counts per cluster/site.
 #' @param n Integer vector of total samples per cluster/site (same length as x).
-#' @param icc Optional. Intra-cluster correlation coefficient. If `NULL`,
-#'   ICC is estimated from the data (Module 5 worked-example method). Set
-#'   explicitly to `0` to force the simple-random-sampling case with no
-#'   clustering adjustment.
-#' @param fpc_N Optional. Total population size, for a finite-population
-#'   correction. `NULL` = no FPC applied.
-#' @param conf_level Confidence level. Defaults to 0.95.
 #' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (perfect
-#'   test). When less than 1, the Rogan-Gladen correction is applied to
-#'   convert apparent prevalence to true prevalence. See Details.
-#' @param specificity Diagnostic specificity in (0, 1]; default 1 (perfect
-#'   test).
+#'   test). Set below 1 to activate the Rogan-Gladen correction.
+#' @param specificity Diagnostic specificity in (0, 1]; default 1.
+#' @param conf_level Confidence level; default 0.95.
+#' @param icc Optional. Intra-cluster correlation. If `NULL` (default), ICC
+#'   is estimated from the data. Set to `0` to force the SRS (no-clustering)
+#'   case. Only relevant when `x` and `n` have more than one element.
+#' @param fpc_N Optional. Total population size for a finite-population
+#'   correction. `NULL` (default) = no FPC applied.
+#' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
+#'   `"agresti-coull"`. See Description. Clopper-Pearson and Agresti-Coull
+#'   produce asymmetric intervals; a `message()` is emitted when they differ
+#'   noticeably from the symmetric summary `moe`.
 #'
 #' @details
-#' **Rogan-Gladen correction** (applied when `sensitivity < 1` or
-#' `specificity < 1`): an imperfect test inflates apparent prevalence via
-#' false positives and deflates it via false negatives. The correction
-#' unscrambles these two biases:
+#' **Rogan-Gladen correction**: an imperfect test inflates apparent
+#' prevalence via false positives and deflates it via false negatives.
+#' The correction recovers true prevalence:
 #'
-#' \deqn{p_{\text{true}} = \frac{p_{\text{apparent}} - (1 - \text{specificity})}
-#'       {\text{sensitivity} + \text{specificity} - 1}}
+#' \deqn{p_{\text{true}} = \frac{p_{\text{apparent}} - (1 - Sp)}{Se + Sp - 1}}
 #'
-#' The correction is a linear transform, so it is applied directly to the
-#' Wald CI endpoints as well as the point estimate. For most PCR-based MMS
-#' assays, sensitivity and specificity are effectively 1 and no correction
-#' is needed.
+#' This linear transform is applied to CI endpoints as well as the point
+#' estimate. When \eqn{Se = Sp = 1} it is the identity.
 #'
-#' @return A list with:
-#'   \item{prevalence}{Point estimate of true prevalence}
-#'   \item{ci_lower}{Lower confidence limit}
-#'   \item{ci_upper}{Upper confidence limit}
-#'   \item{moe}{Half-width of CI on the true-prevalence scale}
-#'   \item{n_total}{Total samples}
-#'   \item{n_eff}{Effective sample size (n_total / deff)}
-#'   \item{conf_level}{Confidence level used}
-#'   \item{sensitivity}{Sensitivity used}
-#'   \item{specificity}{Specificity used}
-#'   \item{icc_used}{ICC applied (estimated from data if not supplied, else as given)}
-#'   \item{deff}{Design effect applied}
-#'   \item{fpc_N}{Population size used for FPC, or NULL}
+#' **Clopper-Pearson and Agresti-Coull with clustering/FPC**: these methods
+#' work on an effective sample size that folds in both the design effect and
+#' FPC: \eqn{n_{adj} = n_{eff} / fpc^2 = (n_{total}/Deff) \cdot (N-1)/(N-n_{eff})}.
+#' This ensures all three methods produce the same interval width as each
+#' other in the Wald-limit, while CP and AC retain their better boundary
+#' behaviour.
+#'
+#' @return A named list. The following fields are always present:
+#'   \item{prevalence}{Point estimate of true prevalence (Rogan-Gladen corrected)}
+#'   \item{ci_lower}{Lower confidence limit on the true-prevalence scale}
+#'   \item{ci_upper}{Upper confidence limit on the true-prevalence scale}
+#'   \item{moe}{Symmetric summary: \code{(ci_upper - ci_lower) / 2}. For Wald
+#'     this equals both \code{moe_lower} and \code{moe_upper}. For asymmetric
+#'     methods it is the average half-width -- use \code{moe_lower} /
+#'     \code{moe_upper} for the actual one-sided distances.}
+#'   \item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
+#'     to lower limit}
+#'   \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
+#'     to upper limit}
+#'   \item{method}{CI method used (as supplied)}
+#'   \item{n_total}{Total samples across all clusters}
+#'   \item{n_eff}{Effective independent sample size: \code{n_total / deff}}
+#'   \item{conf_level}{Confidence level (as supplied)}
+#'   \item{sensitivity}{Sensitivity (as supplied)}
+#'   \item{specificity}{Specificity (as supplied)}
+#'   \item{icc_used}{ICC applied: estimated from data if \code{icc = NULL},
+#'     else as supplied}
+#'   \item{deff}{Design effect applied (1 for SRS)}
+#'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #' @export
 #'
 #' @examples
-#' # Single site / simple random sample (no clustering)
+#' # Single site / simple random sample
 #' estimate_prevalence(x = 8, n = 50)
 #'
-#' # Multi-site, clustered data -- ICC estimated from the data
+#' # Multi-site clustered data -- ICC estimated from the data
 #' estimate_prevalence(
 #'   x = c(0, 4, 0, 22, 25, 16, 12, 8),
 #'   n = c(60, 80, 70, 100, 40, 60, 50, 90)
 #' )
+#'
+#' # Exact binomial interval (better for small samples)
+#' estimate_prevalence(x = 3, n = 30, method = "clopper-pearson")
 #'
 #' # Imperfect diagnostic test
 #' estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
@@ -81,10 +104,10 @@ estimate_prevalence <- function(x,
                                 specificity = 1,
                                 conf_level  = 0.95,
                                 icc         = NULL,
-                                fpc_N       = NULL) {
+                                fpc_N       = NULL,
+                                method      = "wald") {
 
-  # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
-  # generic "missing value where TRUE/FALSE needed" with no context.
+  # ---- validate x and n ----
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical (got class `",
          class(x)[1], "` for x, `", class(n)[1], "` for n). ",
@@ -126,8 +149,8 @@ estimate_prevalence <- function(x,
          "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
          " > n[", which(x > n)[1], "] = ", n[which(x > n)[1]], "). ",
          "Positive counts cannot exceed the total tested per cluster.")
-  # Scalar-length checks: catch vectors and NULL before comparisons fire R's
-  # generic "condition has length > 1" or "argument is of length zero" errors.
+
+  # ---- validate scalar parameters ----
   if (is.null(sensitivity) || length(sensitivity) != 1)
     stop("`sensitivity` must be a single number in (0, 1] (got ",
          if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), "). ",
@@ -144,6 +167,13 @@ estimate_prevalence <- function(x,
   if (!is.null(fpc_N) && length(fpc_N) != 1)
     stop("`fpc_N` must be a single number or NULL (got length = ", length(fpc_N), "). ",
          "Set `fpc_N = NULL` to skip the finite-population correction.")
+  if (!is.character(method) || length(method) != 1)
+    stop("`method` must be a single character string: ",
+         "'wald', 'clopper-pearson', or 'agresti-coull' (got class `",
+         class(method)[1], "`, length ", length(method), ").")
+  if (!method %in% c("wald", "clopper-pearson", "agresti-coull"))
+    stop("`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' ",
+         "(got '", method, "').")
 
   if (!is.finite(conf_level))
     stop("`conf_level` must be a single finite number (got ", conf_level, ").")
@@ -193,22 +223,17 @@ estimate_prevalence <- function(x,
     warning("`fpc_N` equals the total sample size (", n_total, "): you have surveyed the ",
             "entire population, so sampling variance is zero and the CI collapses to a point. ",
             "Set `fpc_N = NULL` if this is not intended.")
-  p_hat      <- sum(x) / n_total   # apparent prevalence
+
+  p_hat <- sum(x) / n_total   # apparent prevalence
 
   # -----------------------------------------------------------------
-  # Design effect / ICC (Module 5)
-  #
-  #   Deff    = Var_obs / Var_SRS
-  #   Var_SRS = mean(p_hat*(1-p_hat) / n_i)   expected under independence
-  #   Var_obs = sample variance of per-cluster prevalences
-  #   ICC     = (Deff - 1) / (n_bar - 1)
+  # Design effect / ICC (Kish formula, Module 5)
   # -----------------------------------------------------------------
   n_bar <- mean(n)
 
   if (is.null(icc)) {
     if (n_clusters < 2 || n_bar == 1) {
-      # Can't estimate ICC: single cluster, or every cluster has exactly 1
-      # observation (Kish formula has n_bar-1 in the denominator -- div/0).
+      # Single cluster or all clusters of size 1 -- Kish denominator is 0.
       icc_used <- 0
       deff     <- 1
     } else {
@@ -217,7 +242,7 @@ estimate_prevalence <- function(x,
       var_srs <- mean(p_hat * (1 - p_hat) / n)
 
       deff <- if (var_srs > 0) var_obs / var_srs else 1
-      deff <- max(deff, 1)   # Deff < 1 not meaningful here
+      deff <- max(deff, 1)
 
       icc_used <- (deff - 1) / (n_bar - 1)
       icc_used <- min(max(icc_used, 0), 1)
@@ -230,26 +255,47 @@ estimate_prevalence <- function(x,
 
   n_eff <- n_total / deff
 
-  # Finite-population correction
-  fpc <- if (!is.null(fpc_N)) {
-    sqrt((fpc_N - n_eff) / (fpc_N - 1))
-  } else {
-    1
+  # FPC factor (1 when fpc_N is NULL)
+  fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_eff) / (fpc_N - 1)) else 1
+
+  # -----------------------------------------------------------------
+  # Confidence interval on apparent prevalence
+  # All three methods use n_eff_adj = n_eff / fpc^2, which collapses to
+  # n_eff when there is no FPC (fpc = 1). This is the variance-equivalent
+  # simple-random-sample size: sqrt(p*(1-p)/n_eff_adj) == sqrt(p*(1-p)/n_eff)*fpc.
+  # -----------------------------------------------------------------
+  z         <- stats::qnorm(1 - (1 - conf_level) / 2)
+  n_eff_adj <- n_eff / (fpc^2)   # incorporates both Deff and FPC
+  alpha     <- 1 - conf_level
+
+  if (method == "wald") {
+    se        <- sqrt(p_hat * (1 - p_hat) / n_eff_adj)
+    ci_lo_app <- max(p_hat - z * se, 0)
+    ci_hi_app <- min(p_hat + z * se, 1)
+
+  } else if (method == "clopper-pearson") {
+    x_eff <- p_hat * n_eff_adj   # effective successes (continuous)
+
+    ci_lo_app <- if (p_hat == 0) 0 else
+      stats::qbeta(alpha / 2,     x_eff,     n_eff_adj - x_eff + 1)
+    ci_hi_app <- if (p_hat == 1) 1 else
+      stats::qbeta(1 - alpha / 2, x_eff + 1, n_eff_adj - x_eff)
+
+    ci_lo_app <- max(ci_lo_app, 0)
+    ci_hi_app <- min(ci_hi_app, 1)
+
+  } else {   # agresti-coull
+    x_eff     <- p_hat * n_eff_adj
+    n_tilde   <- n_eff_adj + z^2
+    p_tilde   <- (x_eff + z^2 / 2) / n_tilde
+    se_tilde  <- sqrt(p_tilde * (1 - p_tilde) / n_tilde)
+
+    ci_lo_app <- max(p_tilde - z * se_tilde, 0)
+    ci_hi_app <- min(p_tilde + z * se_tilde, 1)
   }
 
   # -----------------------------------------------------------------
-  # Wald interval on apparent prevalence (Module 1 + Module 5)
-  # -----------------------------------------------------------------
-  z            <- stats::qnorm(1 - (1 - conf_level) / 2)
-  se           <- sqrt(p_hat * (1 - p_hat) / n_eff) * fpc
-  moe_apparent <- z * se
-
-  ci_lo_app <- max(p_hat - moe_apparent, 0)
-  ci_hi_app <- min(p_hat + moe_apparent, 1)
-
-  # -----------------------------------------------------------------
   # Rogan-Gladen correction: apparent -> true prevalence
-  # Identity transform when sensitivity = specificity = 1.
   # -----------------------------------------------------------------
   rg <- function(p) (p - (1 - specificity)) / correction
 
@@ -257,16 +303,23 @@ estimate_prevalence <- function(x,
   ci_lower   <- max(0, min(1, rg(ci_lo_app)))
   ci_upper   <- max(0, min(1, rg(ci_hi_app)))
 
-  # Derive moe from the actual returned CI, not the theoretical formula.
-  # When clamping occurs (prevalence near 0 or 1), the CI endpoints are
-  # truncated and moe_apparent/correction would be inconsistent with them.
-  moe <- (ci_upper - ci_lower) / 2
+  moe       <- (ci_upper - ci_lower) / 2
+  moe_lower <- prevalence - ci_lower
+  moe_upper <- ci_upper - prevalence
+
+  if (method != "wald" && abs(moe_lower - moe_upper) > 1e-6)
+    message(method, " CI is asymmetric: moe_lower = ", round(moe_lower, 4),
+            ", moe_upper = ", round(moe_upper, 4),
+            ". moe = ", round(moe, 4), " is the average half-width.")
 
   list(
     prevalence  = prevalence,
     ci_lower    = ci_lower,
     ci_upper    = ci_upper,
     moe         = moe,
+    moe_lower   = moe_lower,
+    moe_upper   = moe_upper,
+    method      = method,
     n_total     = n_total,
     n_eff       = n_eff,
     conf_level  = conf_level,
