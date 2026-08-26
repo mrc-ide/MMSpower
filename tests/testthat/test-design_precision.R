@@ -273,3 +273,97 @@ test_that("DP-R5-7: n_per_site given but icc=0 → deff=1, same n as SRS", {
   expect_equal(res$deff, 1, tolerance = 1e-10)
   expect_equal(res$n, design_precision(0.3, 0.05)$n)
 })
+
+# ---- Round 6: 15 new edge cases ----
+
+test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
+  expect_error(design_precision(0.3, -0.05), "`moe`")
+})
+
+test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "`sensitivity`")
+})
+
+test_that("DP-R6-3: specificity=NA is rejected by is.finite check", {
+  expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
+})
+
+test_that("DP-R6-4: n_sites=1 with icc=0.5 is infeasible (denom < 0)", {
+  # denom = 1 - n_base*0.5 ≈ 1 - 161 = -160 < 0 → unachievable
+  expect_error(
+    design_precision(0.3, 0.05, n_sites = 1, icc = 0.5),
+    "unachievable"
+  )
+})
+
+test_that("DP-R6-5: large n_per_site with high icc → very large n", {
+  # deff = 1 + (10000-1)*0.3 = 3000.7; n ≈ 323 * 3000.7 ≈ 969k
+  res <- design_precision(0.3, 0.05, n_per_site = 10000, icc = 0.3)
+  expect_equal(res$deff, 3000.7, tolerance = 0.1)
+  expect_gt(res$n, 900000)
+})
+
+test_that("DP-R6-6: icc as vector is rejected with length error", {
+  expect_error(
+    design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
+    "`icc`"
+  )
+})
+
+test_that("DP-R6-7: fpc_N=1 (population of 1) → n=1 regardless of SRS n", {
+  # n_adj = n_cont * 1 / (n_cont + 1 - 1) = 1.0 exactly
+  res <- design_precision(0.3, 0.05, fpc_N = 1)
+  expect_equal(res$n, 1)
+})
+
+test_that("DP-R6-8: prevalence=-0.01 is rejected", {
+  expect_error(design_precision(-0.01, 0.05), "`prevalence`")
+})
+
+test_that("DP-R6-9: wide moe=0.3 gives very small n", {
+  # n = ceil(1.96^2 * 0.3*0.7 / 0.3^2) = ceil(3.84*0.21/0.09) = ceil(8.96) = 9
+  res <- design_precision(0.3, 0.3)
+  expect_equal(res$n, 9)
+})
+
+test_that("DP-R6-10: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
+  # n_base_cont ≈ 322.68; n_sites=323 >= n_base → deff < 1 → impossible design
+  expect_error(
+    design_precision(0.3, 0.05, n_sites = 323, icc = 0.05),
+    "SRS sample size"
+  )
+})
+
+test_that("DP-R6-11: fpc_N=2 → n=2 (census of a 2-person population)", {
+  res <- design_precision(0.3, 0.05, fpc_N = 2)
+  expect_equal(res$n, 2)
+})
+
+test_that("DP-R6-12: conf_level=NA is rejected by is.finite check", {
+  expect_error(design_precision(0.3, 0.05, conf_level = NA), "`conf_level`")
+})
+
+test_that("DP-R6-13: n_per_site as vector is rejected with length error", {
+  expect_error(
+    design_precision(0.3, 0.05, n_per_site = c(5, 10), icc = 0.05),
+    "single finite positive integer"
+  )
+})
+
+test_that("DP-R6-14: n_sites + fpc_N together is valid (not mutually exclusive)", {
+  res <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
+  expect_true(is.finite(res$n))
+  expect_equal(res$n_sites, 50)
+  expect_equal(res$fpc_N,   1000)
+  # FPC reduces n below the non-FPC clustered case
+  res_no_fpc <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
+  expect_lt(res$n, res_no_fpc$n)
+})
+
+test_that("DP-R6-15: prevalence=0.9999 (near-boundary) returns finite n", {
+  # p_app ≈ 0.9999; p*(1-p) ≈ 0.0001 → tiny variance → very small n
+  res <- design_precision(0.9999, 0.05)
+  expect_true(is.finite(res$n))
+  expect_gte(res$n, 1)
+  expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
+})
