@@ -79,11 +79,28 @@ estimate_prevalence <- function(x,
                                 sensitivity = 1,
                                 specificity = 1) {
 
+  # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
+  # generic "missing value where TRUE/FALSE needed" with no context.
+  if (length(x) == 0 || length(n) == 0)
+    stop("`x` and `n` must be non-empty vectors. ",
+         "Supply at least one cluster's count and total.")
+  if (!all(is.finite(x)))
+    stop("`x` contains NA, NaN, or infinite values. ",
+         "All counts must be finite non-negative integers.")
+  if (!all(is.finite(n)))
+    stop("`n` contains NA, NaN, or infinite values. ",
+         "All cluster totals must be finite positive integers.")
   if (length(x) != length(n))
     stop("`x` and `n` must have the same length ",
          "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
          "Each element of `x` is the positive count for one cluster and each ",
          "element of `n` is that cluster's total.")
+  if (any(x != floor(x)))
+    stop("`x` must contain whole numbers — counts cannot be fractional ",
+         "(found x[", which(x != floor(x))[1], "] = ", x[which(x != floor(x))[1]], ").")
+  if (any(n != floor(n)))
+    stop("`n` must contain whole numbers — sample sizes cannot be fractional ",
+         "(found n[", which(n != floor(n))[1], "] = ", n[which(n != floor(n))[1]], ").")
   if (any(n <= 0))
     stop("`n` must be positive for every cluster ",
          "(found n[", which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], "). ",
@@ -97,15 +114,20 @@ estimate_prevalence <- function(x,
          "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
          " > n[", which(x > n)[1], "] = ", n[which(x > n)[1]], "). ",
          "Positive counts cannot exceed the total tested per cluster.")
+  if (!is.finite(conf_level))
+    stop("`conf_level` must be a single finite number (got ", conf_level, ").")
   if (conf_level <= 0 || conf_level >= 1)
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
          "Use, e.g., 0.95 for a 95% confidence interval.")
+  if (!is.null(icc) && !is.finite(icc))
+    stop("`icc` must be a finite number (got ", icc, "). ",
+         "To estimate ICC from the data, leave `icc = NULL`.")
   if (!is.null(icc) && (icc < 0 || icc > 1))
     stop("`icc` must be in [0, 1] (got ", icc, "). ",
          "Values outside this range imply negative within-cluster variance, ",
          "which is not possible. To estimate ICC from the data, leave `icc = NULL`.")
-  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a positive number representing the total population size ",
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
+    stop("`fpc_N` must be a finite positive number representing the total population size ",
          "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (sensitivity <= 0 || sensitivity > 1)
     stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
