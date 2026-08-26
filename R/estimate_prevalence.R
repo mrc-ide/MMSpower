@@ -51,11 +51,15 @@
 #'   \item{prevalence}{Point estimate of true prevalence}
 #'   \item{ci_lower}{Lower confidence limit}
 #'   \item{ci_upper}{Upper confidence limit}
-#'   \item{margin_of_error}{Half-width of CI on the true-prevalence scale}
-#'   \item{icc_used}{ICC applied (estimated from data or supplied)}
-#'   \item{deff}{Design effect applied}
+#'   \item{moe}{Half-width of CI on the true-prevalence scale}
 #'   \item{n_total}{Total samples}
 #'   \item{n_eff}{Effective sample size (n_total / deff)}
+#'   \item{conf_level}{Confidence level used}
+#'   \item{sensitivity}{Sensitivity used}
+#'   \item{specificity}{Specificity used}
+#'   \item{icc_used}{ICC applied (estimated from data if not supplied, else as given)}
+#'   \item{deff}{Design effect applied}
+#'   \item{fpc_N}{Population size used for FPC, or NULL}
 #'
 #' @export
 #'
@@ -73,11 +77,11 @@
 #' estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
 estimate_prevalence <- function(x,
                                 n,
-                                icc         = NULL,
-                                fpc_N       = NULL,
-                                conf_level  = 0.95,
                                 sensitivity = 1,
-                                specificity = 1) {
+                                specificity = 1,
+                                conf_level  = 0.95,
+                                icc         = NULL,
+                                fpc_N       = NULL) {
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
@@ -259,13 +263,17 @@ estimate_prevalence <- function(x,
   moe <- (ci_upper - ci_lower) / 2
 
   list(
-    prevalence      = prevalence,
-    ci_lower        = ci_lower,
-    ci_upper        = ci_upper,
-    margin_of_error = moe,
-    icc_used        = icc_used,
-    deff            = deff,
-    n_total         = n_total,
-    n_eff           = n_eff
+    prevalence  = prevalence,
+    ci_lower    = ci_lower,
+    ci_upper    = ci_upper,
+    moe         = moe,
+    n_total     = n_total,
+    n_eff       = n_eff,
+    conf_level  = conf_level,
+    sensitivity = sensitivity,
+    specificity = specificity,
+    icc_used    = icc_used,
+    deff        = deff,
+    fpc_N       = fpc_N
   )
 }

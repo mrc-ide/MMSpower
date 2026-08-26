@@ -42,7 +42,7 @@ test_that("Case 1: single site, perfect test -- Wald CI", {
   # Wald 95% CI (hand-checked)
   expect_equal(res$ci_lower,       0.2102, tolerance = 5e-4)
   expect_equal(res$ci_upper,       0.3898, tolerance = 5e-4)
-  expect_equal(res$margin_of_error, 0.08982, tolerance = 5e-4)
+  expect_equal(res$moe, 0.08982, tolerance = 5e-4)
 })
 
 test_that("Case 2: supplied ICC widens CI via design effect", {
@@ -74,8 +74,8 @@ test_that("Case 3: imperfect test applies Rogan-Gladen to estimate and CI", {
 
   # MOE inflated by 1/correction
   res_perfect <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(res$margin_of_error,
-               res_perfect$margin_of_error / 0.85,
+  expect_equal(res$moe,
+               res_perfect$moe / 0.85,
                tolerance = 1e-6)
 
   expect_equal(res$ci_lower, 0.1885, tolerance = 5e-4)
@@ -144,7 +144,7 @@ test_that("n_bar=1 (clusters of 1) does not produce Inf/NaN ICC", {
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
   expect_true(is.finite(res$prevalence))
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
 
 test_that("deff and icc_used are mutually consistent after clamping", {
@@ -163,7 +163,7 @@ test_that("round-trip: estimate_prevalence recovers design_precision MOE (SRS)",
   # design_precision(0.3, 0.05) -> n = 323
   # observe exactly 30% -> x = round(0.3 * 323) = 97
   res <- estimate_prevalence(x = 97, n = 323)
-  expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
+  expect_equal(res$moe, 0.05, tolerance = 5e-3)
 })
 
 test_that("round-trip: estimate_prevalence recovers design_precision MOE (clustered, icc supplied)", {
@@ -172,7 +172,7 @@ test_that("round-trip: estimate_prevalence recovers design_precision MOE (cluste
   # icc MUST be supplied explicitly: identical clusters give estimated icc=0 (no between-cluster
   # variance to estimate from), which would return moe ≈ 0.041, not 0.05.
   res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
-  expect_equal(res$margin_of_error, 0.05, tolerance = 5e-3)
+  expect_equal(res$moe, 0.05, tolerance = 5e-3)
 })
 
 test_that("round-trip caveat: without icc supplied, identical clusters estimate icc=0 and round-trip fails", {
@@ -185,8 +185,8 @@ test_that("round-trip caveat: without icc supplied, identical clusters estimate 
 
   expect_equal(res_no_icc$icc_used, 0, tolerance = 1e-10)   # estimated from identical clusters
   expect_equal(res_no_icc$deff,     1, tolerance = 1e-10)
-  expect_lt(res_no_icc$margin_of_error, 0.05)                # narrower than intended
-  expect_equal(res_with_icc$margin_of_error, 0.05, tolerance = 5e-3)  # correct only with icc
+  expect_lt(res_no_icc$moe, 0.05)                # narrower than intended
+  expect_equal(res_with_icc$moe, 0.05, tolerance = 5e-3)  # correct only with icc
 })
 
 # ---- Round 4: 15 new edge cases ----
@@ -197,7 +197,7 @@ test_that("EP-1: all-zero prevalence collapses CI to [0, 0]", {
   expect_equal(res$prevalence,      0)
   expect_equal(res$ci_lower,        0)
   expect_equal(res$ci_upper,        0)
-  expect_equal(res$margin_of_error, 0)
+  expect_equal(res$moe, 0)
   expect_true(is.finite(res$deff))
 })
 
@@ -206,13 +206,13 @@ test_that("EP-2: all-100% prevalence collapses CI to [1, 1]", {
   expect_equal(res$prevalence,      1)
   expect_equal(res$ci_lower,        1)
   expect_equal(res$ci_upper,        1)
-  expect_equal(res$margin_of_error, 0)
+  expect_equal(res$moe, 0)
 })
 
 test_that("EP-3: single site x=0 returns finite output, moe=0", {
   res <- estimate_prevalence(x = 0, n = 100)
   expect_equal(res$prevalence, 0)
-  expect_equal(res$margin_of_error, 0)
+  expect_equal(res$moe, 0)
   expect_true(is.finite(res$n_eff))
 })
 
@@ -253,7 +253,7 @@ test_that("EP-8: fpc_N = n_total (census) gives warning and moe=0", {
     res <- estimate_prevalence(x = 30, n = 100, fpc_N = 100),
     "entire population"
   )
-  expect_equal(res$margin_of_error, 0)
+  expect_equal(res$moe, 0)
 })
 
 test_that("EP-9: sensitivity=0.5, specificity=1 doubles the prevalence estimate", {
@@ -267,7 +267,7 @@ test_that("EP-10: integer inputs 100L, 1000L work identically to double", {
   r_int <- estimate_prevalence(x = 100L, n = 1000L)
   r_dbl <- estimate_prevalence(x = 100,  n = 1000)
   expect_equal(r_int$prevalence,      r_dbl$prevalence)
-  expect_equal(r_int$margin_of_error, r_dbl$margin_of_error)
+  expect_equal(r_int$moe, r_dbl$moe)
 })
 
 test_that("EP-11: maximum between-cluster heterogeneity → icc=1, deff=n_bar", {
@@ -289,7 +289,7 @@ test_that("EP-13: very large fpc_N has negligible effect on moe", {
   r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 1e8)
   r_no  <- estimate_prevalence(x = 30, n = 100)
   # FPC factor ≈ sqrt((1e8 - 100) / (1e8 - 1)) ≈ 1 − 5e-7
-  expect_equal(r_fpc$margin_of_error, r_no$margin_of_error, tolerance = 1e-5)
+  expect_equal(r_fpc$moe, r_no$moe, tolerance = 1e-5)
 })
 
 test_that("EP-14: all-zero multi-cluster: var_obs=0, estimated icc=0, deff=1", {
@@ -304,7 +304,7 @@ test_that("EP-15: single observation (x=1, n=1): n_bar=1 guard, icc=0, deff=1", 
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
   expect_equal(res$prevalence, 1)
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
 
 # ---- Round 5: 8 new edge cases ----
@@ -328,15 +328,15 @@ test_that("EP-R5-3: single large cluster (icc=NULL) gives correct narrow CI", {
   res <- estimate_prevalence(x = 300, n = 1000)
   expect_equal(res$prevalence, 0.3, tolerance = 1e-6)
   expect_equal(res$deff, 1, tolerance = 1e-6)
-  expect_equal(res$margin_of_error, 0.02840, tolerance = 5e-4)
+  expect_equal(res$moe, 0.02840, tolerance = 5e-4)
 })
 
 test_that("EP-R5-4: fpc_N = n_total+1 (near-census) dramatically reduces moe", {
   # sampling fraction = 100/101 = 99.0%; FPC = sqrt(1/100) = 0.1
   r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 101)
   r_no  <- estimate_prevalence(x = 30, n = 100)
-  expect_lt(r_fpc$margin_of_error, r_no$margin_of_error / 5)
-  expect_equal(r_fpc$margin_of_error, r_no$margin_of_error * sqrt(1/100),
+  expect_lt(r_fpc$moe, r_no$moe / 5)
+  expect_equal(r_fpc$moe, r_no$moe * sqrt(1/100),
                tolerance = 1e-5)
 })
 
@@ -355,7 +355,7 @@ test_that("EP-R5-7: unequal cluster sizes return finite, correct n_total", {
   res <- estimate_prevalence(x = c(1, 2, 3, 4), n = c(5, 10, 15, 20))
   expect_equal(res$n_total, 50)
   expect_equal(res$prevalence, 10/50, tolerance = 1e-6)
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
   expect_true(is.finite(res$icc_used))
 })
 
@@ -363,7 +363,7 @@ test_that("EP-R5-8: RG-corrected p > 1 is clamped to 1 without error", {
   # p_apparent=1, se=0.8, sp=0.9 → p_true = (1-0.1)/0.7 = 1.286 → clamped to 1
   res <- estimate_prevalence(x = 1, n = 1, sensitivity = 0.8, specificity = 0.9)
   expect_equal(res$prevalence, 1)
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
 
 # ---- Round 6: 15 + 1 new edge cases ----
@@ -411,7 +411,7 @@ test_that("EP-R6-6: clustering + FPC together: deff and FPC both applied", {
                                 icc = 0.05, fpc_N = 500)
   r_noFPC <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05)
   # FPC reduces moe when sampling fraction is non-negligible
-  expect_lt(r_both$margin_of_error, r_noFPC$margin_of_error)
+  expect_lt(r_both$moe, r_noFPC$moe)
   expect_equal(r_both$deff, 1.45, tolerance = 1e-6)
 })
 
@@ -425,7 +425,7 @@ test_that("EP-R6-7: fractional x at position 1 gives position-aware error", {
 test_that("EP-R6-8: exactly 2 clusters allows ICC estimation without error", {
   res <- estimate_prevalence(x = c(2, 4), n = c(10, 10))
   expect_true(is.finite(res$icc_used))
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
 
 test_that("EP-R6-9: sensitivity=1.1 is rejected", {
@@ -435,7 +435,7 @@ test_that("EP-R6-9: sensitivity=1.1 is rejected", {
 test_that("EP-R6-10: very low prevalence (1 positive / 50) returns valid output", {
   res <- estimate_prevalence(x = c(0, 0, 0, 0, 1), n = rep(10, 5))
   expect_equal(res$prevalence, 0.02, tolerance = 1e-6)
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
   expect_gte(res$ci_lower, 0)
 })
 
@@ -445,7 +445,7 @@ test_that("EP-R6-11: 100 clusters returns finite icc, deff, moe", {
   res  <- estimate_prevalence(x = x100, n = rep(20, 100))
   expect_equal(res$n_total, 2000)
   expect_true(is.finite(res$icc_used))
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
   expect_gte(res$icc_used, 0)
   expect_lte(res$icc_used, 1)
 })
@@ -474,7 +474,7 @@ test_that("EP-R6-15: very unequal clusters (1 vs 1000) return finite output", {
   res <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
   expect_equal(res$n_total, 1001)
   expect_equal(res$prevalence, 300/1001, tolerance = 1e-6)
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
 
 test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC formula", {
@@ -484,5 +484,5 @@ test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
   expect_true(is.finite(res$prevalence))
-  expect_true(is.finite(res$margin_of_error))
+  expect_true(is.finite(res$moe))
 })
