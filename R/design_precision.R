@@ -102,6 +102,14 @@ design_precision <- function(prevalence,
     stop("`icc` must be a single number, not a vector (got length ", length(icc), ").")
   if (length(conf_level) != 1)
     stop("`conf_level` must be a single number, not a vector (got length ", length(conf_level), ").")
+  if (is.null(sensitivity) || length(sensitivity) != 1)
+    stop("`sensitivity` must be a single number in (0, 1] (got ",
+         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), "). ",
+         "Leave at the default (1) for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1)
+    stop("`specificity` must be a single number in (0, 1] (got ",
+         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), "). ",
+         "Leave at the default (1) for a perfect test.")
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
