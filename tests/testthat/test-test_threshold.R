@@ -270,3 +270,123 @@ test_that("ICC estimated from heterogeneous clusters inflates deff and reduces n
   expect_gt(res_heterog$deff, 1)
   expect_lt(res_heterog$n_eff, res_identical$n_eff)
 })
+
+# ---- stress tests: 15 edge cases to break test_threshold ----
+
+test_that("TT-S1: n_total=1 (single obs): p_hat=0 or 1, z finite", {
+  res0 <- test_threshold(x = 0, n = 1, threshold = 0.3)
+  res1 <- test_threshold(x = 1, n = 1, threshold = 0.3)
+  expect_true(is.finite(res0$statistic))
+  expect_true(is.finite(res1$statistic))
+  expect_equal(res0$prevalence, 0)
+  expect_equal(res1$prevalence, 1)
+})
+
+test_that("TT-S2: threshold=0.999 (near boundary) produces valid statistic", {
+  res <- test_threshold(x = 80, n = 100, threshold = 0.999)
+  expect_true(is.finite(res$statistic))
+  expect_true(is.finite(res$p_value))
+  expect_gte(res$p_value, 0)
+  expect_lte(res$p_value, 1)
+})
+
+test_that("TT-S3: threshold=0.001 (near boundary) produces valid statistic", {
+  res <- test_threshold(x = 1, n = 100, threshold = 0.001)
+  expect_true(is.finite(res$statistic))
+  expect_gte(res$p_value, 0)
+})
+
+test_that("TT-S4: imperfect test with se+sp just above 1 (correction=0.01): warning emitted", {
+  expect_warning(
+    test_threshold(x = 30, n = 100, threshold = 0.05,
+                   sensitivity = 0.51, specificity = 0.50),
+    "numerically unstable"
+  )
+})
+
+test_that("TT-S5: p_hat clamped to 0 via RG (p_true would be negative)", {
+  # se=0.9, sp=0.9: threshold_app = 0.3*0.9 + 0.7*0.1 = 0.27+0.07 = 0.34
+  # But with x=1, n=100: p_hat = 0.01; rg(0.01) = (0.01 - 0.1)/0.8 = -0.1125 → clamped to 0
+  res <- test_threshold(x = 1, n = 100, threshold = 0.30,
+                        sensitivity = 0.9, specificity = 0.9)
+  expect_equal(res$prevalence, 0)
+  expect_true(is.finite(res$statistic))
+})
+
+test_that("TT-S6: p_hat clamped to 1 via RG (p_true would exceed 1)", {
+  # se=0.9, sp=0.9: rg(0.99) = (0.99 - 0.1)/0.8 = 1.1125 → clamped to 1
+  res <- test_threshold(x = 99, n = 100, threshold = 0.50,
+                        sensitivity = 0.9, specificity = 0.9)
+  expect_equal(res$prevalence, 1)
+  expect_true(is.finite(res$statistic))
+})
+
+test_that("TT-S7: icc=1 with multi-cluster data → deff = n_bar (max possible)", {
+  # ICC=1: every cluster is perfectly correlated; deff = 1 + (n_bar-1)*1 = n_bar
+  res <- test_threshold(x = c(5, 5), n = c(10, 10), threshold = 0.3, icc = 1)
+  expect_equal(res$deff, 10, tolerance = 1e-10)  # n_bar=10
+  expect_equal(res$n_eff, 20 / 10, tolerance = 1e-10)  # n_total/deff = 2
+})
+
+test_that("TT-S8: large n (10000 obs) gives extremely small p-value when far from threshold", {
+  res <- test_threshold(x = 500, n = 10000, threshold = 0.10)
+  # p_hat=0.05, threshold=0.10: testing greater → z strongly negative → p near 1
+  expect_gt(res$p_value, 0.99)
+  expect_false(res$reject)
+})
+
+test_that("TT-S9: x=n=100, p_hat=1.0, threshold=0.999 → barely reject 'greater'", {
+  res <- test_threshold(x = 100, n = 100, threshold = 0.999)
+  # p_hat=1; threshold_app=0.999 (perfect test): z=(1-0.999)/se_null, very small z
+  expect_true(is.finite(res$statistic))
+})
+
+test_that("TT-S10: conf_level=0.5 (alpha=0.5) → most tests reject", {
+  res <- test_threshold(x = 8, n = 100, threshold = 0.05, conf_level = 0.5)
+  # p_value=0.084, alpha=0.5 → 0.084 < 0.5 → reject
+  expect_true(res$reject)
+})
+
+test_that("TT-S11: fpc_N = n_total + 1 (population barely larger than sample)", {
+  # Near-census: fpc nearly 0 → n_eff_adj very large → se_null tiny → |z| huge
+  res <- suppressWarnings(
+    test_threshold(x = 8, n = 100, threshold = 0.05, fpc_N = 101)
+  )
+  expect_true(is.finite(res$statistic))
+  expect_true(is.finite(res$p_value))
+})
+
+test_that("TT-S12: all x=0 across many clusters → p_hat=0 consistently", {
+  res <- test_threshold(x = rep(0, 20), n = rep(50, 20), threshold = 0.05)
+  expect_equal(res$prevalence, 0)
+  expect_lt(res$statistic, 0)   # z negative (p_hat < threshold)
+  expect_false(res$reject)      # testing 'greater'
+})
+
+test_that("TT-S13: x=n for all clusters → p_hat=1 → reject 'greater' for any threshold", {
+  res <- test_threshold(x = rep(10, 5), n = rep(10, 5), threshold = 0.50)
+  expect_equal(res$prevalence, 1)
+  expect_gt(res$statistic, 0)
+  expect_true(res$reject)
+})
+
+test_that("TT-S14: sensitivity=1, specificity=1 → statistic equals naive formula", {
+  # Perfect test: theta_app = threshold, p_hat_app = p_hat
+  # z = (p_hat - threshold) / sqrt(threshold*(1-threshold)/n_eff_adj)
+  res <- test_threshold(x = 15, n = 100, threshold = 0.10)
+  z_expected <- (0.15 - 0.10) / sqrt(0.10 * 0.90 / 100)
+  expect_equal(res$statistic, z_expected, tolerance = 1e-8)
+})
+
+test_that("TT-S15: unequal cluster sizes estimated ICC is non-negative and consistent", {
+  res <- test_threshold(
+    x = c(1, 5, 0, 12, 3),
+    n = c(20, 40, 15, 60, 25),
+    threshold = 0.10
+  )
+  expect_gte(res$icc_used, 0)
+  expect_lte(res$icc_used, 1)
+  expect_equal(res$deff, 1 + (mean(c(20,40,15,60,25)) - 1) * res$icc_used,
+               tolerance = 1e-10)
+  expect_true(is.finite(res$statistic))
+})
