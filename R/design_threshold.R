@@ -59,7 +59,11 @@
 #'
 #' @return A named list. Always present:
 #'   \item{n}{Total sample size required}
-#'   \item{n_eff}{Effective independent sample size: \code{n / deff}}
+#'   \item{n_eff}{SRS-equivalent independent sample size the design achieves
+#'     (the base power-formula n before the design effect and FPC). Clustering
+#'     inflates the collected \code{n} above it; the FPC lets it fall below.
+#'     Defined the same way as \code{n_eff} in \code{design_precision()} and
+#'     \code{estimate_prevalence()}.}
 #'   \item{threshold}{Decision threshold as supplied}
 #'   \item{prevalence}{Alternative prevalence as supplied}
 #'   \item{apparent_prev}{Alternative prevalence on the apparent scale}
@@ -121,6 +125,11 @@ design_threshold <- function(threshold,
   if (!is.finite(power) || power <= 0 || power >= 1)
     stop("`power` must be strictly between 0 and 1 (got ", power, "). ",
          "Use, e.g., 0.80 for 80% power.")
+  if (power < 0.5)
+    stop("`power` must be at least 0.5 (got ", power, "). ",
+         "Below 0.5 the normal-approximation sample-size formula breaks down: ",
+         "z_beta = qnorm(power) turns negative and the required n is no longer ",
+         "monotone in power. A design with < 50% power is not meaningful anyway.")
   if (!is.character(alternative) || length(alternative) != 1)
     stop("`alternative` must be a single string: 'greater', 'less', or 'two.sided'.")
   if (!alternative %in% c("greater", "less", "two.sided"))
@@ -192,17 +201,23 @@ design_threshold <- function(threshold,
   if (alternative == "less" && prevalence >= threshold)
     stop("`prevalence` (", prevalence, ") must be < `threshold` (", threshold,
          ") when alternative = 'less'.")
-  if (alternative == "two.sided" && prevalence == threshold)
-    stop("`prevalence` must differ from `threshold` for alternative = 'two.sided'.")
+  if (alternative == "two.sided" &&
+      abs(prevalence - threshold) < 1e-8 * max(1, abs(threshold)))
+    stop("`prevalence` (", prevalence, ") must differ meaningfully from ",
+         "`threshold` (", threshold, ") for alternative = 'two.sided'.")
 
   # ---- apparent scale (Rogan-Gladen forward transform) ----
-  theta_app <- threshold  * sensitivity + (1 - threshold)  * (1 - specificity)
-  p1_app    <- prevalence * sensitivity + (1 - prevalence) * (1 - specificity)
+  theta_app <- .apparent_prev(threshold,  sensitivity, specificity)
+  p1_app    <- .apparent_prev(prevalence, sensitivity, specificity)
 
   delta <- abs(p1_app - theta_app)
-  if (delta < 1e-10)
-    stop("The threshold and prevalence produce identical apparent prevalences. ",
-         "Required sample size is infinite (cannot distinguish them with any test).")
+  if (delta < 1e-8)
+    stop("`threshold` (", threshold, ") and `prevalence` (", prevalence,
+         ") map to effectively identical apparent prevalences ",
+         "(|difference| = ", signif(delta, 3), "), often because an imperfect ",
+         "test compresses them together. The required sample size explodes ",
+         "toward infinity -- move `prevalence` further from `threshold`, or use ",
+         "a more accurate test.")
 
   # ---- SRS power formula ----
   alpha  <- 1 - conf_level
@@ -216,7 +231,9 @@ design_threshold <- function(threshold,
   n_base_cont <- ((z_a * se0 + z_b * se1) / delta)^2
 
   # ---- design effect (same closed-form logic as design_precision) ----
-  if (icc == 0 || (is.null(n_sites) && is.null(n_per_site))) {
+  # icc == 0 covers every unclustered case: an earlier guard errored if
+  # icc > 0 without a cluster structure.
+  if (icc == 0) {
     deff   <- 1
     n_cont <- n_base_cont
 
@@ -249,7 +266,12 @@ design_threshold <- function(threshold,
   }
 
   n_total <- ceiling(n_cont)
-  n_eff   <- n_total / deff
+
+  # n_eff: SRS-equivalent independent sample size the design achieves (the
+  # base power-formula n before the design effect and FPC). Clustering
+  # inflates the collected `n` above it; the FPC lets it fall below.
+  # Defined the same way as n_eff in design_precision()/estimate_prevalence().
+  n_eff <- ceiling(n_base_cont)
 
   # ---- distribute across sites ----
   if (!is.null(n_per_site)) {

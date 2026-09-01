@@ -13,17 +13,17 @@
 #   SE0 = sqrt(0.05*0.95) = 0.2179, SE1 = sqrt(0.10*0.90) = 0.3000
 #   delta = 0.05
 #   n = ((1.6449*0.2179 + 0.8416*0.3000) / 0.05)^2
-#     = ((0.3583 + 0.2525) / 0.05)^2 = (0.6108/0.05)^2 = 12.216^2 = 149.2 → 150
+#     = ((0.3583 + 0.2525) / 0.05)^2 = (0.6108/0.05)^2 = 12.216^2 = 149.2 -> 150
 #
 # Case 2 (same, power=0.90):
 #   z_b = qnorm(0.90) = 1.2816
 #   n = ((1.6449*0.2179 + 1.2816*0.3000) / 0.05)^2
-#     = ((0.3583 + 0.3845) / 0.05)^2 = (0.7428/0.05)^2 = 14.856^2 = 220.7 → 221
+#     = ((0.3583 + 0.3845) / 0.05)^2 = (0.7428/0.05)^2 = 14.856^2 = 220.7 -> 221
 #
 # Case 3 (two-sided, threshold=0.05, prevalence=0.10, power=0.80):
 #   z_a = qnorm(0.975) = 1.9600
 #   n = ((1.9600*0.2179 + 0.8416*0.3000) / 0.05)^2
-#     = ((0.4271 + 0.2525) / 0.05)^2 = (0.6796/0.05)^2 = 13.592^2 = 184.7 → 185
+#     = ((0.4271 + 0.2525) / 0.05)^2 = (0.6796/0.05)^2 = 13.592^2 = 184.7 -> 185
 
 test_that("Case 1: SRS, one-sided 'greater', 80% power -- hand-checked n=150", {
   res <- design_threshold(threshold = 0.05, prevalence = 0.10)
@@ -135,10 +135,16 @@ test_that("return list has all expected fields in order (SRS)", {
                ignore.order = FALSE)
 })
 
-test_that("n_eff = n / deff always", {
+test_that("n_eff is the SRS-equivalent size: <= n, and n/deff up to rounding", {
   res <- design_threshold(threshold = 0.05, prevalence = 0.10,
                            n_per_site = 10, icc = 0.05)
-  expect_equal(res$n_eff, res$n / res$deff, tolerance = 1e-10)
+  expect_lte(res$n_eff, res$n)
+  # n_eff = ceiling(n_base_cont); n = ceiling(n_base_cont * deff); they agree
+  # to within one ceiling step per side
+  expect_equal(res$n_eff, res$n / res$deff, tolerance = 1)
+  # SRS: n_eff == n exactly
+  srs <- design_threshold(threshold = 0.05, prevalence = 0.10)
+  expect_equal(srs$n_eff, srs$n)
 })
 
 # ---- validation ----
@@ -288,7 +294,7 @@ test_that("n_per_site=1: deff=1, same as SRS", {
 })
 
 test_that("infeasible n_sites with high ICC gives informative error", {
-  # Need to find an n_sites that's too small. n_base for threshold=0.05, prev=0.10 ≈ 150
+  # Need to find an n_sites that's too small. n_base for threshold=0.05, prev=0.10 ~= 150
   # n_sites=5 with icc=0.5: denom = 5 - 150*0.5 = -70 < 0
   expect_error(
     design_threshold(threshold = 0.05, prevalence = 0.10,
@@ -303,7 +309,7 @@ test_that("very large fpc_N barely changes n", {
   expect_equal(r_fpc$n, r_srs$n)
 })
 
-test_that("fpc_N=1: census of 1 person → n=1", {
+test_that("fpc_N=1: census of 1 person -> n=1", {
   res <- design_threshold(threshold = 0.05, prevalence = 0.10, fpc_N = 1)
   expect_equal(res$n, 1)
 })
@@ -343,10 +349,18 @@ test_that("DD-S3: power=0.999: very large n, still finite", {
   expect_gt(res$n, r80$n * 2)
 })
 
-test_that("DD-S4: power=0.001: very small n (trivially easy to achieve)", {
-  res <- design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.001)
-  expect_gte(res$n, 1)
-  expect_true(is.finite(res$n))
+test_that("DD-S4: power < 0.5 is rejected (formula breaks down below 0.5)", {
+  expect_error(
+    design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.001),
+    "at least 0.5"
+  )
+  expect_error(
+    design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.49),
+    "at least 0.5"
+  )
+  # exactly 0.5 is allowed (z_beta = 0)
+  res <- design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.5)
+  expect_true(is.finite(res$n) && res$n >= 1)
 })
 
 test_that("DD-S5: prevalence very close to threshold: large n", {
@@ -365,7 +379,7 @@ test_that("DD-S6: se+sp just above 1: warning emitted, n finite", {
   expect_true(is.finite(res$n))
 })
 
-test_that("DD-S7: n_per_site=1, icc>0 → deff=1, same as SRS", {
+test_that("DD-S7: n_per_site=1, icc>0 -> deff=1, same as SRS", {
   r_srs <- design_threshold(threshold = 0.05, prevalence = 0.10)
   r_1ps <- design_threshold(threshold = 0.05, prevalence = 0.10,
                               n_per_site = 1, icc = 0.5)
@@ -373,7 +387,7 @@ test_that("DD-S7: n_per_site=1, icc>0 → deff=1, same as SRS", {
   expect_equal(r_1ps$n, r_srs$n)
 })
 
-test_that("DD-S8: icc=1, n_per_site=10 → deff=10 (maximum)", {
+test_that("DD-S8: icc=1, n_per_site=10 -> deff=10 (maximum)", {
   res <- design_threshold(threshold = 0.05, prevalence = 0.10,
                            n_per_site = 10, icc = 1)
   expect_equal(res$deff, 10, tolerance = 1e-6)
@@ -388,15 +402,17 @@ test_that("DD-S9: imperfect test shifts apparent_prev and threshold_app", {
   expect_equal(res$apparent_prev, 0.20*0.9 + 0.80*0.2, tolerance = 1e-10)
 })
 
-test_that("DD-S10: n_eff = n/deff in all three design modes", {
+test_that("DD-S10: n_eff <= n and ~ n/deff in all three design modes", {
   r_srs <- design_threshold(threshold = 0.05, prevalence = 0.10)
   r_nps <- design_threshold(threshold = 0.05, prevalence = 0.10,
                               n_per_site = 10, icc = 0.05)
   r_ns  <- design_threshold(threshold = 0.05, prevalence = 0.10,
                               n_sites = 50, icc = 0.05)
-  expect_equal(r_srs$n_eff, r_srs$n / r_srs$deff, tolerance = 1e-10)
-  expect_equal(r_nps$n_eff, r_nps$n / r_nps$deff, tolerance = 1e-10)
-  expect_equal(r_ns$n_eff,  r_ns$n  / r_ns$deff,  tolerance = 1e-10)
+  expect_equal(r_srs$n_eff, r_srs$n)          # SRS: exact
+  expect_lte(r_nps$n_eff, r_nps$n)
+  expect_lte(r_ns$n_eff,  r_ns$n)
+  expect_equal(r_nps$n_eff, r_nps$n / r_nps$deff, tolerance = 1)
+  expect_equal(r_ns$n_eff,  r_ns$n  / r_ns$deff,  tolerance = 1)
 })
 
 test_that("DD-S11: conf_level=0.50 (alpha=0.50) requires fewer samples than 0.95", {
@@ -428,15 +444,15 @@ test_that("DD-S15: n_sites fixed at n_base or above triggers deff<=1 error", {
   )
 })
 
-# ── Second batch of stress tests: DD-S16 through DD-S30 ──────────────────────
+# -- Second batch of stress tests: DD-S16 through DD-S30 ----------------------
 
-test_that("DD-S16: prevalence barely above threshold → n much larger than farther case", {
+test_that("DD-S16: prevalence barely above threshold -> n much larger than farther case", {
   r_far  <- design_threshold(threshold = 0.10, prevalence = 0.20)
   r_near <- design_threshold(threshold = 0.10, prevalence = 0.101)
-  expect_gt(r_near$n, r_far$n * 50)  # tiny delta → enormous n
+  expect_gt(r_near$n, r_far$n * 50)  # tiny delta -> enormous n
 })
 
-test_that("DD-S17: power=0.50 (z_b=0) → n governed by type-I term only", {
+test_that("DD-S17: power=0.50 (z_b=0) -> n governed by type-I term only", {
   res <- design_threshold(threshold = 0.10, prevalence = 0.20, power = 0.50)
   z_a <- qnorm(0.95)
   se0 <- sqrt(0.10 * 0.90)
@@ -444,7 +460,7 @@ test_that("DD-S17: power=0.50 (z_b=0) → n governed by type-I term only", {
   expect_equal(res$n, n_expected)
 })
 
-test_that("DD-S18: two-sided uses qnorm(1-alpha/2) → n strictly larger than one-sided", {
+test_that("DD-S18: two-sided uses qnorm(1-alpha/2) -> n strictly larger than one-sided", {
   r_one <- design_threshold(threshold = 0.10, prevalence = 0.20, alternative = "greater")
   r_two <- design_threshold(threshold = 0.10, prevalence = 0.20, alternative = "two.sided")
   expect_gt(r_two$n, r_one$n)
@@ -458,28 +474,29 @@ test_that("DD-S19: perfect test: n matches closed-form power formula exactly", {
   expect_equal(res$n, n_expected)
 })
 
-test_that("DD-S20: alternative='less' with prevalence < threshold → valid finite n", {
+test_that("DD-S20: alternative='less' with prevalence < threshold -> valid finite n", {
   res <- design_threshold(threshold = 0.20, prevalence = 0.10, alternative = "less")
   expect_gte(res$n, 1)
   expect_true(is.finite(res$n))
   expect_equal(res$alternative, "less")
 })
 
-test_that("DD-S21: n_sites far too small for target power → error (denom <= 0)", {
-  # SRS n ≈ 69; n_sites=3 with icc=0.5 → denom = 3 - 69*0.5 << 0
+test_that("DD-S21: n_sites far too small for target power -> error (denom <= 0)", {
+  # SRS n ~= 69; n_sites=3 with icc=0.5 -> denom = 3 - 69*0.5 << 0
   expect_error(
     design_threshold(threshold = 0.10, prevalence = 0.20, n_sites = 3, icc = 0.5),
     "unachievable"
   )
 })
 
-test_that("DD-S22: n_eff = n / deff exactly, for SRS and clustered modes", {
+test_that("DD-S22: n_eff is SRS-equivalent (== n for SRS, <= n clustered)", {
   r_srs <- design_threshold(threshold = 0.10, prevalence = 0.20)
-  expect_equal(r_srs$n_eff, r_srs$n / r_srs$deff, tolerance = 1e-10)
+  expect_equal(r_srs$n_eff, r_srs$n)
 
   r_cl <- design_threshold(threshold = 0.10, prevalence = 0.20,
                            n_per_site = 10, icc = 0.05)
-  expect_equal(r_cl$n_eff, r_cl$n / r_cl$deff, tolerance = 1e-10)
+  expect_lt(r_cl$n_eff, r_cl$n)
+  expect_equal(r_cl$n_eff, r_cl$n / r_cl$deff, tolerance = 1)
 })
 
 test_that("DD-S23: FPC reduces n relative to infinite-population case", {
@@ -496,7 +513,7 @@ test_that("DD-S24: higher target power monotonically increases required n", {
   expect_lt(r90$n, r99$n)
 })
 
-test_that("DD-S25: imperfect test with small apparent-scale delta → very large n", {
+test_that("DD-S25: imperfect test with small apparent-scale delta -> very large n", {
   # se=sp=0.6 compresses delta: p1_app-theta_app = (prev-thresh)*correction = 0.10*0.2 = 0.02
   res <- design_threshold(threshold = 0.50, prevalence = 0.60,
                           sensitivity = 0.6, specificity = 0.6,
@@ -524,7 +541,7 @@ test_that("DD-S27: apparent_prev and threshold_app use Rogan-Gladen forward tran
   expect_gt(res$apparent_prev, res$threshold_app)
 })
 
-test_that("DD-S28: fixed n_sites path → n_per_site = ceiling(n / n_sites)", {
+test_that("DD-S28: fixed n_sites path -> n_per_site = ceiling(n / n_sites)", {
   k   <- 10
   res <- design_threshold(threshold = 0.10, prevalence = 0.20,
                           n_sites = k, icc = 0.05)
@@ -532,7 +549,7 @@ test_that("DD-S28: fixed n_sites path → n_per_site = ceiling(n / n_sites)", {
   expect_equal(res$n_per_site, ceiling(res$n / k))
 })
 
-test_that("DD-S29: fixed n_per_site path → n_sites = ceiling(n / n_per_site)", {
+test_that("DD-S29: fixed n_per_site path -> n_sites = ceiling(n / n_per_site)", {
   m   <- 20
   res <- design_threshold(threshold = 0.10, prevalence = 0.20,
                           n_per_site = m, icc = 0.05)

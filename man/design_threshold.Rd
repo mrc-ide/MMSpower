@@ -56,7 +56,11 @@ finite-population correction. \code{NULL} (default) = no FPC.}
 \value{
 A named list. Always present:
 \item{n}{Total sample size required}
-\item{n_eff}{Effective independent sample size: \code{n / deff}}
+\item{n_eff}{SRS-equivalent independent sample size the design achieves
+(the base power-formula n before the design effect and FPC). Clustering
+inflates the collected \code{n} above it; the FPC lets it fall below.
+Defined the same way as \code{n_eff} in \code{design_precision()} and
+\code{estimate_prevalence()}.}
 \item{threshold}{Decision threshold as supplied}
 \item{prevalence}{Alternative prevalence as supplied}
 \item{apparent_prev}{Alternative prevalence on the apparent scale}
