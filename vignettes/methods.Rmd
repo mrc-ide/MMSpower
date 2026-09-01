@@ -1,0 +1,379 @@
+---
+title: "Methods: prevalence estimation and its precision"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Methods: prevalence estimation and its precision}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>"
+)
+```
+
+```{r setup}
+library(MMSpower)
+```
+
+## Scope
+
+This vignette documents every equation used by `estimate_prevalence()`, the
+analysis function that turns observed test-positive counts into a prevalence
+point estimate and confidence interval (CI). It covers *why* each adjustment
+is applied, not only the formula, and ends with a worked example that shows
+the intermediate quantities.
+
+`estimate_prevalence()` is the analysis counterpart of the design function
+`design_precision()`: the former reports the precision a completed survey
+achieved, the latter sizes a survey to hit a target precision. They share the
+same variance model, so the two round-trip (see
+[Relationship to `design_precision()`](#relationship-to-design_precision)).
+
+## Notation
+
+| Symbol | Meaning | In the return value |
+|---|---|---|
+| $x_i,\ n_i$ | positive count and total in cluster $i$ | inputs `x`, `n` |
+| $\hat{p}$ | apparent (observed-test) prevalence | — |
+| $p$ | true prevalence | `prevalence` |
+| $Se,\ Sp$ | diagnostic sensitivity, specificity | `sensitivity`, `specificity` |
+| $\bar{n}$ | mean cluster size, $\frac{1}{k}\sum_i n_i$ | — |
+| $\rho$ | intra-cluster correlation (ICC) | `icc_used` |
+| $D_{eff}$ | Kish design effect | `deff` |
+| $n_{total}$ | $\sum_i n_i$ | `n_total` |
+| $n_{eff}$ | effective (independent-equivalent) sample size | `n_eff` |
+| $N$ | population size for the finite-population correction | input `fpc_N` |
+| $f$ | finite-population variance factor | — |
+| $n_{eff,adj}$ | effective sample size after the FPC | — |
+| $z$ | $\Phi^{-1}(1 - \alpha/2)$, with $\alpha = 1 -$ `conf_level` | — |
+
+## The pipeline
+
+The interval is assembled in six stages. Each stage feeds the next:
+
+1. apparent prevalence $\hat{p}$
+2. design effect $D_{eff}$ (from a supplied or estimated ICC)
+3. effective sample size $n_{eff} = n_{total} / D_{eff}$
+4. finite-population correction $\rightarrow n_{eff,adj}$
+5. confidence interval on $\hat{p}$ by the chosen `method`
+6. Rogan-Gladen correction $\hat{p} \rightarrow p$, applied to the point
+   estimate and both endpoints
+
+### 1. Apparent prevalence
+
+$$
+\hat{p} \;=\; \frac{\sum_i x_i}{\sum_i n_i}
+$$
+
+The pooled proportion of test positives. Every CI method operates on
+$\hat{p}$; the correction for an imperfect test (stage 6) is deferred to the
+very end so that it is applied *identically* to the point estimate and to
+both interval endpoints — an affine map of an interval is still an interval,
+so order matters only for clarity, not correctness.
+
+### 2. Design effect (Kish)
+
+Two people sampled from the same village give more similar results than two
+people sampled from the whole country: within-cluster observations are
+positively correlated. A clustered sample of $n_{total}$ observations
+therefore carries the information of *fewer* than $n_{total}$ independent
+ones. The Kish (1965) design effect quantifies the inflation of the variance:
+
+$$
+D_{eff} \;=\; 1 + (\bar{n} - 1)\,\rho
+$$
+
+where $\rho \in [0, 1]$ is the intra-cluster correlation. $\rho = 0$ (or a
+single observation per cluster, $\bar{n} = 1$) gives $D_{eff} = 1$ and the
+simple-random-sample (SRS) case. Taking $\rho = 0$ *by default* would
+understate uncertainty for any genuinely clustered survey, so the function
+does not: it estimates $\rho$ unless you supply one.
+
+#### 2a. ICC supplied (`icc` set)
+
+$\rho$ is used directly in the formula above. Use this when you have an
+external estimate of the ICC (e.g. from a previous survey) or want to run a
+sensitivity analysis across plausible values.
+
+#### 2b. ICC estimated (`icc = NULL`, the default)
+
+With $k \ge 2$ clusters that are not all of size 1, the design effect is
+estimated as the ratio of the **observed** between-cluster variance of the
+site proportions $\hat{p}_i = x_i / n_i$ to the variance **expected under
+SRS**:
+
+$$
+\widehat{D_{eff}}
+  \;=\;
+  \frac{\mathrm{Var}(\hat{p}_i)}
+       {\dfrac{1}{k}\sum_i \dfrac{\hat{p}\,(1 - \hat{p})}{n_i}}
+$$
+
+The numerator is the empirical scatter of the cluster-level proportions; the
+denominator is what that scatter *would* be if the clusters differed only by
+binomial sampling noise. Their ratio is, by definition, the design effect.
+It is floored at 1 (clustering cannot buy you information). The implied ICC
+is recovered by inverting the Kish formula,
+
+$$
+\hat{\rho} \;=\; \frac{\widehat{D_{eff}} - 1}{\bar{n} - 1},
+$$
+
+and clamped to $[0, 1]$. $D_{eff}$ is then **recomputed** from the clamped
+$\hat{\rho}$ so that the returned `deff` and `icc_used` are always mutually
+consistent (they satisfy the Kish identity exactly).
+
+When there is a single cluster, or every cluster has size 1, the Kish
+denominator $\bar{n} - 1$ is 0 and the ICC is not identifiable; the function
+falls back to $D_{eff} = 1$.
+
+> **Caveat.** The variance-ratio estimator is noisy with few clusters. With,
+> say, 3–5 sites it can land at the $[0, 1]$ clamp or swing between runs.
+> If you have a trustworthy external ICC, supplying it is more stable.
+
+### 3. Effective sample size
+
+$$
+n_{eff} \;=\; \frac{n_{total}}{D_{eff}}
+$$
+
+the number of *independent* observations that would carry the same
+information as the clustered sample. This is the quantity every CI method
+actually uses in place of a raw count. Returned as `n_eff`.
+
+### 4. Finite-population correction
+
+The usual binomial variance $\hat{p}(1-\hat{p})/n$ assumes sampling with
+replacement from an infinite population. When you sample a non-trivial
+fraction of a **finite** population of known size $N$ (`fpc_N`), sampling
+*without* replacement leaves less residual uncertainty — in the limit where
+you sample everyone, there is none. The variance is multiplied by
+
+$$
+f \;=\; \frac{N - n_{eff}}{N - 1} \;\in\; (0, 1].
+$$
+
+Instead of carrying $f$ through three different variance expressions, it is
+folded once into an adjusted sample size:
+
+$$
+n_{eff,adj} \;=\; \frac{n_{eff}}{f}
+$$
+
+because dividing the variance's denominator by $f$ is the same as
+multiplying the variance by $f$:
+$\dfrac{\hat{p}(1-\hat{p})}{n_{eff}} \cdot f
+ = \dfrac{\hat{p}(1-\hat{p})}{n_{eff}/f}
+ = \dfrac{\hat{p}(1-\hat{p})}{n_{eff,adj}}$.
+All three CI methods then use $n_{eff,adj}$ and nothing else changes. With no
+FPC (`fpc_N = NULL`), $f = 1$ and $n_{eff,adj} = n_{eff}$.
+
+As $n_{eff} \to N$, $f \to 0$ and $n_{eff,adj} \to \infty$: the sampling
+variance vanishes. The function stops with an informative error before that
+point (you have effectively surveyed the whole population; no CI is needed).
+
+### 5. Confidence interval on apparent prevalence
+
+Let $z = \Phi^{-1}(1 - \alpha/2)$ with $\alpha = 1 -$ `conf_level`, and
+define the effective positive count $x_{eff} = \hat{p}\,n_{eff,adj}$ (a
+continuous quantity — it need not be an integer, which is what lets the
+clustering and FPC adjustments flow through the exact method below).
+
+#### `"wald"` (default)
+
+$$
+\hat{p} \;\pm\; z\,\sqrt{\frac{\hat{p}\,(1 - \hat{p})}{n_{eff,adj}}}
+$$
+
+clamped to $[0, 1]$. The textbook normal approximation. Fast, symmetric, and
+what most readers expect. Its weaknesses: it **under-covers** (true coverage
+< nominal) for small $n_{eff,adj}$ or prevalence near 0 or 1, and it
+degenerates to a zero-width interval when $\hat{p} = 0$ or $1$.
+
+#### `"clopper-pearson"`
+
+The exact binomial interval, obtained through the beta-quantile identity
+(the binomial CDF inverts to a beta quantile):
+
+$$
+L = B^{-1}\!\left(\tfrac{\alpha}{2};\; x_{eff},\; n_{eff,adj} - x_{eff} + 1\right)
+$$
+$$
+U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)
+$$
+
+with $L = 0$ when $\hat{p} = 0$ and $U = 1$ when $\hat{p} = 1$, then clamped
+to $[0, 1]$. "Exact" means coverage is **guaranteed** to be at least
+nominal for every true $p$ — never below 95% for a 95% interval. The price
+is conservatism: the interval is wider than it strictly needs to be. Use it
+for small samples or extreme prevalences, where Wald's under-coverage
+matters and a guarantee is worth the width.
+
+#### `"agresti-coull"`
+
+Add $z^2$ pseudo-observations ($\approx 4$ at 95%, split evenly between
+"positive" and "negative"), then take a Wald interval on the resulting
+adjusted proportion:
+
+$$
+\tilde{n} = n_{eff,adj} + z^2,
+\qquad
+\tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}
+$$
+$$
+\tilde{p} \;\pm\; z\,\sqrt{\frac{\tilde{p}\,(1 - \tilde{p})}{\tilde{n}}}
+$$
+
+clamped to $[0, 1]$. The pseudo-count pulls $\tilde{p}$ toward $1/2$, which
+fixes most of Wald's boundary misbehaviour while keeping a simple
+closed form. Coverage is close to nominal for moderate $n$ without
+Clopper-Pearson's systematic over-width — a sensible middle-ground default.
+
+#### Choosing a method
+
+| Situation | Method |
+|---|---|
+| Moderate/large $n$, prevalence away from 0/1, want the familiar interval | `"wald"` |
+| Need a coverage **guarantee**; small $n$ or very low/high prevalence | `"clopper-pearson"` |
+| Small–moderate $n$, want good coverage without over-width | `"agresti-coull"` |
+
+### 6. Rogan-Gladen correction (imperfect test)
+
+A test with sensitivity $Se < 1$ misses some true positives; specificity
+$Sp < 1$ adds some false positives. The apparent prevalence is a known
+linear function of the true prevalence:
+
+$$
+p_{app} \;=\; p\,Se \;+\; (1 - p)\,(1 - Sp).
+$$
+
+Solving for $p$ gives the Rogan-Gladen (1978) estimator:
+
+$$
+p \;=\; \frac{p_{app} - (1 - Sp)}{Se + Sp - 1}
+$$
+
+This affine map is applied to $\hat{p}$ **and** to both CI endpoints from
+stage 5, and each result is clamped to $[0, 1]$. When $Se = Sp = 1$ it is the
+identity and nothing happens.
+
+The denominator $Se + Sp - 1$ is the Youden index; it must be positive (the
+test must do better than a coin flip) or true prevalence is not identifiable
+from apparent prevalence — the function errors. As $Se + Sp - 1 \to 0$ the
+correction divides by a vanishing number, so both the point estimate and the
+interval blow up; the function warns when it drops below 0.1, where results
+are numerically unreliable.
+
+> **Note on the variance.** `estimate_prevalence()` corrects the *endpoints*
+> by the affine map, which widens the interval by the factor
+> $1/(Se + Sp - 1)$ — the correct first-order (delta-method) behaviour.
+> `design_precision()` uses the same factor squared in the variance when
+> sizing a study.
+
+### Margin of error
+
+From the corrected point estimate `prevalence` ($p$) and endpoints
+`ci_lower`, `ci_upper`:
+
+$$
+\texttt{moe} = \frac{\texttt{ci\_upper} - \texttt{ci\_lower}}{2},
+\qquad
+\texttt{moe\_lower} = p - \texttt{ci\_lower},
+\qquad
+\texttt{moe\_upper} = \texttt{ci\_upper} - p
+$$
+
+For `"wald"` the interval is symmetric about $p$ and all three are equal —
+`moe` alone describes the precision. For `"clopper-pearson"` and
+`"agresti-coull"` the interval is **asymmetric**: `moe` is only the *average*
+of the two half-widths and describes neither side, so report `moe_lower` and
+`moe_upper` together. The function emits a `message()` when they differ
+noticeably.
+
+## Worked example
+
+Eight clustered sites, an imperfect test ($Se = 0.90$, $Sp = 0.95$), 95%
+Clopper-Pearson interval, ICC estimated from the data:
+
+```{r worked}
+x <- c(2, 5, 1, 18, 22, 14, 9, 6)
+n <- c(60, 80, 70, 100, 40, 60, 50, 90)
+
+res <- estimate_prevalence(
+  x = x, n = n,
+  sensitivity = 0.90,
+  specificity = 0.95,
+  method      = "clopper-pearson"
+)
+
+str(res)
+```
+
+Reproducing the intermediate quantities by hand:
+
+```{r worked-check}
+p_hat   <- sum(x) / sum(n)                      # 1. apparent prevalence
+n_bar   <- mean(n)
+p_i     <- x / n
+var_obs <- var(p_i)
+var_srs <- mean(p_hat * (1 - p_hat) / n)
+deff    <- max(var_obs / var_srs, 1)            # 2. design effect (estimated)
+icc     <- min(max((deff - 1) / (n_bar - 1), 0), 1)
+deff    <- 1 + (n_bar - 1) * icc                # recomputed for consistency
+n_eff   <- sum(n) / deff                        # 3. effective sample size
+
+c(p_hat = p_hat, deff = deff, icc = icc, n_eff = n_eff)
+
+# matches the returned values:
+c(deff = res$deff, icc_used = res$icc_used, n_eff = res$n_eff)
+```
+
+```{r worked-rg}
+# 6. Rogan-Gladen: apparent -> true, applied to the point estimate
+Se <- 0.90; Sp <- 0.95
+(p_hat - (1 - Sp)) / (Se + Sp - 1)   # == res$prevalence (up to clamping)
+res$prevalence
+```
+
+Because the method is Clopper-Pearson, the interval is asymmetric — note
+`moe_lower` and `moe_upper` differ, and `moe` sits between them:
+
+```{r worked-moe}
+c(moe_lower = res$moe_lower, moe = res$moe, moe_upper = res$moe_upper)
+```
+
+## Relationship to `design_precision()`
+
+`design_precision()` inverts the Wald variance to size a study for a target
+margin of error `moe`:
+
+$$
+n \;=\; \frac{z^2\, p_{app}(1 - p_{app})\, D_{eff}}
+              {\texttt{moe}^2\,(Se + Sp - 1)^2}
+$$
+
+Sizing with `design_precision(prevalence = p, moe = m, ...)` and then
+analysing a dataset of that size with `estimate_prevalence(..., method =
+"wald")` returns `moe` $\approx m$ — the same $z$, the same $D_{eff}$
+model, the same Rogan-Gladen factor. The two functions are the design-time
+and analysis-time views of one variance model.
+
+The round-trip is exact only for `method = "wald"`. Clopper-Pearson and
+Agresti-Coull produce asymmetric intervals whose average half-width is close
+to, but not identical to, the Wald `moe` that `design_precision()` targets.
+
+## References
+
+- Kish, L. (1965). *Survey Sampling*. Wiley.
+- Clopper, C. J. & Pearson, E. S. (1934). The use of confidence or fiducial
+  limits illustrated in the case of the binomial. *Biometrika*, 26(4),
+  404–413. <https://doi.org/10.1093/biomet/26.4.404>
+- Agresti, A. & Coull, B. A. (1998). Approximate is better than "exact" for
+  interval estimation of binomial proportions. *The American Statistician*,
+  52(2), 119–126. <https://doi.org/10.1080/00031305.1998.10480550>
+- Rogan, W. J. & Gladen, B. (1978). Estimating prevalence from the results
+  of a screening test. *American Journal of Epidemiology*, 107(1), 71–76.
+  <https://doi.org/10.1093/oxfordjournals.aje.a112510>

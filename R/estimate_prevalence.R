@@ -41,31 +41,201 @@
 #'   produce asymmetric intervals; a `message()` is emitted when they differ
 #'   noticeably from the symmetric summary `moe`.
 #'
+#' @section Inputs and outputs:
+#' \strong{Inputs} (function arguments):
+#' \itemize{
+#'   \item \code{x}, \code{n} -- \emph{required}. Equal-length integer
+#'     vectors: per-cluster positive counts and per-cluster totals. One
+#'     element each is a simple random sample; several elements is a
+#'     clustered design.
+#'   \item \code{sensitivity}, \code{specificity} -- diagnostic test
+#'     characteristics. Both \code{1} (the default) means a perfect test and
+#'     no Rogan-Gladen correction.
+#'   \item \code{conf_level} -- confidence level (default \code{0.95}).
+#'   \item \code{icc} -- clustering strength. \code{NULL} (default) estimates
+#'     it from the data; \code{0} forces the simple-random-sample case; a
+#'     value in \[0, 1\] fixes it.
+#'   \item \code{fpc_N} -- total population size for the finite-population
+#'     correction. \code{NULL} (default) applies none.
+#'   \item \code{method} -- CI method: \code{"wald"} (default),
+#'     \code{"clopper-pearson"}, or \code{"agresti-coull"}.
+#' }
+#' \strong{Outputs} (named elements of the returned list):
+#' \itemize{
+#'   \item \emph{Estimate} -- \code{prevalence}, \code{ci_lower},
+#'     \code{ci_upper}: point estimate and confidence limits, all on the
+#'     true-prevalence scale (Rogan-Gladen corrected).
+#'   \item \emph{Precision} -- \code{moe}, \code{moe_lower},
+#'     \code{moe_upper}: interval half-width and the two one-sided distances
+#'     (all equal for \code{"wald"}).
+#'   \item \emph{Design quantities} -- \code{n_total}, \code{n_eff},
+#'     \code{deff}, \code{icc_used}: what the clustering and FPC adjustments
+#'     resolved to.
+#'   \item \emph{Echoed inputs} -- \code{method}, \code{conf_level},
+#'     \code{sensitivity}, \code{specificity}, \code{fpc_N}: returned
+#'     unchanged so a result is self-describing.
+#' }
+#' Field-by-field definitions are under \strong{Value}, below.
+#'
 #' @details
-#' **Rogan-Gladen correction**: an imperfect test inflates apparent
-#' prevalence via false positives and deflates it via false negatives.
-#' The correction recovers true prevalence:
+#' The interval is built in six stages: apparent prevalence, a design
+#' effect for clustering, an effective sample size, an optional
+#' finite-population correction, a confidence interval by the chosen
+#' method, and finally the Rogan-Gladen correction for an imperfect test.
+#' Every equation used, and the reason it is used, follows. The
+#' \code{methods} vignette (\code{vignette("methods", "MMSpower")}) gives
+#' the same material with derivations and a worked example.
 #'
-#' \deqn{p_{\text{true}} = \frac{p_{\text{apparent}} - (1 - Sp)}{Se + Sp - 1}}
+#' \strong{1. Apparent prevalence.} The pooled proportion of test
+#' positives across all clusters,
 #'
-#' This linear transform is applied to CI endpoints as well as the point
-#' estimate. When \eqn{Se = Sp = 1} it is the identity.
+#' \deqn{\hat{p} = \frac{\sum_i x_i}{\sum_i n_i}}
 #'
-#' **Clopper-Pearson and Agresti-Coull with clustering/FPC**: these methods
-#' work on an effective sample size that folds in both the design effect and
-#' FPC: \eqn{n_{adj} = n_{eff} / fpc^2 = (n_{total}/Deff) \cdot (N-1)/(N-n_{eff})}.
-#' This ensures all three methods produce the same interval width as each
-#' other in the Wald-limit, while CP and AC retain their better boundary
-#' behaviour.
+#' Every CI method below operates on \eqn{\hat{p}}. It is corrected for
+#' test imperfection only at stage 6, so the correction applies identically
+#' to the point estimate and to both interval endpoints.
+#'
+#' \strong{2. Design effect (Kish).} Observations within a cluster are
+#' positively correlated, so a clustered sample carries less information
+#' than its nominal size. The Kish (1965) design effect scales the
+#' variance by
+#'
+#' \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
+#'
+#' where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
+#' intra-cluster correlation (ICC). Taking \eqn{\rho = 0} would understate
+#' uncertainty for any genuinely clustered survey.
+#'
+#' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly.
+#'
+#' \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
+#' clusters of size > 1, the design effect is estimated as the ratio of the
+#' observed between-cluster variance of the site proportions to the
+#' variance expected under simple random sampling,
+#'
+#' \deqn{\widehat{D_{eff}} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
+#'
+#' floored at 1. The implied ICC is recovered by inverting the Kish
+#' formula, \eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
+#' clamped to \[0, 1\]; \eqn{D_{eff}} is then recomputed from the clamped
+#' \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
+#' mutually consistent. Estimating \eqn{\rho} rather than assuming it avoids
+#' silently analysing a clustered design as if it were independent. With a
+#' single cluster, or clusters all of size 1, the Kish denominator is
+#' undefined and the SRS case (\eqn{D_{eff} = 1}) is used.
+#'
+#' \strong{3. Effective sample size.}
+#'
+#' \deqn{n_{eff} = \frac{n_{total}}{D_{eff}}}
+#'
+#' the number of independent observations carrying the same information as
+#' the clustered sample. Returned as \code{n_eff}.
+#'
+#' \strong{4. Finite-population correction.} When the sample is a
+#' non-trivial fraction of a population of known size \eqn{N}
+#' (\code{fpc_N}), sampling without replacement reduces the sampling
+#' variance by the factor
+#'
+#' \deqn{f = \frac{N - n_{eff}}{N - 1}}
+#'
+#' Rather than multiply each method's variance by \eqn{f}, the correction
+#' is folded into a single adjusted sample size
+#'
+#' \deqn{n_{eff,adj} = \frac{n_{eff}}{f}}
+#'
+#' shared by all three CI methods (with no FPC, \eqn{f = 1} and
+#' \eqn{n_{eff,adj} = n_{eff}}). This makes the methods agree in the
+#' large-sample limit while each keeps its own boundary behaviour.
+#' \eqn{n_{eff,adj} \to \infty} as \eqn{n_{eff} \to N}; the function stops
+#' before that point, where the sampling variance would be zero.
+#'
+#' \strong{5. Confidence interval on apparent prevalence.} Let
+#' \eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},
+#' and \eqn{x_{eff} = \hat{p}\,n_{eff,adj}}.
+#'
+#' \emph{\code{"wald"}} -- the normal-approximation interval,
+#'
+#' \deqn{\hat{p} \;\pm\; z \sqrt{\frac{\hat{p}(1 - \hat{p})}{n_{eff,adj}}}}
+#'
+#' clamped to \[0, 1\]. Fast and familiar, but under-covers for small
+#' \eqn{n} or prevalence near 0 or 1, and gives a zero-width interval when
+#' \eqn{\hat{p} = 0} or \eqn{1}.
+#'
+#' \emph{\code{"clopper-pearson"}} -- the exact binomial interval, via the
+#' beta-quantile identity,
+#'
+#' \deqn{L = B^{-1}\!\left(\tfrac{\alpha}{2};\; x_{eff},\; n_{eff,adj} - x_{eff} + 1\right)}
+#' \deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
+#'
+#' with \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
+#' \eqn{\hat{p} = 1}. Guarantees at least nominal coverage, so it is the
+#' safe choice for small samples or extreme prevalence, at the cost of
+#' being conservative. Continuous \eqn{x_{eff}} replaces an integer count so
+#' the clustering and FPC adjustments carry through.
+#'
+#' \emph{\code{"agresti-coull"}} -- add \eqn{z^2} pseudo-observations, then
+#' take a Wald interval on the adjusted proportion,
+#'
+#' \deqn{\tilde{n} = n_{eff,adj} + z^2, \qquad \tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}}
+#' \deqn{\tilde{p} \;\pm\; z \sqrt{\frac{\tilde{p}(1 - \tilde{p})}{\tilde{n}}}}
+#'
+#' clamped to \[0, 1\]. Recovers most of Clopper-Pearson's coverage gain
+#' over Wald without the full conservatism; a reasonable default for
+#' moderate \eqn{n}.
+#'
+#' \strong{6. Rogan-Gladen correction.} An imperfect test inflates apparent
+#' prevalence through false positives and deflates it through false
+#' negatives. Inverting \eqn{p_{app} = p\,Se + (1 - p)(1 - Sp)} gives true
+#' prevalence,
+#'
+#' \deqn{p = \frac{p_{app} - (1 - Sp)}{Se + Sp - 1}}
+#'
+#' This affine map is applied identically to \eqn{\hat{p}} and to both CI
+#' endpoints, each result then clamped to \[0, 1\]. When \eqn{Se = Sp = 1}
+#' it is the identity. The denominator \eqn{Se + Sp - 1} must be positive (a
+#' test better than chance); as it approaches 0 the correction inflates the
+#' estimate and its interval without bound, and the function warns below
+#' 0.1.
+#'
+#' \strong{Margin of error.} From the corrected point estimate and
+#' endpoints,
+#'
+#' \deqn{\mathrm{moe} = \frac{ci_{upper} - ci_{lower}}{2}, \quad
+#'       \mathrm{moe\_lower} = p - ci_{lower}, \quad
+#'       \mathrm{moe\_upper} = ci_{upper} - p}
+#'
+#' For \code{"wald"} the interval is symmetric and all three coincide. For
+#' \code{"clopper-pearson"} and \code{"agresti-coull"} the interval is
+#' asymmetric: \code{moe} is only the average of the two half-widths, so
+#' \code{moe_lower} and \code{moe_upper} should be reported together. A
+#' \code{message()} is emitted when they differ noticeably.
+#'
+#' @references
+#' Kish, L. (1965) \emph{Survey Sampling}. Wiley.
+#'
+#' Clopper, C. J. & Pearson, E. S. (1934) The use of confidence or fiducial
+#' limits illustrated in the case of the binomial. \emph{Biometrika}
+#' \strong{26}(4), 404-413. \doi{10.1093/biomet/26.4.404}
+#'
+#' Agresti, A. & Coull, B. A. (1998) Approximate is better than "exact" for
+#' interval estimation of binomial proportions. \emph{The American
+#' Statistician} \strong{52}(2), 119-126. \doi{10.1080/00031305.1998.10480550}
+#'
+#' Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
+#' of a screening test. \emph{American Journal of Epidemiology}
+#' \strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
 #'
 #' @return A named list. The following fields are always present:
 #'   \item{prevalence}{Point estimate of true prevalence (Rogan-Gladen corrected)}
 #'   \item{ci_lower}{Lower confidence limit on the true-prevalence scale}
 #'   \item{ci_upper}{Upper confidence limit on the true-prevalence scale}
-#'   \item{moe}{Symmetric summary: \code{(ci_upper - ci_lower) / 2}. For Wald
-#'     this equals both \code{moe_lower} and \code{moe_upper}. For asymmetric
-#'     methods it is the average half-width -- use \code{moe_lower} /
-#'     \code{moe_upper} for the actual one-sided distances.}
+#'   \item{moe}{Half-width of the interval: \code{(ci_upper - ci_lower) / 2}.
+#'     For \code{"wald"} the interval is symmetric, so \code{moe} equals both
+#'     \code{moe_lower} and \code{moe_upper} and on its own fully describes the
+#'     precision. For \code{"clopper-pearson"} and \code{"agresti-coull"} the
+#'     interval is asymmetric: \code{moe} is only the average of the two
+#'     half-widths and does not describe either side. Report \code{moe_lower}
+#'     and \code{moe_upper} together in that case.}
 #'   \item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
 #'     to lower limit}
 #'   \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
