@@ -523,3 +523,18 @@ test_that("TT-S30: p_value in [0, 1] for all alternatives and extreme x values",
     }
   }
 })
+
+test_that("TT-R7-1: non-numeric sensitivity/conf_level/icc give a friendly class error", {
+  expect_error(test_threshold(x = 30, n = 100, threshold = 0.2, sensitivity = TRUE), "`sensitivity`")
+  expect_error(test_threshold(x = 30, n = 100, threshold = 0.2, conf_level = "0.95"), "`conf_level`")
+  expect_error(test_threshold(x = 30, n = 100, threshold = 0.2, icc = FALSE), "`icc`")
+  expect_error(test_threshold(x = 30, n = 100, threshold = 0.2, sensitivity = list(0.9)), "`sensitivity`")
+})
+
+test_that("TT-R7-2: RG back-transform via .rogan_gladen matches the closed form", {
+  res <- test_threshold(x = 30, n = 100, threshold = 0.2,
+                        sensitivity = 0.9, specificity = 0.95)
+  expect_equal(res$prevalence,
+               (30 / 100 - (1 - 0.95)) / (0.9 + 0.95 - 1),
+               tolerance = 1e-9)
+})

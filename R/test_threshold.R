@@ -143,16 +143,27 @@ test_threshold <- function(x,
   if (!alternative %in% c("greater", "less", "two.sided"))
     stop("`alternative` must be 'greater', 'less', or 'two.sided' (got '",
          alternative, "').")
-  if (is.null(sensitivity) || length(sensitivity) != 1)
+  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), ").")
-  if (is.null(specificity) || length(specificity) != 1)
+         if (is.null(sensitivity)) "NULL"
+         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
+         else paste0("length = ", length(sensitivity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), ").")
-  if (length(conf_level) != 1)
-    stop("`conf_level` must be a single number (got length = ", length(conf_level), ").")
-  if (!is.null(icc) && length(icc) != 1)
-    stop("`icc` must be a single number or NULL (got length = ", length(icc), ").")
+         if (is.null(specificity)) "NULL"
+         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
+         else paste0("length = ", length(specificity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number (got ",
+         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
+         else paste0("length = ", length(conf_level)), ").")
+  if (!is.null(icc) && (length(icc) != 1 || !is.numeric(icc)))
+    stop("`icc` must be a single number or NULL (got ",
+         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
+         else paste0("length = ", length(icc)), "). ",
+         "Set `icc = NULL` to estimate ICC from the data.")
   if (!is.null(fpc_N) && length(fpc_N) != 1)
     stop("`fpc_N` must be a single number or NULL (got length = ", length(fpc_N), ").")
 
@@ -229,7 +240,7 @@ test_threshold <- function(x,
   n_eff_adj <- n_eff / (fpc^2)
 
   # ---- threshold on apparent scale ----
-  theta_app <- threshold * sensitivity + (1 - threshold) * (1 - specificity)
+  theta_app <- .apparent_prev(threshold, sensitivity, specificity)
 
   # ---- z-statistic using null variance ----
   # Null SE evaluated at theta_app, not p_hat, for correct Type I error control.
@@ -257,7 +268,7 @@ test_threshold <- function(x,
   ci_lo_app <- max(p_hat - z_ci * se_est, 0)
   ci_hi_app <- min(p_hat + z_ci * se_est, 1)
 
-  rg <- function(p) (p - (1 - specificity)) / correction
+  rg <- function(p) .rogan_gladen(p, sensitivity, specificity)
 
   prevalence <- max(0, min(1, rg(p_hat)))
   ci_lower   <- max(0, min(1, rg(ci_lo_app)))
