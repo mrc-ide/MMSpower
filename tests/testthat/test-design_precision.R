@@ -367,3 +367,17 @@ test_that("DP-R6-15: prevalence=0.9999 (near-boundary) returns finite n", {
   expect_gte(res$n, 1)
   expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
 })
+
+test_that("DP-R7-1: character prevalence/moe give a friendly class error", {
+  expect_error(design_precision(prevalence = "0.3", moe = 0.05), "`prevalence`")
+  expect_error(design_precision(prevalence = 0.3, moe = "0.05"), "`moe`")
+})
+
+test_that("DP-R7-2: logical params are rejected, not coerced", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = TRUE), "`sensitivity`")
+  expect_error(design_precision(0.3, 0.05, icc = FALSE), "`icc`")
+})
+
+test_that("DP-R7-3: list-valued conf_level gives a friendly class error", {
+  expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)), "`conf_level`")
+})

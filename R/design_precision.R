@@ -115,24 +115,38 @@ design_precision <- function(prevalence,
                               fpc_N       = NULL) {
 
   # ---- validation ----
-  # Reject vectors: all parameters are scalars -- a vector input causes R's
-  # generic "the condition has length > 1" error deep in an if(), not ours.
-  if (length(prevalence) != 1)
-    stop("`prevalence` must be a single number, not a vector (got length ", length(prevalence), ").")
-  if (length(moe) != 1)
-    stop("`moe` must be a single number, not a vector (got length ", length(moe), ").")
-  if (length(icc) != 1)
-    stop("`icc` must be a single number, not a vector (got length ", length(icc), ").")
-  if (length(conf_level) != 1)
-    stop("`conf_level` must be a single number, not a vector (got length ", length(conf_level), ").")
-  if (is.null(sensitivity) || length(sensitivity) != 1)
+  # Reject vectors and non-numeric types: all parameters are numeric scalars.
+  # A vector causes R's generic "the condition has length > 1" error deep in
+  # an if(); a character/logical value slips past the length check and then
+  # either crashes in is.finite() or (for logical) coerces silently.
+  if (length(prevalence) != 1 || !is.numeric(prevalence))
+    stop("`prevalence` must be a single number (got ",
+         if (!is.numeric(prevalence)) paste0("class `", class(prevalence)[1], "`")
+         else paste0("length ", length(prevalence)), ").")
+  if (length(moe) != 1 || !is.numeric(moe))
+    stop("`moe` must be a single number (got ",
+         if (!is.numeric(moe)) paste0("class `", class(moe)[1], "`")
+         else paste0("length ", length(moe)), ").")
+  if (length(icc) != 1 || !is.numeric(icc))
+    stop("`icc` must be a single number (got ",
+         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
+         else paste0("length ", length(icc)), "). Use 0 for an unclustered (SRS) design.")
+  if (length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number (got ",
+         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
+         else paste0("length ", length(conf_level)), ").")
+  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), "). ",
-         "Leave at the default (1) for a perfect test.")
-  if (is.null(specificity) || length(specificity) != 1)
+         if (is.null(sensitivity)) "NULL"
+         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
+         else paste0("length = ", length(sensitivity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), "). ",
-         "Leave at the default (1) for a perfect test.")
+         if (is.null(specificity)) "NULL"
+         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
+         else paste0("length = ", length(specificity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
