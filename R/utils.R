@@ -10,12 +10,12 @@
   list(lower = center - margin, upper = center + margin)
 }
 
-# True prevalence → apparent prevalence (forward Rogan-Gladen).
+# True prevalence -> apparent prevalence (forward Rogan-Gladen).
 .apparent_prev <- function(prevalence, sensitivity, specificity) {
   prevalence * sensitivity + (1 - prevalence) * (1 - specificity)
 }
 
-# Apparent prevalence → true prevalence (inverse Rogan-Gladen).
+# Apparent prevalence -> true prevalence (inverse Rogan-Gladen).
 .rogan_gladen <- function(p_apparent, sensitivity, specificity) {
   (p_apparent - (1 - specificity)) / (sensitivity + specificity - 1)
 }
@@ -23,13 +23,13 @@
 # Compute design effect (DEFF) from ICC and cluster size.
 #
 # Returns a list:
-#   deff       – Kish design effect (>= 1); 1 means no clustering
-#   n_per_site – cluster size used (may be NULL)
-#   n_sites    – number of sites supplied (may be NULL)
+#   deff       -- Kish design effect (>= 1); 1 means no clustering
+#   n_per_site -- cluster size used (may be NULL)
+#   n_sites    -- number of sites supplied (may be NULL)
 #
 # Planned but not yet implemented:
-#   allocation = "pps"  – proportional-to-size allocation
-#   weighting  = "site" – site-level weighting
+#   allocation = "pps"  -- proportional-to-size allocation
+#   weighting  = "site" -- site-level weighting
 .sampling_design <- function(
   n_per_site = NULL,
   n_sites    = NULL,
