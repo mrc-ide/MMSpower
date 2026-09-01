@@ -22,6 +22,35 @@ knitr::opts_chunk$set(
 
 The goal of MMSpower is to ...
 
+## !!! UNRESOLVED - `design_detection()` does not use specificity
+
+**This must be addressed before `design_detection()` is treated as
+validated.** The function currently computes the per-sample detection
+probability as
+
+```
+q = prevalence * sensitivity
+```
+
+and **ignores `specificity` entirely** (it is validated and echoed back,
+but does not enter the formula). This follows the standard surveillance /
+"freedom from disease" basis (Cannon & Roe 1982; Cannon 2001), where
+detection means catching a *true* occurrence and false positives are
+handled separately.
+
+Two decisions are still open and need the team:
+
+1. Should "detection" mean **"detect a true occurrence"** (current,
+   `q = p * Se`) or **"observe any positive result"** (the
+   apparent-prevalence basis `q = p*Se + (1-p)*(1-Sp)` used by every other
+   function in this package via `.apparent_prev()`)?
+2. If false positives are in scope, how should a "detection" that is
+   actually a false positive be reported or discounted?
+
+Until this is settled, treat any `design_detection()` result with
+`specificity < 1` as provisional. See the "Known limitation" section in
+`?design_detection`.
+
 ## Installation
 
 You can install the development version of MMSpower from [GitHub](https://github.com/) with:
