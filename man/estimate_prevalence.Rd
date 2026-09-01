@@ -45,19 +45,24 @@ A named list. The following fields are always present:
 \item{ci_lower}{Lower confidence limit on the true-prevalence scale}
 \item{ci_upper}{Upper confidence limit on the true-prevalence scale}
 \item{moe}{Half-width of the interval: \code{(ci_upper - ci_lower) / 2}.
-For \code{"wald"} the interval is symmetric, so \code{moe} equals both
-\code{moe_lower} and \code{moe_upper} and on its own fully describes the
-precision. For \code{"clopper-pearson"} and \code{"agresti-coull"} the
-interval is asymmetric: \code{moe} is only the average of the two
-half-widths and does not describe either side. Report \code{moe_lower}
-and \code{moe_upper} together in that case.}
+For \code{"wald"} it equals both \code{moe_lower} and \code{moe_upper} and
+fully describes the precision -- unless an endpoint was clamped to [0, 1],
+which makes even the Wald interval asymmetric. For \code{"clopper-pearson"}
+and \code{"agresti-coull"} the interval is asymmetric by construction:
+\code{moe} is only the average of the two half-widths and does not describe
+either side. Whenever the interval is asymmetric, report \code{moe_lower}
+and \code{moe_upper} together.}
 \item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
 to lower limit}
 \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
 to upper limit}
 \item{method}{CI method used (as supplied)}
 \item{n_total}{Total samples across all clusters}
-\item{n_eff}{Effective independent sample size: \code{n_total / deff}}
+\item{n_eff}{Effective independent sample size before the FPC:
+\code{n_total / deff}}
+\item{n_eff_adj}{Effective sample size the CI is actually built from:
+\code{n_eff} divided by the squared FPC factor (equals \code{n_eff} when
+\code{fpc_N} is \code{NULL})}
 \item{conf_level}{Confidence level (as supplied)}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
@@ -218,11 +223,14 @@ endpoints,
       \mathrm{moe\_lower} = p - ci_{lower}, \quad
       \mathrm{moe\_upper} = ci_{upper} - p}
 
-For \code{"wald"} the interval is symmetric and all three coincide. For
-\code{"clopper-pearson"} and \code{"agresti-coull"} the interval is
-asymmetric: \code{moe} is only the average of the two half-widths, so
-\code{moe_lower} and \code{moe_upper} should be reported together. A
-\code{message()} is emitted when they differ noticeably.
+For \code{"wald"} the interval is usually symmetric and all three
+coincide -- unless an endpoint is clamped to [0, 1] (very low or high
+prevalence), which makes it asymmetric too. For \code{"clopper-pearson"}
+and \code{"agresti-coull"} the interval is asymmetric by construction:
+\code{moe} is only the average of the two half-widths, so \code{moe_lower}
+and \code{moe_upper} should be reported together. A \code{message()} is
+emitted whenever the two half-widths differ by more than 10\% of
+\code{moe}, whichever method produced it.
 }
 \section{Inputs and outputs}{
 

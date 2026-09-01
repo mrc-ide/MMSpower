@@ -170,16 +170,16 @@ test_that("round-trip: estimate_prevalence recovers design_precision MOE (cluste
   # design_precision(0.3, 0.05, n_per_site=10, icc=0.05) -> 47 sites of 10
   # observe 30% per site -> x = 3 per site
   # icc MUST be supplied explicitly: identical clusters give estimated icc=0 (no between-cluster
-  # variance to estimate from), which would return moe ≈ 0.041, not 0.05.
+  # variance to estimate from), which would return moe ~= 0.041, not 0.05.
   res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
   expect_equal(res$moe, 0.05, tolerance = 5e-3)
 })
 
 test_that("round-trip caveat: without icc supplied, identical clusters estimate icc=0 and round-trip fails", {
   # This test documents the limitation: the clustered round-trip only holds when icc is supplied.
-  # Identical cluster prevalences → var_obs = 0 → estimated icc = 0 → deff = 1 → moe ≈ SRS moe.
+  # Identical cluster prevalences -> var_obs = 0 -> estimated icc = 0 -> deff = 1 -> moe ~= SRS moe.
   # design_precision assumed icc=0.05 and returned n=468 (47 sites x 10); EP without icc gives
-  # moe ≈ 0.041 (SRS-like), not the 0.05 that design_precision targeted.
+  # moe ~= 0.041 (SRS-like), not the 0.05 that design_precision targeted.
   res_no_icc  <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
   res_with_icc <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
 
@@ -192,7 +192,7 @@ test_that("round-trip caveat: without icc supplied, identical clusters estimate 
 # ---- Round 4: 15 new edge cases ----
 
 test_that("EP-1: all-zero prevalence collapses CI to [0, 0]", {
-  # p=0 → se=0 → Wald CI=[0,0], moe=0. All outputs finite.
+  # p=0 -> se=0 -> Wald CI=[0,0], moe=0. All outputs finite.
   res <- estimate_prevalence(x = c(0, 0, 0), n = c(10, 10, 10))
   expect_equal(res$prevalence,      0)
   expect_equal(res$ci_lower,        0)
@@ -226,7 +226,7 @@ test_that("EP-4: conf_level=0.99 produces wider CI than 0.95", {
   expect_equal(width99 / width95, 2.576 / 1.960, tolerance = 0.01)
 })
 
-test_that("EP-5: supplied icc=1 (maximum) → deff=n_bar, n_eff=n_clusters", {
+test_that("EP-5: supplied icc=1 (maximum) -> deff=n_bar, n_eff=n_clusters", {
   # deff = 1 + (n_bar - 1)*1 = n_bar = 10
   # n_eff = 100 / 10 = 10 = n_clusters
   res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1)
@@ -234,7 +234,7 @@ test_that("EP-5: supplied icc=1 (maximum) → deff=n_bar, n_eff=n_clusters", {
   expect_equal(res$n_eff, 10,  tolerance = 1e-10)
 })
 
-test_that("EP-6: identical cluster prevalences → estimated ICC=0, deff=1", {
+test_that("EP-6: identical cluster prevalences -> estimated ICC=0, deff=1", {
   # No between-cluster variation: var_obs=0, so deff=max(0,1)=1, icc=0
   res <- estimate_prevalence(x = rep(3, 8), n = rep(10, 8))
   expect_equal(res$icc_used, 0, tolerance = 1e-10)
@@ -248,8 +248,8 @@ test_that("EP-7: character x gives informative type error (not NA/NaN/Inf messag
   )
 })
 
-test_that("EP-8: fpc_N = n_total (SRS census) → error: n_eff = fpc_N, variance undefined", {
-  # SRS: n_eff = n_total = fpc_N → fpc = 0 → CI undefined. Clustered case is valid.
+test_that("EP-8: fpc_N = n_total (SRS census) -> error: n_eff = fpc_N, variance undefined", {
+  # SRS: n_eff = n_total = fpc_N -> fpc = 0 -> CI undefined. Clustered case is valid.
   expect_error(
     estimate_prevalence(x = 30, n = 100, fpc_N = 100),
     "n_eff"
@@ -258,7 +258,7 @@ test_that("EP-8: fpc_N = n_total (SRS census) → error: n_eff = fpc_N, variance
 
 test_that("EP-9: sensitivity=0.5, specificity=1 doubles the prevalence estimate", {
   # correction = 0.5; p_true = p_apparent / 0.5 = 2 * p_apparent
-  # x=15, n=100 → p_apparent=0.15 → p_true=0.30
+  # x=15, n=100 -> p_apparent=0.15 -> p_true=0.30
   res <- estimate_prevalence(x = 15, n = 100, sensitivity = 0.5, specificity = 1)
   expect_equal(res$prevalence, 0.30, tolerance = 1e-6)
 })
@@ -270,8 +270,8 @@ test_that("EP-10: integer inputs 100L, 1000L work identically to double", {
   expect_equal(r_int$moe, r_dbl$moe)
 })
 
-test_that("EP-11: maximum between-cluster heterogeneity → icc=1, deff=n_bar", {
-  # Two clusters: one all-negative, one all-positive → ICC clamped to 1
+test_that("EP-11: maximum between-cluster heterogeneity -> icc=1, deff=n_bar", {
+  # Two clusters: one all-negative, one all-positive -> ICC clamped to 1
   res <- estimate_prevalence(x = c(0, 10), n = c(10, 10))
   expect_equal(res$icc_used, 1,  tolerance = 1e-10)
   expect_equal(res$deff,     10, tolerance = 1e-10)
@@ -288,7 +288,7 @@ test_that("EP-12: fpc_N=Inf is rejected", {
 test_that("EP-13: very large fpc_N has negligible effect on moe", {
   r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 1e8)
   r_no  <- estimate_prevalence(x = 30, n = 100)
-  # FPC factor ≈ sqrt((1e8 - 100) / (1e8 - 1)) ≈ 1 − 5e-7
+  # FPC factor ~= sqrt((1e8 - 100) / (1e8 - 1)) ~= 1 - 5e-7
   expect_equal(r_fpc$moe, r_no$moe, tolerance = 1e-5)
 })
 
@@ -316,7 +316,7 @@ test_that("EP-R5-1: n as character gives informative type error", {
   )
 })
 
-test_that("EP-R5-2: length mismatch x=length 3, n=length 2 → informative error", {
+test_that("EP-R5-2: length mismatch x=length 3, n=length 2 -> informative error", {
   expect_error(
     estimate_prevalence(x = c(1, 2, 3), n = c(10, 10)),
     "same length"
@@ -360,7 +360,7 @@ test_that("EP-R5-7: unequal cluster sizes return finite, correct n_total", {
 })
 
 test_that("EP-R5-8: RG-corrected p > 1 is clamped to 1 without error", {
-  # p_apparent=1, se=0.8, sp=0.9 → p_true = (1-0.1)/0.7 = 1.286 → clamped to 1
+  # p_apparent=1, se=0.8, sp=0.9 -> p_true = (1-0.1)/0.7 = 1.286 -> clamped to 1
   res <- estimate_prevalence(x = 1, n = 1, sensitivity = 0.8, specificity = 0.9)
   expect_equal(res$prevalence, 1)
   expect_true(is.finite(res$moe))
@@ -400,7 +400,7 @@ test_that("EP-R6-4: n=0 at position 2 gives position-aware error", {
   )
 })
 
-test_that("EP-R6-5: x=99, n=100 → CI upper clamped to 1", {
+test_that("EP-R6-5: x=99, n=100 -> CI upper clamped to 1", {
   res <- estimate_prevalence(x = 99, n = 100)
   expect_equal(res$prevalence, 0.99, tolerance = 1e-6)
   expect_equal(res$ci_upper,   1.0,  tolerance = 1e-10)
@@ -478,8 +478,8 @@ test_that("EP-R6-15: very unequal clusters (1 vs 1000) return finite output", {
 })
 
 test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC formula", {
-  # n_bar = mean(c(1,1,1,1)) = 1 → Kish denominator (n_bar-1) = 0 → div/0 without guard
-  # Guard: n_bar==1 → icc_used=0, deff=1 (same path as single-cluster guard)
+  # n_bar = mean(c(1,1,1,1)) = 1 -> Kish denominator (n_bar-1) = 0 -> div/0 without guard
+  # Guard: n_bar==1 -> icc_used=0, deff=1 (same path as single-cluster guard)
   res <- estimate_prevalence(x = c(0, 1, 0, 1), n = c(1, 1, 1, 1))
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
@@ -493,7 +493,7 @@ test_that("return list contains all expected fields (wald default)", {
   res <- estimate_prevalence(x = 30, n = 100)
   expect_named(res, c("prevalence", "ci_lower", "ci_upper", "moe",
                        "moe_lower", "moe_upper", "method",
-                       "n_total", "n_eff", "conf_level",
+                       "n_total", "n_eff", "n_eff_adj", "conf_level",
                        "sensitivity", "specificity", "icc_used", "deff", "fpc_N"),
                ignore.order = FALSE)
 })
@@ -578,7 +578,7 @@ test_that("clopper-pearson with imperfect test applies Rogan-Gladen to CI endpoi
   res_imperfect <- estimate_prevalence(x = 30, n = 100,
                                         sensitivity = 0.9, specificity = 0.95,
                                         method = "clopper-pearson")
-  # Imperfect test: correction = 0.85 < 1 → wider CI (moe inflated by 1/correction)
+  # Imperfect test: correction = 0.85 < 1 -> wider CI (moe inflated by 1/correction)
   expect_gt(res_imperfect$moe, res_perfect$moe)
   # Point estimate shifted by RG
   expect_false(isTRUE(all.equal(res_imperfect$prevalence, res_perfect$prevalence)))
@@ -589,7 +589,7 @@ test_that("clopper-pearson with clustering widens CI via deff", {
                                        icc = 0,    method = "clopper-pearson")
   res_clustered <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
                                         icc = 0.05, method = "clopper-pearson")
-  # Clustering inflates n_eff (deff > 1) → wider interval
+  # Clustering inflates n_eff (deff > 1) -> wider interval
   expect_gt(res_clustered$ci_upper - res_clustered$ci_lower,
             res_srs$ci_upper       - res_srs$ci_lower)
 })
@@ -645,4 +645,24 @@ test_that("EP-R7-3: list-valued scalar params give a friendly class error, not a
 test_that("EP-R7-4: near-symmetric clopper-pearson interval emits no asymmetry message", {
   # p_hat = 0.5, large n: the two half-widths differ by < 10% of moe
   expect_no_message(estimate_prevalence(x = 500, n = 1000, method = "clopper-pearson"))
+})
+
+test_that("EP-R7-5: a supplied icc has no effect with a single cluster", {
+  a <- estimate_prevalence(x = 8, n = 50)
+  b <- estimate_prevalence(x = 8, n = 50, icc = 0.05)
+  expect_equal(b$deff, 1)
+  expect_equal(b$icc_used, 0)
+  expect_equal(a$moe, b$moe)
+})
+
+test_that("EP-R7-6: n_eff_adj equals n_eff without FPC, exceeds it with FPC", {
+  no_fpc <- estimate_prevalence(x = 30, n = 100)
+  expect_equal(no_fpc$n_eff_adj, no_fpc$n_eff)
+
+  with_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 400)
+  expect_gt(with_fpc$n_eff_adj, with_fpc$n_eff)
+})
+
+test_that("EP-R7-7: Wald interval clamped at a boundary emits the asymmetry message", {
+  expect_message(estimate_prevalence(x = 99, n = 100, method = "wald"), "asymmetric")
 })

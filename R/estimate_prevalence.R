@@ -204,11 +204,14 @@
 #'       \mathrm{moe\_lower} = p - ci_{lower}, \quad
 #'       \mathrm{moe\_upper} = ci_{upper} - p}
 #'
-#' For \code{"wald"} the interval is symmetric and all three coincide. For
-#' \code{"clopper-pearson"} and \code{"agresti-coull"} the interval is
-#' asymmetric: \code{moe} is only the average of the two half-widths, so
-#' \code{moe_lower} and \code{moe_upper} should be reported together. A
-#' \code{message()} is emitted when they differ noticeably.
+#' For \code{"wald"} the interval is usually symmetric and all three
+#' coincide -- unless an endpoint is clamped to \[0, 1\] (very low or high
+#' prevalence), which makes it asymmetric too. For \code{"clopper-pearson"}
+#' and \code{"agresti-coull"} the interval is asymmetric by construction:
+#' \code{moe} is only the average of the two half-widths, so \code{moe_lower}
+#' and \code{moe_upper} should be reported together. A \code{message()} is
+#' emitted whenever the two half-widths differ by more than 10\% of
+#' \code{moe}, whichever method produced it.
 #'
 #' @references
 #' Kish, L. (1965) \emph{Survey Sampling}. Wiley.
@@ -230,19 +233,24 @@
 #'   \item{ci_lower}{Lower confidence limit on the true-prevalence scale}
 #'   \item{ci_upper}{Upper confidence limit on the true-prevalence scale}
 #'   \item{moe}{Half-width of the interval: \code{(ci_upper - ci_lower) / 2}.
-#'     For \code{"wald"} the interval is symmetric, so \code{moe} equals both
-#'     \code{moe_lower} and \code{moe_upper} and on its own fully describes the
-#'     precision. For \code{"clopper-pearson"} and \code{"agresti-coull"} the
-#'     interval is asymmetric: \code{moe} is only the average of the two
-#'     half-widths and does not describe either side. Report \code{moe_lower}
-#'     and \code{moe_upper} together in that case.}
+#'     For \code{"wald"} it equals both \code{moe_lower} and \code{moe_upper}
+#'     and fully describes the precision -- unless an endpoint was clamped to
+#'     \[0, 1\], which makes even the Wald interval asymmetric. For
+#'     \code{"clopper-pearson"} and \code{"agresti-coull"} the interval is
+#'     asymmetric by construction: \code{moe} is only the average of the two
+#'     half-widths and does not describe either side. Whenever the interval is
+#'     asymmetric, report \code{moe_lower} and \code{moe_upper} together.}
 #'   \item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
 #'     to lower limit}
 #'   \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
 #'     to upper limit}
 #'   \item{method}{CI method used (as supplied)}
 #'   \item{n_total}{Total samples across all clusters}
-#'   \item{n_eff}{Effective independent sample size: \code{n_total / deff}}
+#'   \item{n_eff}{Effective independent sample size before the FPC:
+#'     \code{n_total / deff}}
+#'   \item{n_eff_adj}{Effective sample size the CI is actually built from:
+#'     \code{n_eff} divided by the squared FPC factor (equals \code{n_eff}
+#'     when \code{fpc_N} is \code{NULL})}
 #'   \item{conf_level}{Confidence level (as supplied)}
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
@@ -422,6 +430,12 @@ estimate_prevalence <- function(x,
       icc_used <- min(max(icc_used, 0), 1)
       deff     <- 1 + (n_bar - 1) * icc_used  # keep pair mutually consistent
     }
+  } else if (n_clusters < 2 || n_bar == 1) {
+    # A supplied icc has no effect with a single cluster (or clusters all of
+    # size 1): the Kish denominator is undefined, so fall back to SRS -- same
+    # as the icc = NULL path above.
+    icc_used <- 0
+    deff     <- 1
   } else {
     icc_used <- icc
     deff     <- 1 + (n_bar - 1) * icc_used
@@ -489,10 +503,13 @@ estimate_prevalence <- function(x,
   moe_lower <- prevalence - ci_lower
   moe_upper <- ci_upper - prevalence
 
-  if (method != "wald" && moe > 0 && abs(moe_lower - moe_upper) > 0.1 * moe)
+  # Fires for the asymmetric methods, and also for "wald" when an endpoint
+  # has been clamped to [0, 1] (which breaks its usual symmetry).
+  if (moe > 0 && abs(moe_lower - moe_upper) > 0.1 * moe)
     message(method, " CI is asymmetric: moe_lower = ", round(moe_lower, 4),
             ", moe_upper = ", round(moe_upper, 4),
-            ". moe = ", round(moe, 4), " is the average half-width.")
+            ". moe = ", round(moe, 4), " is the average half-width; ",
+            "report moe_lower and moe_upper separately.")
 
   list(
     prevalence  = prevalence,
@@ -504,6 +521,7 @@ estimate_prevalence <- function(x,
     method      = method,
     n_total     = n_total,
     n_eff       = n_eff,
+    n_eff_adj   = n_eff_adj,
     conf_level  = conf_level,
     sensitivity = sensitivity,
     specificity = specificity,
