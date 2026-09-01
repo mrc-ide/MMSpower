@@ -114,8 +114,10 @@ design_threshold <- function(threshold,
          class(prevalence)[1], "`, length ", length(prevalence), ").")
   if (!is.finite(prevalence) || prevalence <= 0 || prevalence >= 1)
     stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, ").")
-  if (length(power) != 1)
-    stop("`power` must be a single number (got length ", length(power), ").")
+  if (length(power) != 1 || !is.numeric(power))
+    stop("`power` must be a single number (got ",
+         if (!is.numeric(power)) paste0("class `", class(power)[1], "`")
+         else paste0("length ", length(power)), ").")
   if (!is.finite(power) || power <= 0 || power >= 1)
     stop("`power` must be strictly between 0 and 1 (got ", power, "). ",
          "Use, e.g., 0.80 for 80% power.")
@@ -124,16 +126,26 @@ design_threshold <- function(threshold,
   if (!alternative %in% c("greater", "less", "two.sided"))
     stop("`alternative` must be 'greater', 'less', or 'two.sided' (got '",
          alternative, "').")
-  if (is.null(sensitivity) || length(sensitivity) != 1)
+  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), ").")
-  if (is.null(specificity) || length(specificity) != 1)
+         if (is.null(sensitivity)) "NULL"
+         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
+         else paste0("length = ", length(sensitivity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), ").")
-  if (length(conf_level) != 1)
-    stop("`conf_level` must be a single number (got length = ", length(conf_level), ").")
-  if (length(icc) != 1)
-    stop("`icc` must be a single number (got length ", length(icc), ").")
+         if (is.null(specificity)) "NULL"
+         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
+         else paste0("length = ", length(specificity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number (got ",
+         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
+         else paste0("length = ", length(conf_level)), ").")
+  if (length(icc) != 1 || !is.numeric(icc))
+    stop("`icc` must be a single number (got ",
+         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
+         else paste0("length ", length(icc)), "). Use 0 for an unclustered (SRS) design.")
 
   if (!is.finite(sensitivity))
     stop("`sensitivity` must be a finite number (got ", sensitivity, ").")

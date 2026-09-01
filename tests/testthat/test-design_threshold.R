@@ -547,3 +547,15 @@ test_that("DD-S30: conf_level=0.90 (alpha=0.10) uses qnorm(0.90) for one-sided z
   n_expected <- ceiling(((z_a * se0 + z_b * se1) / 0.10)^2)
   expect_equal(res$n, n_expected)
 })
+
+test_that("DT-R7-1: non-numeric power/conf_level/icc give a friendly class error", {
+  expect_error(design_threshold(0.05, 0.10, power = "0.8"), "`power`")
+  expect_error(design_threshold(0.05, 0.10, conf_level = "0.95"), "`conf_level`")
+  expect_error(design_threshold(0.05, 0.10, icc = "0"), "`icc`")
+})
+
+test_that("DT-R7-2: logical params are rejected, not coerced", {
+  expect_error(design_threshold(0.05, 0.10, power = TRUE), "`power`")
+  expect_error(design_threshold(0.05, 0.10, sensitivity = TRUE), "`sensitivity`")
+  expect_error(design_threshold(0.05, 0.10, icc = FALSE), "`icc`")
+})
