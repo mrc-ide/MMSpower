@@ -321,18 +321,26 @@ estimate_prevalence <- function(x,
          "Positive counts cannot exceed the total tested per cluster.")
 
   # ---- validate scalar parameters ----
-  if (is.null(sensitivity) || length(sensitivity) != 1)
+  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL" else paste0("length = ", length(sensitivity)), "). ",
-         "Leave at the default (1) for a perfect test.")
-  if (is.null(specificity) || length(specificity) != 1)
+         if (is.null(sensitivity)) "NULL"
+         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
+         else paste0("length = ", length(sensitivity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL" else paste0("length = ", length(specificity)), "). ",
-         "Leave at the default (1) for a perfect test.")
-  if (length(conf_level) != 1)
-    stop("`conf_level` must be a single number (got length = ", length(conf_level), ").")
-  if (!is.null(icc) && length(icc) != 1)
-    stop("`icc` must be a single number or NULL (got length = ", length(icc), "). ",
+         if (is.null(specificity)) "NULL"
+         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
+         else paste0("length = ", length(specificity)), "). ",
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number (got ",
+         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
+         else paste0("length = ", length(conf_level)), "). Use, e.g., 0.95.")
+  if (!is.null(icc) && (length(icc) != 1 || !is.numeric(icc)))
+    stop("`icc` must be a single number or NULL (got ",
+         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
+         else paste0("length = ", length(icc)), "). ",
          "Set `icc = NULL` to estimate ICC from the data.")
   if (!is.null(fpc_N) && length(fpc_N) != 1)
     stop("`fpc_N` must be a single number or NULL (got length = ", length(fpc_N), "). ",
@@ -471,7 +479,7 @@ estimate_prevalence <- function(x,
   # -----------------------------------------------------------------
   # Rogan-Gladen correction: apparent -> true prevalence
   # -----------------------------------------------------------------
-  rg <- function(p) (p - (1 - specificity)) / correction
+  rg <- function(p) .rogan_gladen(p, sensitivity, specificity)
 
   prevalence <- max(0, min(1, rg(p_hat)))
   ci_lower   <- max(0, min(1, rg(ci_lo_app)))
@@ -481,7 +489,7 @@ estimate_prevalence <- function(x,
   moe_lower <- prevalence - ci_lower
   moe_upper <- ci_upper - prevalence
 
-  if (method != "wald" && abs(moe_lower - moe_upper) > 1e-6)
+  if (method != "wald" && moe > 0 && abs(moe_lower - moe_upper) > 0.1 * moe)
     message(method, " CI is asymmetric: moe_lower = ", round(moe_lower, 4),
             ", moe_upper = ", round(moe_upper, 4),
             ". moe = ", round(moe, 4), " is the average half-width.")

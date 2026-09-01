@@ -624,3 +624,25 @@ test_that("wald emits no message about asymmetry", {
     estimate_prevalence(x = 30, n = 100, method = "wald")
   )
 })
+
+test_that("EP-R7-1: logical sensitivity/specificity are rejected, not coerced", {
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = TRUE), "`sensitivity`")
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = FALSE), "`specificity`")
+})
+
+test_that("EP-R7-2: logical icc is rejected with a class error, not returned as icc_used", {
+  expect_error(
+    estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = FALSE),
+    "`icc`"
+  )
+})
+
+test_that("EP-R7-3: list-valued scalar params give a friendly class error, not a raw R error", {
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = list(0.9)), "`sensitivity`")
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level  = list(0.95)), "`conf_level`")
+})
+
+test_that("EP-R7-4: near-symmetric clopper-pearson interval emits no asymmetry message", {
+  # p_hat = 0.5, large n: the two half-widths differ by < 10% of moe
+  expect_no_message(estimate_prevalence(x = 500, n = 1000, method = "clopper-pearson"))
+})
