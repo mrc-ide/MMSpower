@@ -50,9 +50,13 @@ is a non-trivial fraction of the population. \code{NULL} (default) = no FPC.}
 \value{
 A named list. The following fields are always present:
 \item{n}{Total sample size required (ceiling of the continuous solution)}
-\item{n_eff}{Effective independent sample size: \code{n / deff}. Accounts
-for clustering and the finite-population correction. This is the
-equivalent number of independent (SRS) observations your design is worth.}
+\item{n_eff}{SRS-equivalent independent sample size the design achieves:
+the number of independent observations needed to hit the same \code{moe}
+(equal to the base SRS sample size before the design effect and FPC).
+Clustering inflates the collected \code{n} above this; the FPC lets it
+fall below. Always \eqn{\le} \code{n}, with equality only for an
+unclustered design with no FPC. Defined the same way as \code{n_eff}
+in \code{estimate_prevalence()} so the two functions round-trip.}
 \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 \code{prevalence}, \code{sensitivity}, and \code{specificity}}
 \item{moe}{Target MOE (as supplied)}

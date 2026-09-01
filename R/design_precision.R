@@ -67,9 +67,13 @@
 #'
 #' @return A named list. The following fields are always present:
 #'   \item{n}{Total sample size required (ceiling of the continuous solution)}
-#'   \item{n_eff}{Effective independent sample size: \code{n / deff}. Accounts
-#'     for clustering and the finite-population correction. This is the
-#'     equivalent number of independent (SRS) observations your design is worth.}
+#'   \item{n_eff}{SRS-equivalent independent sample size the design achieves:
+#'     the number of independent observations needed to hit the same \code{moe}
+#'     (equal to the base SRS sample size before the design effect and FPC).
+#'     Clustering inflates the collected \code{n} above this; the FPC lets it
+#'     fall below. Always \eqn{\le} \code{n}, with equality only for an
+#'     unclustered design with no FPC. Defined the same way as \code{n_eff}
+#'     in \code{estimate_prevalence()} so the two functions round-trip.}
 #'   \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 #'     \code{prevalence}, \code{sensitivity}, and \code{specificity}}
 #'   \item{moe}{Target MOE (as supplied)}
@@ -226,7 +230,10 @@ design_precision <- function(prevalence,
   n_base_cont <- z^2 * p_app * (1 - p_app) / (moe^2 * correction^2)
 
   # ---- design effect and total n ----
-  if (icc == 0 || (is.null(n_sites) && is.null(n_per_site))) {
+  # icc == 0 covers every unclustered case: the earlier guard already
+  # errored if icc > 0 without a cluster structure, so both-NULL implies
+  # icc == 0 here.
+  if (icc == 0) {
     # SRS: no clustering adjustment needed
     deff   <- 1
     n_cont <- n_base_cont
@@ -280,10 +287,13 @@ design_precision <- function(prevalence,
 
   n_total <- ceiling(n_cont)
 
-  # n_eff: effective independent sample size after clustering and FPC.
-  # Equivalent to the number of independent (SRS) observations this
-  # design is worth. Always <= n_total; equals n_total only for SRS with no FPC.
-  n_eff <- n_total / deff
+  # n_eff: the SRS-equivalent independent sample size this design achieves,
+  # i.e. the number of independent observations needed to hit the same MOE.
+  # That is exactly n_base_cont (clustering inflates the collected `n` above
+  # it; the FPC lets the collected `n` fall below it). Always <= n_total,
+  # with equality only for an unclustered design with no FPC. Defined the
+  # same way as `n_eff` in estimate_prevalence() so the two round-trip.
+  n_eff <- ceiling(n_base_cont)
 
   # ---- distribute across sites ----
   if (!is.null(n_per_site)) {
