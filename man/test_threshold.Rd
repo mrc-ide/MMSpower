@@ -13,7 +13,8 @@ test_threshold(
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  fpc_N = NULL
+  fpc_N = NULL,
+  ci_method = "wald"
 )
 }
 \arguments{
@@ -39,6 +40,12 @@ from data. \code{0} = force SRS (no clustering adjustment).}
 
 \item{fpc_N}{Optional. Total population size for a finite-population
 correction. \code{NULL} (default) = no FPC.}
+
+\item{ci_method}{Method for the reported confidence interval on true
+prevalence: \code{"wald"} (default), \code{"clopper-pearson"}, or
+\code{"agresti-coull"}. Same three methods as \code{estimate_prevalence()}.
+This affects only the reported interval, not the hypothesis test, which
+always uses the null-variance z-statistic.}
 }
 \value{
 A named list:
@@ -48,10 +55,15 @@ A named list:
 \item{threshold}{Decision threshold as supplied}
 \item{alternative}{Alternative hypothesis as supplied}
 \item{prevalence}{Rogan-Gladen corrected point estimate}
-\item{ci_lower}{Lower bound of the two-sided Wald CI}
-\item{ci_upper}{Upper bound of the two-sided Wald CI}
+\item{ci_lower}{Lower bound of the two-sided CI (\code{ci_method})}
+\item{ci_upper}{Upper bound of the two-sided CI (\code{ci_method})}
+\item{ci_method}{CI method used (as supplied)}
 \item{n_total}{Total samples}
-\item{n_eff}{Effective independent sample size: \code{n_total / deff}}
+\item{n_eff}{Effective independent sample size before the FPC:
+\code{n_total / deff}}
+\item{n_eff_adj}{Effective sample size the CI and test statistic actually
+use: \code{n_eff} divided by the squared FPC factor (equals \code{n_eff}
+when \code{fpc_N} is \code{NULL})}
 \item{conf_level}{Confidence level (as supplied)}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
@@ -89,9 +101,9 @@ where \eqn{\theta_{app} = \theta \cdot Se + (1-\theta)(1-Sp)} is the
 threshold on the apparent-prevalence scale, and
 \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 
-The reported CI uses the Wald method at \code{conf_level} (two-sided
-regardless of \code{alternative}), consistent with
-\code{estimate_prevalence()}.
+The reported CI is two-sided at \code{conf_level} regardless of
+\code{alternative}, built the same way as in \code{estimate_prevalence()};
+\code{ci_method} selects Wald (default), Clopper-Pearson, or Agresti-Coull.
 }
 \examples{
 # Single site: test whether prevalence > 5\%

@@ -32,6 +32,11 @@
 #'   from data. `0` = force SRS (no clustering adjustment).
 #' @param fpc_N Optional. Total population size for a finite-population
 #'   correction. `NULL` (default) = no FPC.
+#' @param ci_method Method for the reported confidence interval on true
+#'   prevalence: `"wald"` (default), `"clopper-pearson"`, or
+#'   `"agresti-coull"`. Same three methods as `estimate_prevalence()`. This
+#'   affects only the reported interval, not the hypothesis test, which
+#'   always uses the null-variance z-statistic.
 #'
 #' @details
 #' **Test statistic**: the z-statistic is computed using the \emph{null}
@@ -45,9 +50,9 @@
 #' threshold on the apparent-prevalence scale, and
 #' \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 #'
-#' The reported CI uses the Wald method at \code{conf_level} (two-sided
-#' regardless of \code{alternative}), consistent with
-#' \code{estimate_prevalence()}.
+#' The reported CI is two-sided at \code{conf_level} regardless of
+#' \code{alternative}, built the same way as in \code{estimate_prevalence()};
+#' \code{ci_method} selects Wald (default), Clopper-Pearson, or Agresti-Coull.
 #'
 #' @return A named list:
 #'   \item{statistic}{z-statistic (on the apparent-prevalence scale)}
@@ -56,10 +61,15 @@
 #'   \item{threshold}{Decision threshold as supplied}
 #'   \item{alternative}{Alternative hypothesis as supplied}
 #'   \item{prevalence}{Rogan-Gladen corrected point estimate}
-#'   \item{ci_lower}{Lower bound of the two-sided Wald CI}
-#'   \item{ci_upper}{Upper bound of the two-sided Wald CI}
+#'   \item{ci_lower}{Lower bound of the two-sided CI (\code{ci_method})}
+#'   \item{ci_upper}{Upper bound of the two-sided CI (\code{ci_method})}
+#'   \item{ci_method}{CI method used (as supplied)}
 #'   \item{n_total}{Total samples}
-#'   \item{n_eff}{Effective independent sample size: \code{n_total / deff}}
+#'   \item{n_eff}{Effective independent sample size before the FPC:
+#'     \code{n_total / deff}}
+#'   \item{n_eff_adj}{Effective sample size the CI and test statistic actually
+#'     use: \code{n_eff} divided by the squared FPC factor (equals
+#'     \code{n_eff} when \code{fpc_N} is \code{NULL})}
 #'   \item{conf_level}{Confidence level (as supplied)}
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
@@ -92,7 +102,8 @@ test_threshold <- function(x,
                            specificity = 1,
                            conf_level  = 0.95,
                            icc         = NULL,
-                           fpc_N       = NULL) {
+                           fpc_N       = NULL,
+                           ci_method   = "wald") {
 
   # ---- validate x and n ----
   if (is.logical(x) || is.logical(n))
@@ -190,6 +201,13 @@ test_threshold <- function(x,
          "Set `icc = NULL` to estimate ICC from the data.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
     stop("`fpc_N` must be a finite positive number (got ", fpc_N, ").")
+  if (!is.character(ci_method) || length(ci_method) != 1)
+    stop("`ci_method` must be a single character string: ",
+         "'wald', 'clopper-pearson', or 'agresti-coull' (got class `",
+         class(ci_method)[1], "`, length ", length(ci_method), ").")
+  if (!ci_method %in% c("wald", "clopper-pearson", "agresti-coull"))
+    stop("`ci_method` must be one of 'wald', 'clopper-pearson', or ",
+         "'agresti-coull' (got '", ci_method, "').")
 
   n_clusters <- length(n)
   n_total    <- sum(n)
@@ -219,6 +237,12 @@ test_threshold <- function(x,
       icc_used <- min(max(icc_used, 0), 1)
       deff     <- 1 + (n_bar - 1) * icc_used
     }
+  } else if (n_clusters < 2 || n_bar == 1) {
+    # A supplied icc has no effect with a single cluster (or clusters all of
+    # size 1): the Kish denominator is undefined, so fall back to SRS -- same
+    # as the icc = NULL path above.
+    icc_used <- 0
+    deff     <- 1
   } else {
     icc_used <- icc
     deff     <- 1 + (n_bar - 1) * icc_used
@@ -262,11 +286,33 @@ test_threshold <- function(x,
   alpha  <- 1 - conf_level
   reject <- p_value < alpha
 
-  # ---- two-sided Wald CI on true prevalence (same as estimate_prevalence) ----
-  z_ci      <- stats::qnorm(1 - alpha / 2)
-  se_est    <- sqrt(p_hat * (1 - p_hat) / n_eff_adj)
-  ci_lo_app <- max(p_hat - z_ci * se_est, 0)
-  ci_hi_app <- min(p_hat + z_ci * se_est, 1)
+  # ---- two-sided CI on true prevalence (same construction as estimate_prevalence) ----
+  # `ci_method` controls only this reported interval, not the hypothesis test
+  # above (which always uses the null-variance z-statistic).
+  z_ci <- stats::qnorm(1 - alpha / 2)
+
+  if (ci_method == "wald") {
+    se_est    <- sqrt(p_hat * (1 - p_hat) / n_eff_adj)
+    ci_lo_app <- max(p_hat - z_ci * se_est, 0)
+    ci_hi_app <- min(p_hat + z_ci * se_est, 1)
+
+  } else if (ci_method == "clopper-pearson") {
+    x_eff     <- p_hat * n_eff_adj   # effective successes (continuous)
+    ci_lo_app <- if (p_hat == 0) 0 else
+      stats::qbeta(alpha / 2,     x_eff,     n_eff_adj - x_eff + 1)
+    ci_hi_app <- if (p_hat == 1) 1 else
+      stats::qbeta(1 - alpha / 2, x_eff + 1, n_eff_adj - x_eff)
+    ci_lo_app <- max(ci_lo_app, 0)
+    ci_hi_app <- min(ci_hi_app, 1)
+
+  } else {   # agresti-coull
+    x_eff     <- p_hat * n_eff_adj
+    n_tilde   <- n_eff_adj + z_ci^2
+    p_tilde   <- (x_eff + z_ci^2 / 2) / n_tilde
+    se_tilde  <- sqrt(p_tilde * (1 - p_tilde) / n_tilde)
+    ci_lo_app <- max(p_tilde - z_ci * se_tilde, 0)
+    ci_hi_app <- min(p_tilde + z_ci * se_tilde, 1)
+  }
 
   rg <- function(p) .rogan_gladen(p, sensitivity, specificity)
 
@@ -283,8 +329,10 @@ test_threshold <- function(x,
     prevalence  = prevalence,
     ci_lower    = ci_lower,
     ci_upper    = ci_upper,
+    ci_method   = ci_method,
     n_total     = n_total,
     n_eff       = n_eff,
+    n_eff_adj   = n_eff_adj,
     conf_level  = conf_level,
     sensitivity = sensitivity,
     specificity = specificity,
