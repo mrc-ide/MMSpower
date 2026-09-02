@@ -57,7 +57,11 @@ always uses the pooled-variance z-statistic.}
 \value{
 A named list:
 \item{difference}{Rogan-Gladen corrected prevalence difference
-(group 1 - group 2), on the true scale.}
+(group 1 - group 2) on the true scale, computed as
+\code{difference_app / (Se + Sp - 1)} and clamped to [-1, 1]. This
+is the quantity the confidence interval is centred on; it can differ
+slightly from \code{prevalence1 - prevalence2} when a per-group
+estimate is clamped.}
 \item{difference_app}{Apparent-scale difference
 (\eqn{\hat{p}_1 - \hat{p}_2}).}
 \item{statistic}{Pooled-variance z-statistic (apparent scale).}
@@ -65,7 +69,7 @@ A named list:
 \item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
 \item{alternative}{Alternative hypothesis as supplied.}
 \item{prevalence1, prevalence2}{Per-group Rogan-Gladen corrected point
-estimates, clamped to [0, 1].}
+estimates, each clamped to [0, 1].}
 \item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
 \item{ci_lower, ci_upper}{Confidence interval on the true-scale
 difference at \code{conf_level} (two-sided regardless of

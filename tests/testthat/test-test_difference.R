@@ -135,6 +135,21 @@ test_that("TD-R3-3: se + sp <= 1 is rejected", {
   )
 })
 
+test_that("TD-R3-4: with a clamped per-group estimate, difference stays in its CI", {
+  # group 1: 1/100 apparent -> rg(0.01) < 0 with Sp = 0.97, clamps to 0
+  res <- test_difference(x1 = 1, n1 = 100, x2 = 8, n2 = 100,
+                         sensitivity = 0.9, specificity = 0.97)
+  corr <- 0.9 + 0.97 - 1
+  expect_equal(res$prevalence1, 0)                       # clamped
+  # difference is d_app / correction, NOT prevalence1 - prevalence2
+  expect_equal(res$difference, res$difference_app / corr, tolerance = 1e-9)
+  expect_false(isTRUE(all.equal(res$difference,
+                                res$prevalence1 - res$prevalence2)))
+  # and it lies inside the reported interval
+  expect_gte(res$difference, res$ci_lower)
+  expect_lte(res$difference, res$ci_upper)
+})
+
 
 # ---------------------------------------------------------------------------
 # Round 4 -- clustering (per-group design effect)

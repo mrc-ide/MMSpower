@@ -73,7 +73,11 @@
 #'
 #' @return A named list:
 #'   \item{difference}{Rogan-Gladen corrected prevalence difference
-#'     (group 1 - group 2), on the true scale.}
+#'     (group 1 - group 2) on the true scale, computed as
+#'     \code{difference_app / (Se + Sp - 1)} and clamped to [-1, 1]. This
+#'     is the quantity the confidence interval is centred on; it can differ
+#'     slightly from \code{prevalence1 - prevalence2} when a per-group
+#'     estimate is clamped.}
 #'   \item{difference_app}{Apparent-scale difference
 #'     (\eqn{\hat{p}_1 - \hat{p}_2}).}
 #'   \item{statistic}{Pooled-variance z-statistic (apparent scale).}
@@ -81,7 +85,7 @@
 #'   \item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
 #'   \item{alternative}{Alternative hypothesis as supplied.}
 #'   \item{prevalence1, prevalence2}{Per-group Rogan-Gladen corrected point
-#'     estimates, clamped to [0, 1].}
+#'     estimates, each clamped to [0, 1].}
 #'   \item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
 #'   \item{ci_lower, ci_upper}{Confidence interval on the true-scale
 #'     difference at \code{conf_level} (two-sided regardless of
@@ -151,22 +155,27 @@ test_difference <- function(x1, n1, x2, n2,
     if (!all(is.finite(x)) || !all(is.finite(n)))
       stop("`", xnm, "` / `", nnm, "` contain NA, NaN, or infinite values. ",
            "All counts must be finite.")
-    if (any(x != floor(x)))
+    bad <- which(x != floor(x))
+    if (length(bad))
       stop("`", xnm, "` must contain whole numbers (found ", xnm, "[",
-           which(x != floor(x))[1], "] = ", x[which(x != floor(x))[1]], ").")
-    if (any(n != floor(n)))
+           bad[1], "] = ", x[bad[1]], ").")
+    bad <- which(n != floor(n))
+    if (length(bad))
       stop("`", nnm, "` must contain whole numbers (found ", nnm, "[",
-           which(n != floor(n))[1], "] = ", n[which(n != floor(n))[1]], ").")
-    if (any(n <= 0))
+           bad[1], "] = ", n[bad[1]], ").")
+    bad <- which(n <= 0)
+    if (length(bad))
       stop("`", nnm, "` must be positive for every cluster (found ", nnm, "[",
-           which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], ").")
-    if (any(x < 0))
+           bad[1], "] = ", n[bad[1]], ").")
+    bad <- which(x < 0)
+    if (length(bad))
       stop("`", xnm, "` must be non-negative (found ", xnm, "[",
-           which(x < 0)[1], "] = ", x[which(x < 0)[1]], ").")
-    if (any(x > n))
+           bad[1], "] = ", x[bad[1]], ").")
+    bad <- which(x > n)
+    if (length(bad))
       stop("`", xnm, "` cannot exceed `", nnm, "` (found ", xnm, "[",
-           which(x > n)[1], "] = ", x[which(x > n)[1]], " > ", nnm, "[",
-           which(x > n)[1], "] = ", n[which(x > n)[1]], ").")
+           bad[1], "] = ", x[bad[1]], " > ", nnm, "[",
+           bad[1], "] = ", n[bad[1]], ").")
     invisible(TRUE)
   }
   check_counts(x1, n1, "x1", "n1")
@@ -323,12 +332,19 @@ test_difference <- function(x1, n1, x2, n2,
   ci_upper <- max(-1, min(1,  hi_app / correction))
 
   # ---- point estimates on the true scale ----
+  # `difference` is the Rogan-Gladen corrected difference d_app / (Se+Sp-1)
+  # (the offset cancels), which is exactly what the CI above is centred on.
+  # Deriving it as prevalence1 - prevalence2 instead would diverge from the
+  # CI whenever a per-group estimate is clamped to [0, 1] -- common for a
+  # low true prevalence with imperfect specificity -- and could place the
+  # point estimate outside its own interval.
   rg <- function(p) .rogan_gladen(p, sensitivity, specificity)
   prevalence1 <- max(0, min(1, rg(p_hat1)))
   prevalence2 <- max(0, min(1, rg(p_hat2)))
+  difference  <- max(-1, min(1, d_app / correction))
 
   list(
-    difference     = prevalence1 - prevalence2,
+    difference     = difference,
     difference_app = d_app,
     statistic      = z_stat,
     p_value        = p_value,
