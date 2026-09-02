@@ -101,6 +101,25 @@ test_that("TD-R2-3: wider conf_level gives a wider interval", {
   expect_gt(r99$ci_upper, r95$ci_upper)
 })
 
+test_that("TD-R2-4: the CI is matched to `alternative` (like prop.test)", {
+  gt <- test_difference(x1 = 40, n1 = 200, x2 = 20, n2 = 200, alternative = "greater")
+  lt <- test_difference(x1 = 40, n1 = 200, x2 = 20, n2 = 200, alternative = "less")
+  ts <- test_difference(x1 = 40, n1 = 200, x2 = 20, n2 = 200, alternative = "two.sided")
+
+  expect_equal(gt$ci_upper, 1)     # lower one-sided interval
+  expect_equal(lt$ci_lower, -1)    # upper one-sided interval
+  # one-sided bound uses z_{1-alpha}, tighter than two-sided z_{1-alpha/2}
+  expect_gt(gt$ci_lower, ts$ci_lower)
+  expect_lt(lt$ci_upper, ts$ci_upper)
+  # one-sided Wald lower bound, hand-checked
+  d  <- 40/200 - 20/200
+  se <- sqrt((0.2*0.8)/200 + (0.1*0.9)/200)
+  expect_equal(gt$ci_lower, d - qnorm(0.95) * se, tolerance = 1e-9)
+  # `reject` agrees with "0 outside the interval"
+  expect_true(gt$reject)
+  expect_gt(gt$ci_lower, 0)
+})
+
 
 # ---------------------------------------------------------------------------
 # Round 3 -- Rogan-Gladen correction

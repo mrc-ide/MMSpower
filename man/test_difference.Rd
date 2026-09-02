@@ -72,8 +72,9 @@ estimate is clamped.}
 estimates, each clamped to [0, 1].}
 \item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
 \item{ci_lower, ci_upper}{Confidence interval on the true-scale
-difference at \code{conf_level} (two-sided regardless of
-\code{alternative}).}
+difference at \code{conf_level}, matched to \code{alternative}:
+\code{ci_upper} is \code{1} for \code{"greater"}, \code{ci_lower} is
+\code{-1} for \code{"less"}.}
 \item{ci_method}{CI method used (as supplied).}
 \item{n_total1, n_total2}{Total samples per group.}
 \item{n_eff1, n_eff2}{Per-group effective sample size before the FPC
@@ -122,8 +123,12 @@ the design effect, then by the squared FPC factor):
 \strong{Confidence interval.} Built on the apparent scale then divided by
 \eqn{(Se + Sp - 1)} to return to the true scale (the Rogan-Gladen offset
 cancels in a difference). \code{"wald"} uses the unpooled standard error;
-\code{"newcombe"} combines per-group Wilson intervals. Bounds are clamped
-to \eqn{[-1, 1]}.
+\code{"newcombe"} combines per-group Wilson intervals. The interval is
+\strong{matched to \code{alternative}}, like \code{prop.test()}: a lower
+one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
+interval \eqn{[-1, U]} for \code{"less"}, two-sided for
+\code{"two.sided"}; so \code{reject} agrees with whether 0 lies outside
+it. Bounds are clamped to \eqn{[-1, 1]}.
 
 \strong{Design effect.} Estimated per group exactly as in
 \code{test_threshold()} / \code{estimate_prevalence()}: from the between-

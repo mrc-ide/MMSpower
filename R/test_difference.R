@@ -61,8 +61,12 @@
 #' \strong{Confidence interval.} Built on the apparent scale then divided by
 #' \eqn{(Se + Sp - 1)} to return to the true scale (the Rogan-Gladen offset
 #' cancels in a difference). \code{"wald"} uses the unpooled standard error;
-#' \code{"newcombe"} combines per-group Wilson intervals. Bounds are clamped
-#' to \eqn{[-1, 1]}.
+#' \code{"newcombe"} combines per-group Wilson intervals. The interval is
+#' \strong{matched to \code{alternative}}, like \code{prop.test()}: a lower
+#' one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
+#' interval \eqn{[-1, U]} for \code{"less"}, two-sided for
+#' \code{"two.sided"}; so \code{reject} agrees with whether 0 lies outside
+#' it. Bounds are clamped to \eqn{[-1, 1]}.
 #'
 #' \strong{Design effect.} Estimated per group exactly as in
 #' \code{test_threshold()} / \code{estimate_prevalence()}: from the between-
@@ -113,8 +117,9 @@
 #'     estimates, each clamped to [0, 1].}
 #'   \item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
 #'   \item{ci_lower, ci_upper}{Confidence interval on the true-scale
-#'     difference at \code{conf_level} (two-sided regardless of
-#'     \code{alternative}).}
+#'     difference at \code{conf_level}, matched to \code{alternative}:
+#'     \code{ci_upper} is \code{1} for \code{"greater"}, \code{ci_lower} is
+#'     \code{-1} for \code{"less"}.}
 #'   \item{ci_method}{CI method used (as supplied).}
 #'   \item{n_total1, n_total2}{Total samples per group.}
 #'   \item{n_eff1, n_eff2}{Per-group effective sample size before the FPC
@@ -347,22 +352,34 @@ test_difference <- function(x1, n1, x2, n2,
   alpha  <- 1 - conf_level
   reject <- p_value < alpha
 
-  # ---- two-sided CI on the difference (apparent scale, then /correction) ----
-  z_ci <- stats::qnorm(1 - alpha / 2)
+  # ---- CI on the difference, matched to `alternative` (apparent scale,
+  #      then / correction). Like binom.test()/prop.test(): "greater" ->
+  #      [L, 1], "less" -> [-1, U], "two.sided" -> [L, U]. The one-sided
+  #      bound uses z_{1-alpha}; `reject` then agrees with whether 0 lies
+  #      outside the interval.
+  alpha_lo <- switch(alternative,
+    two.sided = alpha / 2, greater = alpha, less = 0)
+  alpha_hi <- switch(alternative,
+    two.sided = alpha / 2, greater = 0,     less = alpha)
+  z_lo <- if (alpha_lo > 0) stats::qnorm(1 - alpha_lo) else NA_real_
+  z_hi <- if (alpha_hi > 0) stats::qnorm(1 - alpha_hi) else NA_real_
+  z_ci <- max(z_lo, z_hi, na.rm = TRUE)   # for the Wilson pieces below
 
   if (ci_method == "wald") {
     se_unpooled <- sqrt(p_hat1 * (1 - p_hat1) / m1 + p_hat2 * (1 - p_hat2) / m2)
-    lo_app <- d_app - z_ci * se_unpooled
-    hi_app <- d_app + z_ci * se_unpooled
+    lo_app <- if (is.na(z_lo)) -Inf else d_app - z_lo * se_unpooled
+    hi_app <- if (is.na(z_hi))  Inf else d_app + z_hi * se_unpooled
   } else {   # newcombe (hybrid score)
     w1 <- .wilson_ci(p_hat1, m1, z_ci)
     w2 <- .wilson_ci(p_hat2, m2, z_ci)
-    lo_app <- d_app - sqrt((p_hat1 - w1$lower)^2 + (w2$upper - p_hat2)^2)
-    hi_app <- d_app + sqrt((w1$upper - p_hat1)^2 + (p_hat2 - w2$lower)^2)
+    lo_app <- if (is.na(z_lo)) -Inf else
+      d_app - sqrt((p_hat1 - w1$lower)^2 + (w2$upper - p_hat2)^2)
+    hi_app <- if (is.na(z_hi)) Inf else
+      d_app + sqrt((w1$upper - p_hat1)^2 + (p_hat2 - w2$lower)^2)
   }
 
-  ci_lower <- max(-1, min(1, lo_app / correction))
-  ci_upper <- max(-1, min(1,  hi_app / correction))
+  ci_lower <- if (is.infinite(lo_app)) -1 else max(-1, min(1, lo_app / correction))
+  ci_upper <- if (is.infinite(hi_app))  1 else max(-1, min(1, hi_app / correction))
 
   # ---- point estimates on the true scale ----
   # `difference` is the Rogan-Gladen corrected difference d_app / (Se+Sp-1)
