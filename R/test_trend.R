@@ -68,7 +68,10 @@
 #' effect and, if requested, by the squared FPC factor
 #' \eqn{(N_{pop} - N_j)/(N_{pop} - 1)}. The z-statistic is
 #' \eqn{\hat\beta_{app} / \sqrt{\mathrm{Var}(\hat\beta_{app})}}; the true-scale
-#' slope and CI follow by dividing by \eqn{(Se + Sp - 1)}.
+#' slope and CI follow by dividing by \eqn{(Se + Sp - 1)}. The CI is
+#' matched to \code{alternative}: one-sided \eqn{[L, \infty)} for
+#' \code{"greater"}, \eqn{(-\infty, U]} for \code{"less"}, two-sided for
+#' \code{"two.sided"}, so \code{reject} agrees with whether 0 is outside it.
 #'
 #' \strong{Design effect.} With \code{icc = NULL}, a Kish design effect is
 #' estimated from the between-cluster spread within each timepoint that has
@@ -110,7 +113,10 @@
 #'   \item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
 #'   \item{alternative}{As supplied.}
 #'   \item{ci_lower, ci_upper}{Confidence interval on the true-scale slope
-#'     (two-sided at \code{conf_level}).}
+#'     at \code{conf_level}, matched to \code{alternative}: \code{ci_upper}
+#'     is \code{Inf} for \code{"greater"}, \code{ci_lower} is \code{-Inf}
+#'     for \code{"less"}. So \code{reject} agrees with whether 0 lies
+#'     outside the interval.}
 #'   \item{prevalence_start_est, prevalence_end_est}{Fitted true prevalence
 #'     at the earliest and latest observed timepoint, clamped to [0, 1].}
 #'   \item{times}{Sorted unique timepoints.}
@@ -332,10 +338,20 @@ test_trend <- function(x, n, time = NULL,
   alpha  <- 1 - conf_level
   reject <- p_value < alpha
 
-  z_ci     <- stats::qnorm(1 - alpha / 2)
   slope_true <- beta_app / correction
-  ci_lower <- (beta_app - z_ci * se_beta) / correction
-  ci_upper <- (beta_app + z_ci * se_beta) / correction
+
+  # CI on the slope, matched to `alternative` (like the tests above):
+  # "greater" -> [L, Inf), "less" -> (-Inf, U], "two.sided" -> [L, U].
+  # The one-sided bound uses z_{1-alpha}; `reject` then agrees with
+  # whether 0 lies outside the interval.
+  alpha_lo <- switch(alternative,
+    two.sided = alpha / 2, greater = alpha, less = 0)
+  alpha_hi <- switch(alternative,
+    two.sided = alpha / 2, greater = 0,     less = alpha)
+  ci_lower <- if (alpha_lo > 0)
+    (beta_app - stats::qnorm(1 - alpha_lo) * se_beta) / correction else -Inf
+  ci_upper <- if (alpha_hi > 0)
+    (beta_app + stats::qnorm(1 - alpha_hi) * se_beta) / correction else Inf
 
   # ---- fitted endpoints on the true scale ----
   fit_app_start <- pwm + beta_app * (min(tj) - tw)

@@ -64,7 +64,10 @@ unit time).}
 \item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
 \item{alternative}{As supplied.}
 \item{ci_lower, ci_upper}{Confidence interval on the true-scale slope
-(two-sided at \code{conf_level}).}
+at \code{conf_level}, matched to \code{alternative}: \code{ci_upper}
+is \code{Inf} for \code{"greater"}, \code{ci_lower} is \code{-Inf}
+for \code{"less"}. So \code{reject} agrees with whether 0 lies
+outside the interval.}
 \item{prevalence_start_est, prevalence_end_est}{Fitted true prevalence
 at the earliest and latest observed timepoint, clamped to [0, 1].}
 \item{times}{Sorted unique timepoints.}
@@ -120,7 +123,10 @@ with weights \eqn{w_j = 1 / \mathrm{Var}(\hat p_j)} divided by the design
 effect and, if requested, by the squared FPC factor
 \eqn{(N_{pop} - N_j)/(N_{pop} - 1)}. The z-statistic is
 \eqn{\hat\beta_{app} / \sqrt{\mathrm{Var}(\hat\beta_{app})}}; the true-scale
-slope and CI follow by dividing by \eqn{(Se + Sp - 1)}.
+slope and CI follow by dividing by \eqn{(Se + Sp - 1)}. The CI is
+matched to \code{alternative}: one-sided \eqn{[L, \infty)} for
+\code{"greater"}, \eqn{(-\infty, U]} for \code{"less"}, two-sided for
+\code{"two.sided"}, so \code{reject} agrees with whether 0 is outside it.
 
 \strong{Design effect.} With \code{icc = NULL}, a Kish design effect is
 estimated from the between-cluster spread within each timepoint that has

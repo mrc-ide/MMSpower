@@ -101,6 +101,22 @@ test_that("TT-R2-1: one-sided p-values relate to the two-sided one", {
   expect_false(lt$reject)
 })
 
+test_that("TT-R2-2: the slope CI is matched to `alternative`", {
+  x <- c(3, 6, 10, 15, 22); n <- rep(150, 5); tt <- 1:5
+  two <- test_trend(x, n, tt, alternative = "two.sided")
+  gt  <- test_trend(x, n, tt, alternative = "greater")
+  lt  <- test_trend(x, n, tt, alternative = "less")
+
+  expect_equal(gt$ci_upper, Inf)     # [L, Inf)
+  expect_equal(lt$ci_lower, -Inf)    # (-Inf, U]
+  # one-sided bound uses z_{1-alpha}, tighter than two-sided z_{1-alpha/2}
+  expect_gt(gt$ci_lower, two$ci_lower)
+  expect_lt(lt$ci_upper, two$ci_upper)
+  # rising trend rejected "greater" -> the one-sided lower bound clears 0
+  expect_true(gt$reject)
+  expect_gt(gt$ci_lower, 0)
+})
+
 
 # ---------------------------------------------------------------------------
 # Round 3 -- Rogan-Gladen correction
