@@ -411,6 +411,9 @@ test_that("EP-R6-3: x negative at position 2 gives position-aware error", {
     estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
     "non-negative"
   )
+  # a value that is BOTH negative and fractional reports the negativity
+  # (the more informative failure), not "not a whole number"
+  expect_error(estimate_prevalence(x = -0.5, n = 10), "non-negative")
 })
 
 test_that("EP-R6-4: n=0 at position 2 gives position-aware error", {
@@ -667,12 +670,31 @@ test_that("EP-R7-4: near-symmetric clopper-pearson interval emits no asymmetry m
   expect_no_message(estimate_prevalence(x = 500, n = 1000, method = "clopper-pearson"))
 })
 
-test_that("EP-R7-5: a supplied icc has no effect with a single cluster", {
+test_that("EP-R7-5: a supplied icc has no effect with a single cluster (and warns)", {
   a <- estimate_prevalence(x = 8, n = 50)
-  b <- estimate_prevalence(x = 8, n = 50, icc = 0.05)
+  expect_warning(
+    b <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
+    "was ignored"
+  )
   expect_equal(b$deff, 1)
   expect_equal(b$icc_used, 0)
   expect_equal(a$moe, b$moe)
+  # icc = 0 (explicit SRS) is silent
+  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 0))
+})
+
+test_that("EP-R7-5b: Rogan-Gladen overshoot warns and does not report moe = 0 silently", {
+  # p_hat = 0.98 with Se=0.8, Sp=0.9: apparent Wald CI ~ [0.94, 1] maps
+  # entirely above 1 -> corrected estimate and CI collapse to 1.
+  expect_warning(
+    res <- estimate_prevalence(x = 49, n = 50, sensitivity = 0.8, specificity = 0.9),
+    "Rogan-Gladen overshoot"
+  )
+  expect_equal(res$prevalence, 1)
+  expect_equal(res$moe, 0)
+  # a perfect-test x = 0 case is the ordinary Wald [0, 0] degeneracy, NOT
+  # an overshoot -- no warning
+  expect_silent(estimate_prevalence(x = 0, n = 50))
 })
 
 test_that("EP-R7-6: n_eff_adj equals n_eff without FPC, exceeds it with FPC", {

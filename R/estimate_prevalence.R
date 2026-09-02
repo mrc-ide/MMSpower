@@ -244,11 +244,10 @@
 #'   \item \emph{Clustered (generalised) Wald interval}
 #'     \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
 #'     D_{eff}}} -- Module 5, slide "How can we design multi-cluster
-#'     studies?" (p. 5).
-#'   \item \emph{Over-dispersion check} (sites expected within
-#'     \eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}}; more than ~10\% of
-#'     sites outside implies over-dispersion) -- Module 5, slide
-#'     "Detecting over-dispersion" (p. 4).
+#'     studies?" (p. 5). (The workshop's visual "detecting over-dispersion"
+#'     band -- sites outside \eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}} --
+#'     is a diagnostic this function does not compute; it estimates
+#'     \eqn{D_{eff}} directly from \eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}}.)
 #'   \item \emph{Rogan-Gladen correction}
 #'     \eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)} and its
 #'     delta-method variance, \emph{Clopper-Pearson} and \emph{Agresti-Coull}
@@ -358,20 +357,20 @@ estimate_prevalence <- function(x,
          "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
          "Each element of `x` is the positive count for one cluster and each ",
          "element of `n` is that cluster's total.")
+  if (any(x < 0))
+    stop("`x` must be non-negative ",
+         "(found x[", which(x < 0)[1], "] = ", x[which(x < 0)[1]], "). ",
+         "Counts cannot be negative.")
+  if (any(n <= 0))
+    stop("`n` must be positive for every cluster ",
+         "(found n[", which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], "). ",
+         "A cluster with zero or negative total is undefined.")
   if (any(x != floor(x)))
     stop("`x` must contain whole numbers -- counts cannot be fractional ",
          "(found x[", which(x != floor(x))[1], "] = ", x[which(x != floor(x))[1]], ").")
   if (any(n != floor(n)))
     stop("`n` must contain whole numbers -- sample sizes cannot be fractional ",
          "(found n[", which(n != floor(n))[1], "] = ", n[which(n != floor(n))[1]], ").")
-  if (any(n <= 0))
-    stop("`n` must be positive for every cluster ",
-         "(found n[", which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], "). ",
-         "A cluster with zero or negative total is undefined.")
-  if (any(x < 0))
-    stop("`x` must be non-negative ",
-         "(found x[", which(x < 0)[1], "] = ", x[which(x < 0)[1]], "). ",
-         "Counts cannot be negative.")
   if (any(x > n))
     stop("`x` cannot exceed `n` ",
          "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
@@ -494,6 +493,10 @@ estimate_prevalence <- function(x,
     # A supplied icc has no effect with a single cluster (or clusters all of
     # size 1): the Kish denominator is undefined, so fall back to SRS -- same
     # as the icc = NULL path above.
+    if (icc > 0)
+      warning("`icc` = ", icc, " was ignored: the design effect needs a ",
+              "cluster structure (>= 2 clusters, mean size > 1). ",
+              "`icc_used` is reported as 0.")
     icc_used <- 0
     deff     <- 1
   } else {
@@ -564,6 +567,22 @@ estimate_prevalence <- function(x,
   moe       <- (ci_upper - ci_lower) / 2
   moe_lower <- prevalence - ci_lower
   moe_upper <- ci_upper - prevalence
+
+  # Rogan-Gladen overshoot: the apparent-scale CI has real width, but after
+  # correcting for an imperfect test both endpoints map outside [0, 1] and
+  # clamp to the same boundary, so the corrected interval collapses and
+  # `moe` reads as 0 -- false precision, not a genuinely exact estimate.
+  # (Distinct from the Wald interval legitimately being [0, 0] at x = 0
+  # with a perfect test, where the apparent CI is already degenerate.)
+  eps <- .Machine$double.eps^0.5
+  if ((ci_hi_app - ci_lo_app) > eps &&
+      (ci_upper - ci_lower) < eps &&
+      (prevalence == 0 || prevalence == 1))
+    warning("Rogan-Gladen overshoot: the corrected estimate and both CI ",
+            "endpoints are pinned to ", prevalence, " (the apparent-scale ",
+            "interval maps entirely outside [0, 1] for this Se/Sp). `moe` is ",
+            "reported as 0 but the estimate is boundary-constrained, not exact ",
+            "-- use a more accurate assay or a larger sample.")
 
   # Fires for the asymmetric methods, and also for "wald" when an endpoint
   # has been clamped to [0, 1] (which breaks its usual symmetry).

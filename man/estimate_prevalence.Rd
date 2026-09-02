@@ -302,11 +302,10 @@ correlation coefficient" (lecture slides pp. 4-5).
 \item \emph{Clustered (generalised) Wald interval}
 \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
 D_{eff}}} -- Module 5, slide "How can we design multi-cluster
-studies?" (p. 5).
-\item \emph{Over-dispersion check} (sites expected within
-\eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}}; more than ~10\% of
-sites outside implies over-dispersion) -- Module 5, slide
-"Detecting over-dispersion" (p. 4).
+studies?" (p. 5). (The workshop's visual "detecting over-dispersion"
+band -- sites outside \eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}} --
+is a diagnostic this function does not compute; it estimates
+\eqn{D_{eff}} directly from \eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}}.)
 \item \emph{Rogan-Gladen correction}
 \eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)} and its
 delta-method variance, \emph{Clopper-Pearson} and \emph{Agresti-Coull}

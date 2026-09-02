@@ -69,9 +69,11 @@ gives the full step-by-step derivation for the `estimate_prevalence()` /
 ### `estimate_prevalence()`
 
 Apparent prevalence, Wald CI (M1); design effect, `N_eff`, `Deff = 1 + (n_bar - 1) r`,
-clustered Wald CI, over-dispersion check (M5).
+clustered Wald CI (M5). (`Deff` is estimated directly from
+`Var_obs / Var_SRS`; the M5 visual "over-dispersion check" band is a
+diagnostic the function does not compute.)
 **Extends:** Rogan-Gladen point estimate + variance; Clopper-Pearson and
-Agresti-Coull intervals; FPC.
+Agresti-Coull intervals; FPC on the collected `n`.
 
 ### `design_precision()`
 
