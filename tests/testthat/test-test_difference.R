@@ -94,6 +94,17 @@ test_that("TD-R2-2: Newcombe CI differs from Wald and stays in [-1, 1]", {
   expect_lte(n$ci_upper, 1)
 })
 
+test_that("TD-R2-2b: both groups at a 0/1 boundary -> Wald SE is 0 -> warn", {
+  expect_warning(
+    test_difference(x1 = 0, n1 = 100, x2 = 100, n2 = 100),
+    "zero width"
+  )
+  # newcombe stays sensible and does not warn
+  expect_silent(
+    test_difference(x1 = 0, n1 = 100, x2 = 100, n2 = 100, ci_method = "newcombe")
+  )
+})
+
 test_that("TD-R2-3: wider conf_level gives a wider interval", {
   r95 <- test_difference(x1 = 8, n1 = 100, x2 = 20, n2 = 120, conf_level = 0.95)
   r99 <- test_difference(x1 = 8, n1 = 100, x2 = 20, n2 = 120, conf_level = 0.99)

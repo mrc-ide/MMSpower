@@ -77,8 +77,10 @@ difference at \code{conf_level}, matched to \code{alternative}:
 \code{-1} for \code{"less"}.}
 \item{ci_method}{CI method used (as supplied).}
 \item{n_total1, n_total2}{Total samples per group.}
-\item{n_eff1, n_eff2}{Per-group effective sample size before the FPC
-(\code{n_total / deff}).}
+\item{n_eff1, n_eff2}{Per-group \emph{realised} effective sample size
+before the FPC (\code{n_total / deff}). Note this is a different
+quantity from \code{design_difference()}'s \code{n_eff}, which is the
+SRS-equivalent per-group size the design \emph{requires}.}
 \item{n_eff_adj1, n_eff_adj2}{Per-group effective sample size the test
 and CI use (\code{n_eff} divided by the squared FPC factor; equals
 \code{n_eff} when \code{fpc_N} is \code{NULL}).}

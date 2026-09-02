@@ -124,8 +124,10 @@
 #'     \code{-1} for \code{"less"}.}
 #'   \item{ci_method}{CI method used (as supplied).}
 #'   \item{n_total1, n_total2}{Total samples per group.}
-#'   \item{n_eff1, n_eff2}{Per-group effective sample size before the FPC
-#'     (\code{n_total / deff}).}
+#'   \item{n_eff1, n_eff2}{Per-group \emph{realised} effective sample size
+#'     before the FPC (\code{n_total / deff}). Note this is a different
+#'     quantity from \code{design_difference()}'s \code{n_eff}, which is the
+#'     SRS-equivalent per-group size the design \emph{requires}.}
 #'   \item{n_eff_adj1, n_eff_adj2}{Per-group effective sample size the test
 #'     and CI use (\code{n_eff} divided by the squared FPC factor; equals
 #'     \code{n_eff} when \code{fpc_N} is \code{NULL}).}
@@ -372,6 +374,11 @@ test_difference <- function(x1, n1, x2, n2,
 
   if (ci_method == "wald") {
     se_unpooled <- sqrt(p_hat1 * (1 - p_hat1) / m1 + p_hat2 * (1 - p_hat2) / m2)
+    if (se_unpooled == 0)
+      warning("Both groups sit at a 0/1 boundary, so the unpooled Wald ",
+              "standard error is 0 and the interval has zero width. Use ",
+              "`ci_method = \"newcombe\"`, which stays sensible near the ",
+              "boundary.")
     lo_app <- if (is.na(z_lo)) -Inf else d_app - z_lo * se_unpooled
     hi_app <- if (is.na(z_hi))  Inf else d_app + z_hi * se_unpooled
   } else {   # newcombe (hybrid score)
