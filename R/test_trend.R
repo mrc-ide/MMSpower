@@ -279,6 +279,9 @@ test_trend <- function(x, n, time = NULL,
   # total, not a cluster size, so no design effect can be formed -- fall back
   # to deff = 1 even when an explicit `icc` is supplied (matches the
   # single-cluster convention in test_threshold() / estimate_prevalence()).
+  # TODO(review): arithmetic mean cluster size (matches Module 5);
+  # classical Kish for unequal clusters uses sum(n^2)/sum(n). Same open
+  # decision as estimate_prevalence() -- keep in lockstep; team resolves.
   multi_tp    <- tj[vapply(tj, function(t) sum(time == t) >= 2, logical(1))]
   has_clusters <- length(multi_tp) > 0
   n_bar_cl    <- if (has_clusters) mean(n[time %in% multi_tp]) else NA_real_
@@ -302,14 +305,15 @@ test_trend <- function(x, n, time = NULL,
     1 + (n_bar_cl - 1) * icc_used else 1
 
   # ---- FPC per timepoint ----
+  # Acts on the collected per-timepoint count N_j (the actual sampling
+  # fraction), NOT the design-effect-adjusted N_j / deff -- same as
+  # estimate_prevalence() / test_threshold() (Cochran 1977 sec. 2.8).
   if (!is.null(fpc_N)) {
-    if (fpc_N < max(Nj))
-      stop("`fpc_N` (", fpc_N, ") is less than the largest per-timepoint sample ",
-           "size (", max(Nj), "). The population must be at least the sample.")
-    if (any(fpc_N <= Nj / deff))
-      stop("`fpc_N` (", fpc_N, ") is <= a timepoint's effective sample size; ",
-           "the variance collapses to zero. Set `fpc_N = NULL` if no FPC is needed.")
-    fpc2 <- (fpc_N - Nj / deff) / (fpc_N - 1)
+    if (fpc_N <= max(Nj))
+      stop("`fpc_N` (", fpc_N, ") must be greater than the largest ",
+           "per-timepoint sample size (", max(Nj), "). At `fpc_N = N_j` that ",
+           "timepoint's whole population was surveyed and its variance is zero.")
+    fpc2 <- (fpc_N - Nj) / (fpc_N - 1)
   } else {
     fpc2 <- rep(1, length(tj))
   }

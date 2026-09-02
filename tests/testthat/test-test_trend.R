@@ -193,10 +193,14 @@ test_that("TT-R5-1: fpc_N tightens the slope CI", {
   expect_lt(r_fpc$ci_upper - r_fpc$ci_lower, r_inf$ci_upper - r_inf$ci_lower)
 })
 
-test_that("TT-R5-2: fpc_N below the largest timepoint sample errors", {
+test_that("TT-R5-2: fpc_N <= the largest timepoint sample errors", {
   expect_error(
     test_trend(x = c(5, 8, 9), n = c(100, 100, 100), time = 1:3, fpc_N = 80),
-    "less than the largest"
+    "greater than the largest"
+  )
+  expect_error(
+    test_trend(x = c(5, 8, 9), n = c(100, 100, 100), time = 1:3, fpc_N = 100),
+    "greater than the largest"
   )
 })
 
