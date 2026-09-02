@@ -450,6 +450,15 @@ estimate_prevalence <- function(x,
   # -----------------------------------------------------------------
   # Design effect / ICC (Kish formula, Module 5)
   # -----------------------------------------------------------------
+  # TODO(review): cluster-size convention for the Kish design effect.
+  # We use the arithmetic mean cluster size n_bar = mean(n), which matches
+  # the workshop (Module 5, slide "Why is the ICC useful?": "n_bar =
+  # average cluster size"). The classical Kish deff for UNEQUAL clusters
+  # uses the size-weighted mean sum(n^2)/sum(n) instead, which is larger
+  # and inflates deff more. With a supplied `icc` and very unequal
+  # clusters the two diverge substantially. DECISION NEEDED: match the
+  # lecture (mean) or match standard Kish (weighted)? Flagged for the
+  # team's statistical review -- do not "fix" silently.
   n_bar <- mean(n)
 
   if (is.null(icc)) {
@@ -490,6 +499,15 @@ estimate_prevalence <- function(x,
          "). Sampling variance is zero and the CI is undefined. For SRS this means ",
          "you have surveyed the entire population; set `fpc_N = NULL` if no FPC is needed.")
 
+  # TODO(review): which sample size does the finite-population correction
+  # act on? Here the FPC factor is sqrt((fpc_N - n_eff) / (fpc_N - 1)),
+  # i.e. it uses the EFFECTIVE (post-deff) size n_eff. For a clustered
+  # design that sampled most of the population this makes the FPC weak
+  # (the CI barely narrows). An element-level FPC on the actual number
+  # sampled, sqrt((fpc_N - n_total) / (fpc_N - 1)), would narrow it much
+  # more. Both appear in the literature. DECISION NEEDED -- flagged for
+  # the team's statistical review; see also design_precision()/
+  # design_threshold(), which apply the FPC to the collected n.
   # FPC factor (1 when fpc_N is NULL)
   fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_eff) / (fpc_N - 1)) else 1
 
