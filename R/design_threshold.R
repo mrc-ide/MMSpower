@@ -28,7 +28,8 @@
 #' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1.
 #' @param specificity Diagnostic specificity in (0, 1]; default 1.
 #' @param conf_level Significance level expressed as a confidence level:
-#'   alpha = 1 - conf_level. Default 0.95 (alpha = 0.05).
+#'   alpha = 1 - conf_level. Must be at least 0.5. Default 0.95
+#'   (alpha = 0.05).
 #' @param n_sites Optional positive integer. Fix the number of clusters;
 #'   the function solves for the target samples per cluster (\code{n_per_site}).
 #'   Cannot be used with \code{n_per_site}.
@@ -83,10 +84,12 @@
 #' @return A named list. Always present:
 #'   \item{n}{Total sample size required}
 #'   \item{n_eff}{SRS-equivalent independent sample size the design achieves
-#'     (the base power-formula n before the design effect and FPC). Clustering
-#'     inflates the collected \code{n} above it; the FPC lets it fall below.
-#'     Defined the same way as \code{n_eff} in \code{design_precision()} and
-#'     \code{estimate_prevalence()}.}
+#'     (the base power-formula n before the design effect and FPC).
+#'     Clustering inflates the collected \code{n} above it. With no FPC
+#'     \code{n_eff} \eqn{\le} \code{n}; \strong{with an FPC \code{n} is
+#'     shrunk while \code{n_eff} stays at the pre-FPC value, so \code{n_eff}
+#'     can exceed \code{n}.} Defined the same way as \code{n_eff} in
+#'     \code{design_precision()} and \code{estimate_prevalence()}.}
 #'   \item{threshold}{Decision threshold as supplied}
 #'   \item{prevalence}{Alternative prevalence as supplied}
 #'   \item{apparent_prev}{Alternative prevalence on the apparent scale}
@@ -97,7 +100,10 @@
 #'   \item{sensitivity}{Sensitivity as supplied}
 #'   \item{specificity}{Specificity as supplied}
 #'   \item{icc}{ICC as supplied}
-#'   \item{deff}{Design effect applied}
+#'   \item{deff}{Design effect applied. When an FPC shrinks a
+#'     fixed-\code{n_sites} design, this is the design effect of the
+#'     smaller \emph{fielded} design, consistent with the returned
+#'     \code{n_per_site} (\code{deff = 1 + (n_per_site - 1) * icc}).}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #'   Present when clustering is specified:
@@ -206,6 +212,13 @@ design_threshold <- function(threshold,
             " is very close to 1. The Rogan-Gladen adjustment is numerically unstable.")
   if (!is.finite(conf_level) || conf_level <= 0 || conf_level >= 1)
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, ").")
+  if (conf_level < 0.5)
+    stop("`conf_level` must be at least 0.5 (got ", conf_level, "). ",
+         "Below 0.5, alpha = 1 - conf_level exceeds 0.5 so z_alpha = ",
+         "qnorm(1 - alpha) turns negative and the required n is no longer ",
+         "monotone in conf_level (e.g. conf_level = 0.3 returns a spuriously ",
+         "small n). Pass a confidence level such as 0.95, not a significance ",
+         "level such as 0.05. This mirrors the `power >= 0.5` rule.")
   if (!is.finite(icc) || icc < 0 || icc > 1)
     stop("`icc` must be in [0, 1] (got ", icc, ").")
   if (!is.null(n_sites) && !is.null(n_per_site))
@@ -221,8 +234,8 @@ design_threshold <- function(threshold,
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, ").")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 ||
-      !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a single finite positive number (got ",
+      !is.finite(fpc_N) || fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N, ").")
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
@@ -234,8 +247,7 @@ design_threshold <- function(threshold,
   if (alternative == "less" && prevalence >= threshold)
     stop("`prevalence` (", prevalence, ") must be < `threshold` (", threshold,
          ") when alternative = 'less'.")
-  if (alternative == "two.sided" &&
-      abs(prevalence - threshold) < 1e-8 * max(1, abs(threshold)))
+  if (alternative == "two.sided" && abs(prevalence - threshold) < 1e-8)
     stop("`prevalence` (", prevalence, ") must differ meaningfully from ",
          "`threshold` (", threshold, ") for alternative = 'two.sided'.")
 
@@ -302,8 +314,10 @@ design_threshold <- function(threshold,
 
   # n_eff: SRS-equivalent independent sample size the design achieves (the
   # base power-formula n before the design effect and FPC). Clustering
-  # inflates the collected `n` above it; the FPC lets it fall below.
-  # Defined the same way as n_eff in design_precision()/estimate_prevalence().
+  # inflates the collected `n` above it. With no FPC n_eff <= n_total; an
+  # FPC shrinks n_total while n_eff stays at the pre-FPC value, so n_eff
+  # can then exceed n_total. Same definition as in design_precision() /
+  # estimate_prevalence().
   n_eff <- ceiling(n_base_cont)
 
   # ---- distribute across sites ----
@@ -313,6 +327,13 @@ design_threshold <- function(threshold,
   } else if (!is.null(n_sites)) {
     n_per_site_out <- ceiling(n_total / n_sites)
     n_sites_out    <- n_sites
+    # Report the design effect of the design actually fielded: after the
+    # FPC shrinks n_total (and the whole-number rounding of n_per_site),
+    # the closed-form pre-FPC `deff` no longer matches the returned
+    # n_per_site. Recompute so the output list is self-consistent
+    # (deff == 1 + (n_per_site - 1) * icc always holds). Same fix as
+    # design_precision().
+    if (icc > 0) deff <- 1 + (n_per_site_out - 1) * icc
   } else {
     n_sites_out    <- NULL
     n_per_site_out <- NULL

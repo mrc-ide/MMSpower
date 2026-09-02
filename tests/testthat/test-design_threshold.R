@@ -576,3 +576,28 @@ test_that("DT-R7-2: logical params are rejected, not coerced", {
   expect_error(design_threshold(0.05, 0.10, sensitivity = TRUE), "`sensitivity`")
   expect_error(design_threshold(0.05, 0.10, icc = FALSE), "`icc`")
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 8 -- fresh code-review fixes (2026-09-02)
+# ---------------------------------------------------------------------------
+
+test_that("DT-R8-1: conf_level below 0.5 is rejected (mirrors the power rule)", {
+  expect_error(design_threshold(0.05, 0.10, conf_level = 0.30), "at least 0.5")
+  expect_error(design_threshold(0.05, 0.10, conf_level = 0.05), "at least 0.5")
+  # exactly 0.5 is still allowed (z_alpha = 0), as for power
+  expect_silent(design_threshold(0.05, 0.10, conf_level = 0.50))
+})
+
+test_that("DT-R8-2: fpc_N must be a whole number", {
+  expect_error(design_threshold(0.05, 0.10, fpc_N = 500.5), "integer")
+  expect_silent(design_threshold(0.05, 0.10, fpc_N = 500))
+})
+
+test_that("DT-R8-3: reported deff is consistent with the returned n_per_site", {
+  a <- design_threshold(0.05, 0.10, n_sites = 50, icc = 0.05)
+  expect_equal(a$deff, 1 + (a$n_per_site - 1) * 0.05, tolerance = 1e-9)
+
+  b <- design_threshold(0.05, 0.10, n_sites = 50, icc = 0.05, fpc_N = 5000)
+  expect_equal(b$deff, 1 + (b$n_per_site - 1) * 0.05, tolerance = 1e-9)
+})
