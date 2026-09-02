@@ -54,6 +54,28 @@
 #' \code{alternative}, built the same way as in \code{estimate_prevalence()};
 #' \code{ci_method} selects Wald (default), Clopper-Pearson, or Agresti-Coull.
 #'
+#' @section Equations and sources:
+#' Direct workshop material (MMS-SD Study Design Workshop,
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}) plus three extensions:
+#' \itemize{
+#'   \item \emph{One-sample z-test for a proportion against a fixed value}
+#'     \eqn{Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}} -- Module 3
+#'     "Hypothesis testing", slide "Null hypothesis testing" (lecture
+#'     slides p. 8); \eqn{\alpha} and the +/-1.96 critical values, same
+#'     slide.
+#'   \item \emph{Design effect / effective sample size}
+#'     \eqn{D_{eff} = 1 + (\bar n - 1)\,r}, \eqn{N_{eff} = N/D_{eff}} --
+#'     Module 5 "Dealing with over-dispersion", slides "The effective
+#'     sample size" and "Why is the ICC useful?" (pp. 4-5).
+#'   \item \emph{Null-variance z} (SE evaluated at \code{threshold}, not
+#'     \eqn{\hat p}) -- a standard refinement of the Module 3 statistic,
+#'     not spelled out in the workshop.
+#'   \item \emph{Rogan-Gladen correction}, \emph{Clopper-Pearson} and
+#'     \emph{Agresti-Coull} intervals, and the \emph{finite-population
+#'     correction} -- not in the workshop; Rogan & Gladen (1978),
+#'     Clopper & Pearson (1934), Agresti & Coull (1998), Cochran (1977).
+#' }
+#'
 #' @return A named list:
 #'   \item{statistic}{z-statistic (on the apparent-prevalence scale)}
 #'   \item{p_value}{p-value for the chosen \code{alternative}}
@@ -76,6 +98,22 @@
 #'   \item{icc_used}{ICC applied: estimated from data or as supplied}
 #'   \item{deff}{Design effect applied}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
+#'
+#' @references
+#' MMS-SD Study Design Workshop, Modules 3 (hypothesis testing) and 5 (ICC /
+#' design effect). \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#'
+#' Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+#' screening test. American Journal of Epidemiology 107(1):71-76.
+#'
+#' Clopper CJ, Pearson ES (1934). The use of confidence or fiducial limits
+#' illustrated in the case of the binomial. Biometrika 26(4):404-413.
+#'
+#' Agresti A, Coull BA (1998). Approximate is better than "exact" for
+#' interval estimation of binomial proportions. The American Statistician
+#' 52(2):119-126.
+#'
+#' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 #'
 #' @export
 #'
