@@ -275,3 +275,47 @@ test_that("DT-R7-2: 'less' accepts a genuine decline", {
   expect_equal(res$alternative, "less")
   expect_true(is.finite(res$n_per_timepoint))
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 8 -- code-review fixes (2026-09-02): reverse-mode consistency
+# ---------------------------------------------------------------------------
+
+test_that("DT-R8-1: reverse mode rejects n below the cluster layout", {
+  expect_error(
+    design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                 n = 40, n_sites = 80, icc = 0.03),
+    "smaller than `n_sites`"
+  )
+  expect_error(
+    design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                 n = 10, n_per_site = 25, icc = 0.03),
+    "smaller than `n_per_site`"
+  )
+})
+
+test_that("DT-R8-2: reverse-mode one-sided power has no spurious opposite tail", {
+  r <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                    n = 120, alternative = "greater")
+  # recompute the non-centrality by hand and compare to the one-sided form
+  p0a <- 0.10; p1a <- 0.20
+  sxx <- 10; sigma2 <- 0.15 * 0.85
+  slope_app <- (p1a - p0a) / 4
+  ncp <- abs(slope_app) * sqrt(120 * sxx / sigma2)
+  z_a <- qnorm(0.95)
+  expect_equal(r$power, pnorm(ncp - z_a), tolerance = 1e-9)
+  # the two-sided call at the same n is strictly less powered
+  r2 <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                     n = 120, alternative = "two.sided")
+  expect_lt(r2$power, r$power)
+})
+
+test_that("DT-R8-3: forward/reverse round-trip agrees with FPC + clustering", {
+  fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                      power = 0.80, n_per_site = 25, icc = 0.03, fpc_N = 600)
+  rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                      n = fwd$n_per_timepoint,
+                      n_per_site = 25, icc = 0.03, fpc_N = 600)
+  # power recovered from the design's own n should sit at ~the target
+  expect_equal(rev$power, 0.80, tolerance = 0.03)
+})
