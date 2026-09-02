@@ -270,7 +270,7 @@ design_precision <- function(prevalence,
 
   # ---- base sample size (SRS, apparent-prevalence scale) ----
   z           <- stats::qnorm(1 - (1 - conf_level) / 2)
-  p_app       <- prevalence * sensitivity + (1 - prevalence) * (1 - specificity)
+  p_app       <- .apparent_prev(prevalence, sensitivity, specificity)
   n_base_cont <- z^2 * p_app * (1 - p_app) / (moe^2 * correction^2)
 
   # ---- design effect and total n ----
