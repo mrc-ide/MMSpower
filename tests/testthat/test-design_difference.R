@@ -235,9 +235,11 @@ test_that("DF-R5-5: icc / cluster-structure guards", {
                "positive integer")
 })
 
-test_that("DF-R5-6: fpc_N guard", {
-  expect_error(design_difference(0.1, 0.2, fpc_N = -5),      "positive number")
+test_that("DF-R5-6: fpc_N guard (finite positive integer)", {
+  expect_error(design_difference(0.1, 0.2, fpc_N = -5),      "positive integer")
   expect_error(design_difference(0.1, 0.2, fpc_N = c(1, 2)), "length = 2")
+  expect_error(design_difference(0.1, 0.2, fpc_N = 402.7),   "positive integer")
+  expect_silent(design_difference(0.1, 0.2, fpc_N = 400))
 })
 
 

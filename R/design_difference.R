@@ -240,8 +240,8 @@ design_difference <- function(prevalence1,
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, ").")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 ||
-      !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a single finite positive number (got ",
+      !is.finite(fpc_N) || fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N, ").")
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
@@ -253,8 +253,7 @@ design_difference <- function(prevalence1,
   if (alternative == "less" && prevalence1 >= prevalence2)
     stop("`prevalence1` (", prevalence1, ") must be < `prevalence2` (",
          prevalence2, ") when alternative = 'less'.")
-  if (alternative == "two.sided" &&
-      abs(prevalence1 - prevalence2) < 1e-8 * max(1, abs(prevalence1)))
+  if (alternative == "two.sided" && abs(prevalence1 - prevalence2) < 1e-8)
     stop("`prevalence1` (", prevalence1, ") and `prevalence2` (", prevalence2,
          ") are effectively equal; there is no difference to power for.")
 
