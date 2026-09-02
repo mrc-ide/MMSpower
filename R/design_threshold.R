@@ -57,6 +57,29 @@
 #' Clustering and FPC are applied using the same closed-form logic as
 #' \code{design_precision()}.
 #'
+#' @section Equations and sources:
+#' Direct workshop material (MMS-SD Study Design Workshop,
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}) plus two extensions:
+#' \itemize{
+#'   \item \emph{Power / sample-size formula}
+#'     \eqn{n = ((z_{1-\beta}\sqrt{p_1(1-p_1)} + z_{1-\alpha}\sqrt{p_0
+#'     (1-p_0)}) / |p_1 - p_0|)^2}, with \eqn{Power = 1 - \phi(z_{1-\alpha/2}
+#'     - E[Z])} and \eqn{E[Z] = (p - p_0)/\sqrt{p(1-p)/n}} -- Module 4
+#'     "Statistical power", slides "How do we calculate power?", "Power as
+#'     a function of sample size" and "Sample size formulae" (lecture
+#'     slides pp. 6-7). ("For 80\% power, \eqn{z_{1-\beta} = 0.84}.")
+#'   \item \emph{One-sample z-test against a threshold}
+#'     \eqn{Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}} -- Module 3
+#'     "Hypothesis testing", slide "Null hypothesis testing" (p. 8).
+#'   \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
+#'     Module 5 "Dealing with over-dispersion" (p. 5).
+#'   \item \emph{Rogan-Gladen apparent scale}
+#'     \eqn{p_{app} = p\,Se + (1-p)(1-Sp)} -- \strong{not} in the
+#'     workshop; Rogan & Gladen (1978).
+#'   \item \emph{Finite-population correction} and the fixed-\code{n_sites}
+#'     closed form -- not in the workshop; Cochran (1977) for the FPC.
+#' }
+#'
 #' @return A named list. Always present:
 #'   \item{n}{Total sample size required}
 #'   \item{n_eff}{SRS-equivalent independent sample size the design achieves
@@ -82,6 +105,16 @@
 #'     If \code{n_sites} supplied: echoed back. \code{NULL} for SRS.}
 #'   \item{n_per_site}{If \code{n_sites} supplied: target samples per cluster.
 #'     If \code{n_per_site} supplied: echoed back. \code{NULL} for SRS.}
+#'
+#' @references
+#' MMS-SD Study Design Workshop, Modules 3 (hypothesis testing), 4
+#' (statistical power) and 5 (ICC / design effect).
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#'
+#' Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+#' screening test. American Journal of Epidemiology 107(1):71-76.
+#'
+#' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 #'
 #' @export
 #'
