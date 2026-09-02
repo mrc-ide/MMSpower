@@ -86,10 +86,14 @@
 #' @return A named list. Always present:
 #'   \item{n}{Total sample size required (forward mode) or as supplied
 #'     (reverse mode).}
-#'   \item{n_eff}{SRS-equivalent independent sample size (the base
-#'     detection-formula n, before the design effect and FPC). Defined the
-#'     same way as \code{n_eff} in \code{design_precision()} /
-#'     \code{design_threshold()}.}
+#'   \item{n_eff}{SRS-equivalent independent sample size. In forward mode:
+#'     the base detection-formula n before the design effect and FPC,
+#'     defined the same way as \code{n_eff} in \code{design_precision()} /
+#'     \code{design_threshold()}. In reverse mode: the SRS-equivalent of the
+#'     \emph{supplied} \code{n} after removing the design effect and FPC
+#'     (i.e. the independent-sample size whose detection probability equals
+#'     the reported one) -- a different quantity, not comparable across
+#'     modes.}
 #'   \item{detection_prob}{Target detection probability (forward mode) or the
 #'     probability achieved by \code{n} (reverse mode).}
 #'   \item{prevalence}{Minimum prevalence to detect, as supplied.}
@@ -209,6 +213,19 @@ design_detection <- function(prevalence,
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
 
+  # ---- reverse-mode: supplied n must be consistent with the cluster layout ----
+  # Without this, n < n_sites gives an average cluster size below 1, so the
+  # Kish design effect drops below 1, inflating n_eff above the n actually
+  # collected and (with fpc_N) driving the FPC inversion denominator negative.
+  if (!solve_n && !is.null(n_sites) && n < n_sites)
+    stop("`n` (", n, ") is smaller than `n_sites` (", n_sites, "): the supplied ",
+         "sample size cannot provide even one person per site. Increase `n`, ",
+         "or lower `n_sites`.")
+  if (!solve_n && !is.null(n_per_site) && n < n_per_site)
+    stop("`n` (", n, ") is smaller than `n_per_site` (", n_per_site, "): the ",
+         "supplied sample size is less than a single cluster. Increase `n`, or ",
+         "lower `n_per_site`.")
+
   # ---- per-sample true-positive probability ----
   # KNOWN LIMITATION: specificity is deliberately omitted here. `q` is the
   # probability a sample is a genuine positive AND the assay flags it. See
@@ -237,6 +254,7 @@ design_detection <- function(prevalence,
       # n_sites fixed: implied samples per cluster is n / n_sites
       deff <- 1 + (n / n_sites - 1) * icc
     }
+    deff   <- max(deff, 1)   # Kish deff is >= 1 by construction
 
     n_cont <- n / deff
 
@@ -261,7 +279,7 @@ design_detection <- function(prevalence,
     }
 
     return(list(
-      n              = as.integer(n),
+      n              = as.numeric(n),
       n_eff          = ceiling(n_cont),
       detection_prob = achieved,
       prevalence     = prevalence,
@@ -313,6 +331,17 @@ design_detection <- function(prevalence,
 
   # ---- finite-population correction ----
   if (!is.null(fpc_N)) {
+    # A finite population caps the detection probability: even a full census
+    # of fpc_N samples gives only 1 - (1 - q)^fpc_N. If the target exceeds
+    # that, the FPC would otherwise silently return a truncated n that never
+    # reaches detection_prob.
+    max_achievable <- 1 - (1 - q)^fpc_N
+    if (detection_prob > max_achievable)
+      stop("A detection probability of ", round(100 * detection_prob, 1),
+           "% is not achievable in a population of ", fpc_N,
+           ": even a full census reaches at most ",
+           round(100 * max_achievable, 1), "% (prevalence ", prevalence,
+           ", sensitivity ", sensitivity, "). Lower `detection_prob`, or drop `fpc_N`.")
     n_cont <- (n_cont * fpc_N) / (n_cont + fpc_N - 1)
   }
 

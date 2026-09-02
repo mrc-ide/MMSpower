@@ -54,10 +54,14 @@ finite-population correction. \code{NULL} (default) = no FPC.}
 A named list. Always present:
 \item{n}{Total sample size required (forward mode) or as supplied
 (reverse mode).}
-\item{n_eff}{SRS-equivalent independent sample size (the base
-detection-formula n, before the design effect and FPC). Defined the
-same way as \code{n_eff} in \code{design_precision()} /
-\code{design_threshold()}.}
+\item{n_eff}{SRS-equivalent independent sample size. In forward mode:
+the base detection-formula n before the design effect and FPC,
+defined the same way as \code{n_eff} in \code{design_precision()} /
+\code{design_threshold()}. In reverse mode: the SRS-equivalent of the
+\emph{supplied} \code{n} after removing the design effect and FPC
+(i.e. the independent-sample size whose detection probability equals
+the reported one) -- a different quantity, not comparable across
+modes.}
 \item{detection_prob}{Target detection probability (forward mode) or the
 probability achieved by \code{n} (reverse mode).}
 \item{prevalence}{Minimum prevalence to detect, as supplied.}

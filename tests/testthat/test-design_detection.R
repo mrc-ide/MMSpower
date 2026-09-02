@@ -274,3 +274,44 @@ test_that("DD-R6-3: larger icc inflates n for a fixed cluster size", {
   expect_gt(r_hi$n, r_lo$n)
   expect_gt(r_hi$deff, r_lo$deff)
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 7 -- code-review fixes (2026-09-02): reverse-mode consistency,
+# finite-population feasibility, return-type consistency
+# ---------------------------------------------------------------------------
+
+test_that("DD-R7-1: reverse mode rejects n below the cluster layout", {
+  expect_error(
+    design_detection(prevalence = 0.02, n = 50, n_sites = 100, icc = 0.5),
+    "smaller than `n_sites`"
+  )
+  expect_error(
+    design_detection(prevalence = 0.02, n = 10, n_per_site = 20, icc = 0.05),
+    "smaller than `n_per_site`"
+  )
+})
+
+test_that("DD-R7-2: reverse-mode deff never drops below 1", {
+  # n_sites just under n: average cluster size ~1, deff must still be >= 1
+  res <- design_detection(prevalence = 0.02, n = 120, n_sites = 100, icc = 0.5)
+  expect_gte(res$deff, 1)
+  expect_lte(res$n_eff, res$n)            # effective n cannot exceed collected n
+})
+
+test_that("DD-R7-3: forward mode errors when fpc_N cannot reach the target", {
+  # census of 50 people at prevalence 0.02 gives at most 1 - 0.98^50 ~ 0.636
+  expect_error(
+    design_detection(prevalence = 0.02, fpc_N = 50),
+    "not achievable in a population"
+  )
+  # a population large enough to reach 95% is fine
+  expect_silent(design_detection(prevalence = 0.02, fpc_N = 5000))
+})
+
+test_that("DD-R7-4: `n` has a consistent (numeric) type in both modes", {
+  fwd <- design_detection(prevalence = 0.02)
+  rev <- design_detection(prevalence = 0.02, n = 150)
+  expect_type(fwd$n, "double")
+  expect_type(rev$n, "double")
+})
