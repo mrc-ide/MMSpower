@@ -279,9 +279,15 @@ test_trend <- function(x, n, time = NULL,
   # total, not a cluster size, so no design effect can be formed -- fall back
   # to deff = 1 even when an explicit `icc` is supplied (matches the
   # single-cluster convention in test_threshold() / estimate_prevalence()).
-  # TODO(review): arithmetic mean cluster size (matches Module 5);
-  # classical Kish for unequal clusters uses sum(n^2)/sum(n). Same open
-  # decision as estimate_prevalence() -- keep in lockstep; team resolves.
+  # TODO(review): the per-timepoint ICC average (below) has known
+  # heuristic biases the team should weigh in on: (a) arithmetic vs
+  # size-weighted mean cluster size -- same open decision as
+  # estimate_prevalence(), keep in lockstep; (b) the `max(ratio, 1)` floor
+  # biases mean(icc_tp) upward on genuinely unclustered multi-site data;
+  # (c) `n_bar_cl` is a global mean but each icc_tp was backed out with
+  # that timepoint's own mean(ni) -- a mismatch when cluster sizes differ
+  # a lot across timepoints. A per-timepoint deff (instead of one pooled
+  # deff) would fix (b)/(c) but changes the model. Do not fix unilaterally.
   multi_tp    <- tj[vapply(tj, function(t) sum(time == t) >= 2, logical(1))]
   has_clusters <- length(multi_tp) > 0
   n_bar_cl    <- if (has_clusters) mean(n[time %in% multi_tp]) else NA_real_
@@ -294,8 +300,13 @@ test_trend <- function(x, n, time = NULL,
       p_pool  <- sum(xi) / sum(ni)
       var_obs <- stats::var(xi / ni)
       var_srs <- mean(p_pool * (1 - p_pool) / ni)
-      d_tp    <- if (var_srs > 0) max(var_obs / var_srs, 1) else 1
-      icc_tp  <- c(icc_tp, min(max((d_tp - 1) / (mean(ni) - 1), 0), 1))
+      # A timepoint with p_pool in {0, 1} (var_srs == 0) or no between-site
+      # spread carries no ICC information -- skip it, rather than folding a
+      # hard 0 into mean(icc_tp), which would dilute deff and understate
+      # the CI width.
+      if (var_srs == 0) next
+      d_tp   <- max(var_obs / var_srs, 1)
+      icc_tp <- c(icc_tp, min(max((d_tp - 1) / (mean(ni) - 1), 0), 1))
     }
     icc_used <- if (length(icc_tp) > 0) mean(icc_tp) else 0
   } else {
