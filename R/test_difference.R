@@ -71,6 +71,31 @@
 #' than two clusters (or clusters all of size 1) falls back to
 #' \eqn{D_{eff} = 1}.
 #'
+#' @section Equations and sources:
+#' Building blocks from the MMS-SD Study Design Workshop
+#' (\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the two-group test
+#' itself is \strong{not} covered there.
+#' \itemize{
+#'   \item \emph{One-sample z-test for a proportion}
+#'     \eqn{Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}} -- Module 3
+#'     "Hypothesis testing", slide "Null hypothesis testing" (lecture
+#'     slides p. 8). This function uses the \emph{two-sample}
+#'     (pooled-variance) form, which the workshop does not cover; standard,
+#'     e.g. Fleiss, Levin & Paik (2003), ch. 2.
+#'   \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and the
+#'     \eqn{D_{eff} = \mathrm{Var}_{obs}/\mathrm{Var}_{SRS}} estimator --
+#'     Module 5, slides "The Design Effect" / "Why is the ICC useful?"
+#'     (pp. 4-5); applied per group.
+#'   \item \emph{Wilson score interval} (used by \code{ci_method =
+#'     "newcombe"}) and the \emph{Newcombe} hybrid-score difference
+#'     interval -- not in the workshop; Newcombe (1998).
+#'   \item \emph{Rogan-Gladen correction} of the difference and its CI
+#'     (divide by \eqn{Se + Sp - 1}) -- not in the workshop;
+#'     Rogan & Gladen (1978).
+#'   \item \emph{Finite-population correction} -- not in the workshop;
+#'     Cochran (1977).
+#' }
+#'
 #' @return A named list:
 #'   \item{difference}{Rogan-Gladen corrected prevalence difference
 #'     (group 1 - group 2) on the true scale, computed as
@@ -104,12 +129,20 @@
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}.}
 #'
 #' @references
+#' MMS-SD Study Design Workshop, Modules 3 (hypothesis testing) and 5 (ICC /
+#' design effect). \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#'
 #' Newcombe RG (1998). Interval estimation for the difference between
 #' independent proportions: comparison of eleven methods. Statistics in
 #' Medicine 17(8):873-890.
 #'
-#' MMS-SD workshop Modules 3 (hypothesis testing), 4 (two-sample proportion
-#' tests), 5 (ICC / design effect).
+#' Fleiss JL, Levin B, Paik MC (2003). Statistical Methods for Rates and
+#' Proportions, 3rd ed. Wiley. (Two-sample z-test for proportions.)
+#'
+#' Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+#' screening test. American Journal of Epidemiology 107(1):71-76.
+#'
+#' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 #'
 #' @seealso \code{\link{design_difference}}
 #'
