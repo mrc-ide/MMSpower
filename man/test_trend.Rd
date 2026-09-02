@@ -129,6 +129,32 @@ at least two clusters, averaged, and applied as
 cluster size. This is a single uniform inflation -- a full mixed-model
 treatment of cluster-by-time structure is future work.
 }
+\section{Equations and sources}{
+
+Building blocks from the MMS-SD Study Design Workshop
+(\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the trend test
+itself is \strong{not} covered there.
+\itemize{
+\item The workshop poses "Has prevalence increased over the last 5
+years?" as a hypothesis-test question (Module 3 "Hypothesis
+testing", slide "Null hypothesis testing", lecture slides p. 8) but
+gives no method. This function fits a weighted least-squares line;
+the classical count-based alternative is the Cochran-Armitage trend
+test (Armitage 1955; Cochran 1954).
+\item \emph{Inverse-variance weights} \eqn{w_j = 1/\mathrm{Var}(\hat
+p_j)} with \eqn{\mathrm{Var}(\hat p_j) = \hat p_j(1-\hat p_j)/N_j}
+-- the binomial variance of a proportion, as in Module 1's Wald
+interval (lecture slides p. 11).
+\item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and the
+\eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}} estimator -- Module 5,
+slides "The Design Effect" / "Why is the ICC useful?" (pp. 4-5).
+\item \emph{Rogan-Gladen correction} of the slope and its CI (divide
+by \eqn{Se + Sp - 1}) -- not in the workshop; Rogan & Gladen (1978).
+\item \emph{Finite-population correction} -- not in the workshop;
+Cochran (1977).
+}
+}
+
 \examples{
 # Five annual rounds, one survey per round
 test_trend(
@@ -149,8 +175,20 @@ test_trend(x = c(20, 15, 11, 7), n = rep(120, 4), time = 1:4,
            alternative = "less", sensitivity = 0.9, specificity = 0.97)
 }
 \references{
-MMS-SD workshop Module 4 (trend detection), Module 5 (ICC / design
-effect).
+MMS-SD Study Design Workshop, Modules 1 (Wald interval), 3 (hypothesis
+testing) and 5 (ICC / design effect).
+\url{https://mrc-ide.github.io/MMS-SD_workshop/}
+
+Armitage P (1955). Tests for linear trends in proportions and
+frequencies. Biometrics 11(3):375-386.
+
+Cochran WG (1954). Some methods for strengthening the common chi-square
+tests. Biometrics 10(4):417-451.
+
+Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+screening test. American Journal of Epidemiology 107(1):71-76.
+
+Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 }
 \seealso{
 \code{\link{design_trend}}

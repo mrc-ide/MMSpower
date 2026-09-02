@@ -163,6 +163,33 @@ the same closed-form logic as \code{design_threshold()} /
 Solving for the \emph{number} of timepoints is not implemented in this
 version; fix \code{n_timepoints} (or \code{times}) and solve for \code{n}.
 }
+\section{Equations and sources}{
+
+Building blocks from the MMS-SD Study Design Workshop
+(\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the trend / slope
+model is \strong{not} covered there.
+\itemize{
+\item \emph{Power form}
+\eqn{n = (z_{1-\beta} + z_{1-\alpha})^2\, \sigma^2/(S_{xx}\,\beta^2)}
+is the regression-slope analogue of Module 4's one-proportion
+result \eqn{n = (z_{1-\beta} + z_{1-\alpha/2})^2\,p(1-p)/(p-p_0)^2}
+(slide "Sample size formulae", lecture slides p. 7). Linear-trend
+sample size is not in the workshop; standard form, e.g. Dupont &
+Plummer (1998).
+\item \emph{Slope variance} \eqn{\mathrm{Var}(\hat\beta) =
+\sigma^2/(n\,S_{xx})}, \eqn{S_{xx} = \sum (t_i-\bar t)^2} --
+ordinary least squares; not workshop material.
+\item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
+Module 5 "Dealing with over-dispersion", slide "Why is the ICC
+useful?" (p. 5); applied per timepoint.
+\item \emph{Apparent-prevalence (Rogan-Gladen) scale}
+\eqn{\beta_{app} = \beta_{true}(Se + Sp - 1)} -- not in the
+workshop; Rogan & Gladen (1978).
+\item \emph{Finite-population correction} -- not in the workshop;
+Cochran (1977).
+}
+}
+
 \examples{
 # Detect prevalence rising from 10\% to 20\% over 5 annual rounds
 design_trend(prevalence_start = 0.10, prevalence_end = 0.20, n_timepoints = 5)
@@ -178,8 +205,17 @@ design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
              n_per_site = 25, icc = 0.03)
 }
 \references{
-MMS-SD workshop Module 4 (longitudinal power / sample-size formulae),
-Module 5 (ICC / design effect).
+MMS-SD Study Design Workshop, Modules 4 (statistical power) and 5 (ICC /
+design effect). \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+
+Dupont WD, Plummer WD (1998). Power and sample size calculations for
+studies involving linear regression. Controlled Clinical Trials
+19(6):589-601.
+
+Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+screening test. American Journal of Epidemiology 107(1):71-76.
+
+Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 }
 \seealso{
 \code{\link{test_trend}}
