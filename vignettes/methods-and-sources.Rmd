@@ -1,0 +1,158 @@
+---
+title: "Equations and lecture-note sources"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Equations and lecture-note sources}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+## Scope
+
+MMSpower is built on the **MMS-SD Study Design Workshop**
+(<https://mrc-ide.github.io/MMS-SD_workshop/>). This vignette maps every
+equation each exported function uses to where it appears in the workshop
+lecture material, and states plainly which pieces **extend beyond** the
+workshop and what standard reference they come from instead.
+
+"Lecture slides p. N" refers to the page in the combined lecture PDF used
+during development; the same slides are on the public workshop site by
+module. There is no finer slide numbering, so references give the module
+and the slide *title*.
+
+The companion vignette *"Methods: prevalence estimation and its precision"*
+gives the full step-by-step derivation for the `estimate_prevalence()` /
+`design_precision()` pair; this one is the cross-function source index.
+
+## The workshop building blocks
+
+| Symbol / result | Formula | Module | Slide(s) | p. |
+|---|---|---|---|---|
+| Apparent prevalence | $\hat p = x/n$ | 1 | "Sampling variation and uncertainty" | 11 |
+| Wald CI | $\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/n}$ | 1 / 2 | "The Wald confidence interval"; "Precision and sample size" | 11 / 9 |
+| MOE sample size | $n = z_{1-\alpha/2}^2\,p(1-p)/m^2$ | 2 | "Deriving the sample size formula" (steps 1-3); "Worked example" | 9-10 |
+| One-sample z-test | $Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}$ | 3 | "Null hypothesis testing" | 8 |
+| Significance level / critical values | $\alpha$; reject if $|Z| > 1.96$ | 3 | "Null hypothesis testing"; "Critical Z value" | 8 / 11 |
+| Expected test statistic | $E[Z] = (p - p_0)/\sqrt{p(1-p)/n}$ | 4 | "How do we calculate power?" | 6-7 |
+| Power | $\text{Power} = 1 - \phi\!\left(z_{1-\alpha/2} - E[Z]\right)$ | 4 | "Power as a function of sample size" | 7 |
+| Power-based sample size | $n = (z_{1-\beta} + z_{1-\alpha/2})^2\,p(1-p)/(p-p_0)^2$; $z_{1-\beta}=0.84$ at 80% | 4 | "Sample size formulae" | 7 |
+| Design effect | $D_{eff} = \mathrm{Var}_{obs}/\mathrm{Var}_{SRS} = s^2 / \left[\tfrac{1}{c}\sum_i \hat p(1-\hat p)/n_i\right]$ | 5 | "The Design Effect" / "Quantifying over-dispersion" | 4 |
+| Effective sample size | $N_{eff} = N / D_{eff}$ | 5 | "The effective sample size" | 4 |
+| Deff from ICC | $D_{eff} = 1 + (\bar n - 1)\,r$ | 5 | "Why is the ICC useful?" | 5 |
+| ICC from Deff | $r = (D_{eff}-1)/(\bar n - 1)$ | 5 | "The intra-cluster correlation coefficient" | 5 |
+| Clustered Wald CI | $\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot D_{eff}}$ | 5 | "How can we design multi-cluster studies?" | 5 |
+| Over-dispersion check | sites within $\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}$; > ~10% outside $\Rightarrow$ over-dispersion | 5 | "Detecting over-dispersion" | 4 |
+| Detection / "at least one" | DRpower `get_sample_size_presence()` | 6 / 7 | "The DRpower tool"; "Choose the largest sample size!" | 2-3 / 1 |
+| Cost as feasibility trade-off | (no equation) | 2 / 7 | "How to choose values of p and m"; "Choose the largest sample size!" | 10 / 1 |
+
+## Extensions not covered by the workshop
+
+| Piece | Standard reference |
+|---|---|
+| Rogan-Gladen correction $\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)$ and its delta-method variance | Rogan & Gladen (1978) |
+| Clopper-Pearson interval | Clopper & Pearson (1934) |
+| Agresti-Coull interval | Agresti & Coull (1998) |
+| Finite-population correction | Cochran (1977), *Sampling Techniques* |
+| Two-sample (two-proportion) z-test and its sample size | Fleiss, Levin & Paik (2003), ch. 2 |
+| Newcombe hybrid-score interval for a difference of proportions | Newcombe (1998) |
+| Linear-trend / regression-slope sample size | Dupont & Plummer (1998) |
+| Cochran-Armitage trend test (count-based alternative to the WLS slope) | Armitage (1955); Cochran (1954) |
+| Geometric "detect $\ge 1$" sample size $n = \log(1-\text{target})/\log(1-q)$ | Cannon & Roe (1982); Cannon (2001) |
+| Closed-form solve for the fixed-`n_sites` Deff/`n` circularity | package's own algebra (see *"Methods: prevalence estimation and its precision"*) |
+
+## Per-function index
+
+### `estimate_prevalence()`
+
+Apparent prevalence, Wald CI (M1); design effect, `N_eff`, `Deff = 1 + (n_bar - 1) r`,
+clustered Wald CI, over-dispersion check (M5).
+**Extends:** Rogan-Gladen point estimate + variance; Clopper-Pearson and
+Agresti-Coull intervals; FPC.
+
+### `design_precision()`
+
+MOE sample size $n = z^2 p(1-p)/m^2$ (M2); Wald / MOE definition (M1, M2);
+design effect and `N_eff` (M5).
+**Extends:** Rogan-Gladen variance inflation $/(Se+Sp-1)^2$; fixed-`n_sites`
+closed form; FPC.
+
+### `test_threshold()`
+
+One-sample z-test $Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}$, $\alpha$,
+critical values (M3); design effect / `N_eff` (M5).
+**Extends:** null-variance z (SE at the threshold, not $\hat p$);
+Rogan-Gladen; Clopper-Pearson / Agresti-Coull; FPC.
+
+### `design_threshold()`
+
+Power $= 1 - \phi(z_{1-\alpha/2} - E[Z])$, $E[Z] = (p-p_0)/\sqrt{p(1-p)/n}$,
+power-based sample size $n = ((z_{1-\beta}\text{SE}_1 + z_{1-\alpha}\text{SE}_0)/\delta)^2$
+(M4); one-sample z-test it complements (M3); design effect (M5).
+**Extends:** Rogan-Gladen apparent scale; two-sided shortcut; FPC;
+fixed-`n_sites` closed form.
+
+### `design_detection()`
+
+Geometric $n = \log(1-\text{detection\_prob})/\log(1-q)$ named in the
+workshop as DRpower `get_sample_size_presence()` (M6, M7); design effect (M5).
+**Extends:** the geometric derivation; $q = p\cdot Se$ basis (an
+[unresolved decision](../README.md) -- specificity is not yet used);
+FPC. Reference: Cannon & Roe (1982), Cannon (2001).
+
+### `design_difference()` / `test_difference()`
+
+Building blocks: one-sample z-test (M3), power formula shape (M4), per-group
+design effect (M5).
+**Extends:** the whole **two-proportion** test and its sample size --
+Fleiss, Levin & Paik (2003); Wilson / Newcombe difference interval --
+Newcombe (1998); Rogan-Gladen correction of the difference; FPC.
+
+### `design_trend()` / `test_trend()`
+
+Building blocks: power formula shape (M4), design effect (M5), binomial
+variance of a proportion (M1), and the M3 framing "Has prevalence increased
+over the last 5 years?".
+**Extends:** the whole **linear-trend / slope** model -- regression-slope
+sample size (Dupont & Plummer 1998), the WLS slope test and its count-based
+cousin the Cochran-Armitage trend test (Armitage 1955; Cochran 1954);
+Rogan-Gladen correction of the slope; FPC.
+
+### `estimate_cost()`
+
+No workshop equation. $total = n \times cost\_per\_sample + n_{sites} \times
+cost\_per\_site$ is a bookkeeping identity; the workshop frames cost as the
+feasibility side of the design trade-off (M7 "balance power vs feasibility";
+M2 "what can you afford? What is logistically feasible?").
+
+## References
+
+- Agresti A, Coull BA (1998). Approximate is better than "exact" for
+  interval estimation of binomial proportions. *The American Statistician*
+  52(2):119-126.
+- Armitage P (1955). Tests for linear trends in proportions and
+  frequencies. *Biometrics* 11(3):375-386.
+- Cannon RM, Roe RT (1982). *Livestock Disease Surveys: A Field Manual for
+  Veterinarians*. Australian Bureau of Animal Health.
+- Cannon RM (2001). Sense and sensitivity -- designing surveys based on an
+  imperfect test. *Preventive Veterinary Medicine* 49(3):141-163.
+- Clopper CJ, Pearson ES (1934). The use of confidence or fiducial limits
+  illustrated in the case of the binomial. *Biometrika* 26(4):404-413.
+- Cochran WG (1954). Some methods for strengthening the common chi-square
+  tests. *Biometrics* 10(4):417-451.
+- Cochran WG (1977). *Sampling Techniques*, 3rd ed. Wiley.
+- Dupont WD, Plummer WD (1998). Power and sample size calculations for
+  studies involving linear regression. *Controlled Clinical Trials*
+  19(6):589-601.
+- Fleiss JL, Levin B, Paik MC (2003). *Statistical Methods for Rates and
+  Proportions*, 3rd ed. Wiley.
+- Kish L (1965). *Survey Sampling*. Wiley.
+- Newcombe RG (1998). Interval estimation for the difference between
+  independent proportions: comparison of eleven methods. *Statistics in
+  Medicine* 17(8):873-890.
+- Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+  screening test. *American Journal of Epidemiology* 107(1):71-76.
+- MMS-SD Study Design Workshop. <https://mrc-ide.github.io/MMS-SD_workshop/>
