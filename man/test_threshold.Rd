@@ -103,13 +103,19 @@ where \eqn{\theta_{app} = \theta \cdot Se + (1-\theta)(1-Sp)} is the
 threshold on the apparent-prevalence scale, and
 \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 
-The reported CI is \strong{matched to \code{alternative}}, like base R's
-\code{binom.test()} / \code{prop.test()}: a lower one-sided interval
-\eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
-\eqn{[0, U]} for \code{"less"}, and the usual two-sided interval for
-\code{"two.sided"}. So \code{reject} agrees with whether \code{threshold}
-lies outside \code{[ci_lower, ci_upper]}. \code{ci_method} selects Wald
-(default), Clopper-Pearson, or Agresti-Coull for the interval shape.
+The reported CI is \strong{matched to \code{alternative}}: a lower
+one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
+interval \eqn{[0, U]} for \code{"less"}, and the usual two-sided
+interval for \code{"two.sided"}, so the interval and the test point the
+same way. \code{ci_method} selects Wald (default), Clopper-Pearson, or
+Agresti-Coull for the interval shape.
+
+Note that the interval and \code{reject} are not \emph{exactly}
+equivalent near the decision boundary: the test uses the null-variance
+(score) SE evaluated at \code{threshold}, while the CI uses each
+method's own SE evaluated at \eqn{\hat p}. They agree in direction and
+away from the boundary; a score-based (Wilson) interval -- not offered
+here -- would be the exact test inversion.
 }
 \section{Equations and sources}{
 

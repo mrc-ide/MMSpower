@@ -50,13 +50,19 @@
 #' threshold on the apparent-prevalence scale, and
 #' \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 #'
-#' The reported CI is \strong{matched to \code{alternative}}, like base R's
-#' \code{binom.test()} / \code{prop.test()}: a lower one-sided interval
-#' \eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
-#' \eqn{[0, U]} for \code{"less"}, and the usual two-sided interval for
-#' \code{"two.sided"}. So \code{reject} agrees with whether \code{threshold}
-#' lies outside \code{[ci_lower, ci_upper]}. \code{ci_method} selects Wald
-#' (default), Clopper-Pearson, or Agresti-Coull for the interval shape.
+#' The reported CI is \strong{matched to \code{alternative}}: a lower
+#' one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
+#' interval \eqn{[0, U]} for \code{"less"}, and the usual two-sided
+#' interval for \code{"two.sided"}, so the interval and the test point the
+#' same way. \code{ci_method} selects Wald (default), Clopper-Pearson, or
+#' Agresti-Coull for the interval shape.
+#'
+#' Note that the interval and \code{reject} are not \emph{exactly}
+#' equivalent near the decision boundary: the test uses the null-variance
+#' (score) SE evaluated at \code{threshold}, while the CI uses each
+#' method's own SE evaluated at \eqn{\hat p}. They agree in direction and
+#' away from the boundary; a score-based (Wilson) interval -- not offered
+#' here -- would be the exact test inversion.
 #'
 #' @section Equations and sources:
 #' Direct workshop material (MMS-SD Study Design Workshop,
@@ -256,13 +262,20 @@ test_threshold <- function(x,
   n_clusters <- length(n)
   n_total    <- sum(n)
 
-  if (!is.null(fpc_N) && fpc_N < n_total)
-    stop("`fpc_N` = ", fpc_N, " is less than the total sample size = ", n_total, ". ",
-         "The population must be at least as large as the sample.")
+  if (!is.null(fpc_N) && fpc_N <= n_total)
+    stop("`fpc_N` (", fpc_N, ") must be greater than the total sample size (",
+         n_total, "). At `fpc_N = n_total` the whole population was surveyed, ",
+         "the sampling variance is zero, and the test statistic is undefined. ",
+         "Set `fpc_N = NULL` if no FPC is needed.")
 
   p_hat <- sum(x) / n_total   # apparent prevalence
 
   # ---- design effect / ICC ----
+  # TODO(review): uses the arithmetic mean cluster size mean(n) (matches
+  # Module 5's "average cluster size"); classical Kish for unequal
+  # clusters uses the size-weighted sum(n^2)/sum(n). Same open decision as
+  # estimate_prevalence() -- keep the two in lockstep. Do not "fix"
+  # unilaterally; the team resolves the convention.
   n_bar <- mean(n)
 
   if (is.null(icc)) {
@@ -294,15 +307,11 @@ test_threshold <- function(x,
 
   n_eff <- n_total / deff
 
-  # Check after computing n_eff: if fpc_N <= n_eff, fpc collapses to 0 and
-  # variance is undefined. For SRS (deff=1) this is fpc_N == n_total; for
-  # clustered data n_eff < n_total so fpc_N = n_total is still valid.
-  if (!is.null(fpc_N) && fpc_N <= n_eff)
-    stop("`fpc_N` (", fpc_N, ") is <= the effective sample size n_eff (", round(n_eff, 2),
-         "). The test statistic is undefined (zero variance). For SRS this means ",
-         "you have surveyed the entire population; set `fpc_N = NULL` if no FPC is needed.")
-
-  fpc   <- if (!is.null(fpc_N)) sqrt((fpc_N - n_eff) / (fpc_N - 1)) else 1
+  # FPC on the collected count n_total (the actual sampling fraction), NOT
+  # n_eff -- same as estimate_prevalence() / design_precision(). The design
+  # effect and the FPC are independent adjustments (Cochran 1977 sec. 2.8;
+  # Kish 1965). fpc_N > n_total is guaranteed above.
+  fpc   <- if (!is.null(fpc_N)) sqrt((fpc_N - n_total) / (fpc_N - 1)) else 1
 
   # Variance-equivalent simple sample size (same as estimate_prevalence)
   n_eff_adj <- n_eff / (fpc^2)
@@ -334,12 +343,12 @@ test_threshold <- function(x,
 
   # ---- CI on true prevalence ----
   # `ci_method` controls the interval shape; the interval is matched to
-  # `alternative` so it corresponds to the test: for "greater" a lower
-  # one-sided interval [L, 1], for "less" an upper one-sided interval
-  # [0, U], for "two.sided" the usual two-sided interval. This mirrors
-  # base R's binom.test() / prop.test(), so `reject` agrees with whether
-  # `threshold` lies outside the reported interval. (Independent of the
-  # hypothesis test above, which always uses the null-variance z.)
+  # `alternative` so it points the same way as the test: for "greater" a
+  # lower one-sided interval [L, 1], for "less" an upper one-sided interval
+  # [0, U], for "two.sided" the usual two-sided interval. Independent of the
+  # hypothesis test above (which uses the null-variance z at `threshold`),
+  # so `reject` and "threshold outside the CI" agree in direction but not
+  # exactly at the boundary -- the CI uses each method's own SE at p_hat.
   alpha_lo <- switch(alternative,
     two.sided = alpha / 2, greater = alpha, less = 0)
   alpha_hi <- switch(alternative,

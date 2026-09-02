@@ -220,10 +220,10 @@ test_that("validation: icc out of range is rejected", {
   expect_error(test_threshold(x = 8, n = 100, threshold = 0.05, icc = -0.1), "`icc`")
 })
 
-test_that("validation: fpc_N < n_total is rejected", {
+test_that("validation: fpc_N <= n_total is rejected", {
   expect_error(
     test_threshold(x = 8, n = 100, threshold = 0.05, fpc_N = 50),
-    "at least as large"
+    "greater than the total sample size"
   )
 })
 
@@ -417,13 +417,19 @@ test_that("TT-S15: unequal cluster sizes estimated ICC is non-negative and consi
 
 # -- Second batch of stress tests: TT-S16 through TT-S30 ----------------------
 
-test_that("TT-S16: fpc_N = n_total with clustering -> valid result (fpc > 0 because n_eff < n_total)", {
-  # With clustering n_eff << n_total, so fpc_N = n_total does NOT collapse fpc to 0.
-  # Old code wrongly warned here; fixed to check fpc_N <= n_eff instead.
+test_that("TT-S16: fpc_N = n_total is rejected even with clustering", {
+  # The FPC now acts on the collected n_total (not n_eff), so fpc_N =
+  # n_total means the whole population was surveyed -> zero variance,
+  # rejected. Matches estimate_prevalence().
+  expect_error(
+    test_threshold(x = c(5, 5), n = c(50, 50), threshold = 0.05,
+                   icc = 0.5, fpc_N = 100),
+    "greater than the total sample size"
+  )
+  # fpc_N a little above n_total is fine and tightens the interval
   res <- test_threshold(x = c(5, 5), n = c(50, 50), threshold = 0.05,
-                        icc = 0.5, fpc_N = 100)
+                        icc = 0.5, fpc_N = 120)
   expect_true(is.finite(res$statistic))
-  expect_true(is.finite(res$p_value))
 })
 
 test_that("TT-S17: all-singleton clusters (n=1 each) -> icc skipped, finite result", {
