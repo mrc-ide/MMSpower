@@ -397,3 +397,30 @@ test_that("DP-R7-4: n_eff is the SRS-equivalent size, not the post-FPC n / deff"
   expect_equal(clus$n_eff, srs$n_eff)
   expect_gt(clus$n, clus$n_eff)
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 8 -- fresh code-review fixes (2026-09-02)
+# ---------------------------------------------------------------------------
+
+test_that("DP-R8-1: reported deff is consistent with the returned n_per_site", {
+  # fixed n_sites, no FPC
+  a <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
+  expect_equal(a$deff, 1 + (a$n_per_site - 1) * 0.05, tolerance = 1e-9)
+
+  # fixed n_sites + FPC: deff must still match the (smaller) fielded design
+  b <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
+  expect_equal(b$deff, 1 + (b$n_per_site - 1) * 0.05, tolerance = 1e-9)
+  expect_lt(b$n_per_site, a$n_per_site)   # FPC shrank the per-site sample
+  expect_lt(b$deff, a$deff)               # ... and hence the design effect
+})
+
+test_that("DP-R8-2: fpc_N must be a whole number", {
+  expect_error(design_precision(0.3, 0.05, fpc_N = 500.5), "integer")
+  expect_silent(design_precision(0.3, 0.05, fpc_N = 500))
+})
+
+test_that("DP-R8-3: `prevalence` is returned and documented", {
+  res <- design_precision(0.3, 0.05)
+  expect_equal(res$prevalence, 0.3)
+})

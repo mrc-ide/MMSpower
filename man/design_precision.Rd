@@ -53,10 +53,12 @@ A named list. The following fields are always present:
 \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 the number of independent observations needed to hit the same \code{moe}
 (equal to the base SRS sample size before the design effect and FPC).
-Clustering inflates the collected \code{n} above this; the FPC lets it
-fall below. Always \eqn{\le} \code{n}, with equality only for an
-unclustered design with no FPC. Defined the same way as \code{n_eff}
-in \code{estimate_prevalence()} so the two functions round-trip.}
+Clustering inflates the collected \code{n} above this. With no FPC
+\code{n_eff} \eqn{\le} \code{n}, with equality only for an unclustered
+design; \strong{with an FPC \code{n} is shrunk while \code{n_eff} stays
+at the pre-FPC value, so \code{n_eff} can exceed \code{n}.} Defined the
+same way as \code{n_eff} in \code{estimate_prevalence()}.}
+\item{prevalence}{Expected true prevalence (as supplied).}
 \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 \code{prevalence}, \code{sensitivity}, and \code{specificity}}
 \item{moe}{Target MOE (as supplied)}
@@ -64,7 +66,11 @@ in \code{estimate_prevalence()} so the two functions round-trip.}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
 \item{icc}{ICC (as supplied; 0 for SRS)}
-\item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs}
+\item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs.
+When an FPC shrinks a fixed-\code{n_sites} design, this is the design
+effect of the smaller \emph{fielded} design, i.e. it stays consistent
+with the returned \code{n_per_site}
+(\code{deff = 1 + (n_per_site - 1) * icc}).}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 
 The following fields depend on the design mode:

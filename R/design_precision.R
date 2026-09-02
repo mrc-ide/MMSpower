@@ -97,10 +97,12 @@
 #'   \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 #'     the number of independent observations needed to hit the same \code{moe}
 #'     (equal to the base SRS sample size before the design effect and FPC).
-#'     Clustering inflates the collected \code{n} above this; the FPC lets it
-#'     fall below. Always \eqn{\le} \code{n}, with equality only for an
-#'     unclustered design with no FPC. Defined the same way as \code{n_eff}
-#'     in \code{estimate_prevalence()} so the two functions round-trip.}
+#'     Clustering inflates the collected \code{n} above this. With no FPC
+#'     \code{n_eff} \eqn{\le} \code{n}, with equality only for an unclustered
+#'     design; \strong{with an FPC \code{n} is shrunk while \code{n_eff}
+#'     stays at the pre-FPC value, so \code{n_eff} can exceed \code{n}.}
+#'     Defined the same way as \code{n_eff} in \code{estimate_prevalence()}.}
+#'   \item{prevalence}{Expected true prevalence (as supplied).}
 #'   \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 #'     \code{prevalence}, \code{sensitivity}, and \code{specificity}}
 #'   \item{moe}{Target MOE (as supplied)}
@@ -108,7 +110,11 @@
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
 #'   \item{icc}{ICC (as supplied; 0 for SRS)}
-#'   \item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs}
+#'   \item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs.
+#'     When an FPC shrinks a fixed-\code{n_sites} design, this is the design
+#'     effect of the smaller \emph{fielded} design, i.e. it stays consistent
+#'     with the returned \code{n_per_site}
+#'     (\code{deff = 1 + (n_per_site - 1) * icc}).}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #'   The following fields depend on the design mode:
@@ -246,8 +252,9 @@ design_precision <- function(prevalence,
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, "). ",
          "It represents the fixed number of individuals sampled per cluster.")
-  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a single finite positive number representing total population size (got ",
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
+      fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer representing total population size (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N,
          "). Set `fpc_N = NULL` to skip the finite-population correction.")
   if (conf_level <= 0 || conf_level >= 1)
@@ -327,9 +334,9 @@ design_precision <- function(prevalence,
   # n_eff: the SRS-equivalent independent sample size this design achieves,
   # i.e. the number of independent observations needed to hit the same MOE.
   # That is exactly n_base_cont (clustering inflates the collected `n` above
-  # it; the FPC lets the collected `n` fall below it). Always <= n_total,
-  # with equality only for an unclustered design with no FPC. Defined the
-  # same way as `n_eff` in estimate_prevalence() so the two round-trip.
+  # it). With no FPC n_eff <= n_total; an FPC shrinks n_total while n_eff
+  # stays at the pre-FPC value, so n_eff can then exceed n_total. Defined
+  # the same way as `n_eff` in estimate_prevalence().
   n_eff <- ceiling(n_base_cont)
 
   # ---- distribute across sites ----
@@ -339,6 +346,12 @@ design_precision <- function(prevalence,
   } else if (!is.null(n_sites)) {
     n_per_site_out <- ceiling(n_total / n_sites)
     n_sites_out    <- n_sites
+    # Report the design effect of the design actually fielded: after the
+    # FPC shrinks n_total (and after the whole-number rounding of
+    # n_per_site), the closed-form pre-FPC `deff` no longer matches the
+    # returned n_per_site. Recompute so the output list is self-consistent
+    # (deff == 1 + (n_per_site - 1) * icc always holds).
+    if (icc > 0) deff <- 1 + (n_per_site_out - 1) * icc
   } else {
     n_sites_out    <- NULL
     n_per_site_out <- NULL
