@@ -66,6 +66,28 @@
 #' Clustering and the FPC are then applied to each group with the same
 #' closed-form logic as \code{design_threshold()} / \code{design_precision()}.
 #'
+#' @section Equations and sources:
+#' Building blocks from the MMS-SD Study Design Workshop
+#' (\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the two-group
+#' extension is \strong{not} covered there.
+#' \itemize{
+#'   \item \emph{One-sample power / sample-size form}
+#'     \eqn{n = (z_{1-\beta} + z_{1-\alpha/2})^2\, p(1-p)/(p-p_0)^2} --
+#'     Module 4 "Statistical power", slide "Sample size formulae"
+#'     (lecture slides p. 7). This function uses the two-proportion
+#'     generalisation (pooled + unpooled variance terms, equal
+#'     allocation), which the workshop does not derive; standard form,
+#'     e.g. Fleiss, Levin & Paik (2003), ch. 2.
+#'   \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
+#'     Module 5 "Dealing with over-dispersion in multi-cluster studies",
+#'     slide "Why is the ICC useful?" (p. 5); applied per group.
+#'   \item \emph{Apparent-prevalence (Rogan-Gladen) scale}
+#'     \eqn{p_{app} = p\,Se + (1-p)(1-Sp)} -- not in the workshop;
+#'     Rogan & Gladen (1978).
+#'   \item \emph{Finite-population correction} -- not in the workshop;
+#'     Cochran (1977), \emph{Sampling Techniques}.
+#' }
+#'
 #' @return A named list. Always present:
 #'   \item{n_per_group}{Per-group sample size required.}
 #'   \item{n_total}{Total sample size, both groups (\code{2 * n_per_group}).}
@@ -95,8 +117,18 @@
 #'     SRS.}
 #'
 #' @references
-#' MMS-SD workshop Modules 3 (hypothesis testing), 4 (power / sample-size
-#' formulae), 5 (ICC / design effect).
+#' MMS-SD Study Design Workshop, Modules 3 (hypothesis testing), 4 (power /
+#' sample-size formulae) and 5 (ICC / design effect).
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#'
+#' Fleiss JL, Levin B, Paik MC (2003). Statistical Methods for Rates and
+#' Proportions, 3rd ed. Wiley. (Two-sample proportion sample size.)
+#'
+#' Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+#' screening test. American Journal of Epidemiology 107(1):71-76.
+#'
+#' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+#' (Finite-population correction.)
 #'
 #' @seealso \code{\link{test_difference}}
 #'
