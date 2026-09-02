@@ -258,3 +258,42 @@ test_that("TT-R7-2: far below that n, the trend is not detected", {
   res <- test_trend(x = x, n = rep(n_pt, 5), time = tt)
   expect_false(res$reject)
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 8 -- code-review fixes (2026-09-02): design effect only with a
+# real cluster structure
+# ---------------------------------------------------------------------------
+
+test_that("TT-R8-1: explicit icc is ignored with one row per timepoint", {
+  # no cluster structure -> the row n is the timepoint total, not a
+  # cluster size, so deff must stay 1 (matches test_threshold convention)
+  res <- test_trend(x = c(5, 8, 9, 14, 17), n = rep(100, 5),
+                    time = 1:5, icc = 0.02)
+  expect_equal(res$deff, 1)
+  expect_equal(res$icc_used, 0.02)     # echoed back, but not applied
+
+  # identical result to not passing icc at all
+  plain <- test_trend(x = c(5, 8, 9, 14, 17), n = rep(100, 5), time = 1:5)
+  expect_equal(res$statistic, plain$statistic)
+  expect_equal(res$ci_lower, plain$ci_lower)
+})
+
+test_that("TT-R8-2: deff uses the clustered-rows cluster size, not the global mean", {
+  # timepoints 1-2: three sites of 50; timepoint 3: one pooled row of 150
+  x  <- c(2, 5, 3,  4, 7, 5,  18)
+  n  <- c(50, 50, 50, 50, 50, 50, 150)
+  tt <- c(1, 1, 1, 2, 2, 2, 3)
+  res <- test_trend(x, n, tt, icc = 0.04)
+  # cluster size is 50 (the multi-row timepoints), not mean(n) = 64.3
+  expect_equal(res$deff, 1 + (50 - 1) * 0.04)
+})
+
+test_that("TT-R8-3: multi-site data still forms deff > 1 from between-site spread", {
+  x  <- c(1, 8, 3,  2, 10, 4,  4, 12, 6,  6, 15, 8)
+  n  <- rep(50, 12)
+  tt <- rep(1:4, each = 3)
+  res <- test_trend(x, n, tt)             # icc estimated
+  expect_gt(res$deff, 1)
+  expect_gt(res$icc_used, 0)
+})

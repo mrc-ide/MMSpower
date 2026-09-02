@@ -80,8 +80,12 @@ A named list. Always present:
 or as supplied (reverse mode).}
 \item{n_total}{Total sample size across all timepoints
 (\code{n_per_timepoint * n_timepoints}).}
-\item{n_eff}{SRS-equivalent independent per-timepoint sample size (the
-base formula n, before the design effect and FPC).}
+\item{n_eff}{SRS-equivalent independent per-timepoint sample size. In
+forward mode: the base formula n, before the design effect and FPC.
+In reverse mode: the SRS-equivalent of the \emph{supplied} \code{n}
+after removing the FPC and design effect (the independent-sample size
+with the same slope-detection power) -- a different quantity, not
+comparable across modes.}
 \item{n_timepoints}{Number of timepoints.}
 \item{times}{Timepoint coordinates used.}
 \item{power}{Target power (forward mode) or power achieved by \code{n}

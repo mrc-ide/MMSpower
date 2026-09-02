@@ -41,9 +41,12 @@ one entry per timepoint.}
 significance level as alpha = 1 - conf_level. Default 0.95.}
 
 \item{icc}{Optional intra-cluster correlation. \code{NULL} (default) =
-estimate from the data when any timepoint has two or more clusters,
-otherwise treat as 0. \code{0} = force SRS. A positive scalar is used
-directly.}
+estimate from the data when any timepoint has two or more clusters
+(rows), otherwise treat as 0. \code{0} = force SRS. A positive scalar
+is used directly \emph{only} when the data has a cluster structure
+(some timepoint has >= 2 rows); with one row per timepoint there is no
+cluster size to form a design effect from, so it is ignored and
+\code{deff = 1} (as in \code{test_threshold()}).}
 
 \item{fpc_N}{Optional finite-population size \strong{per timepoint}.
 \code{NULL} (default) = no FPC.}

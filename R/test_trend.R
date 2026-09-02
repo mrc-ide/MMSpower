@@ -41,9 +41,12 @@
 #' @param conf_level Confidence level for the CI on the slope; also sets the
 #'   significance level as alpha = 1 - conf_level. Default 0.95.
 #' @param icc Optional intra-cluster correlation. \code{NULL} (default) =
-#'   estimate from the data when any timepoint has two or more clusters,
-#'   otherwise treat as 0. \code{0} = force SRS. A positive scalar is used
-#'   directly.
+#'   estimate from the data when any timepoint has two or more clusters
+#'   (rows), otherwise treat as 0. \code{0} = force SRS. A positive scalar
+#'   is used directly \emph{only} when the data has a cluster structure
+#'   (some timepoint has >= 2 rows); with one row per timepoint there is no
+#'   cluster size to form a design effect from, so it is ignored and
+#'   \code{deff = 1} (as in \code{test_threshold()}).
 #' @param fpc_N Optional finite-population size \strong{per timepoint}.
 #'   \code{NULL} (default) = no FPC.
 #' @param ci_method Reserved for future methods; currently only
@@ -229,12 +232,20 @@ test_trend <- function(x, n, time = NULL,
   pj    <- Xj / Nj
 
   # ---- design effect (per-timepoint Kish, averaged) ----
-  n_bar <- mean(n)
+  # A "cluster" is a row; a timepoint only carries cluster structure when it
+  # has >= 2 rows. With one row per timepoint the row n is the timepoint
+  # total, not a cluster size, so no design effect can be formed -- fall back
+  # to deff = 1 even when an explicit `icc` is supplied (matches the
+  # single-cluster convention in test_threshold() / estimate_prevalence()).
+  multi_tp    <- tj[vapply(tj, function(t) sum(time == t) >= 2, logical(1))]
+  has_clusters <- length(multi_tp) > 0
+  n_bar_cl    <- if (has_clusters) mean(n[time %in% multi_tp]) else NA_real_
+
   if (is.null(icc)) {
     icc_tp <- c()
-    for (t in tj) {
+    for (t in multi_tp) {
       xi <- x[time == t]; ni <- n[time == t]
-      if (length(ni) < 2 || mean(ni) == 1) next
+      if (mean(ni) == 1) next
       p_pool  <- sum(xi) / sum(ni)
       var_obs <- stats::var(xi / ni)
       var_srs <- mean(p_pool * (1 - p_pool) / ni)
@@ -245,7 +256,8 @@ test_trend <- function(x, n, time = NULL,
   } else {
     icc_used <- icc
   }
-  deff <- if (icc_used > 0 && n_bar > 1) 1 + (n_bar - 1) * icc_used else 1
+  deff <- if (icc_used > 0 && has_clusters && n_bar_cl > 1)
+    1 + (n_bar_cl - 1) * icc_used else 1
 
   # ---- FPC per timepoint ----
   if (!is.null(fpc_N)) {

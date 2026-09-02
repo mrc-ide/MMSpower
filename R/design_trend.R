@@ -92,8 +92,12 @@
 #'     or as supplied (reverse mode).}
 #'   \item{n_total}{Total sample size across all timepoints
 #'     (\code{n_per_timepoint * n_timepoints}).}
-#'   \item{n_eff}{SRS-equivalent independent per-timepoint sample size (the
-#'     base formula n, before the design effect and FPC).}
+#'   \item{n_eff}{SRS-equivalent independent per-timepoint sample size. In
+#'     forward mode: the base formula n, before the design effect and FPC.
+#'     In reverse mode: the SRS-equivalent of the \emph{supplied} \code{n}
+#'     after removing the FPC and design effect (the independent-sample size
+#'     with the same slope-detection power) -- a different quantity, not
+#'     comparable across modes.}
 #'   \item{n_timepoints}{Number of timepoints.}
 #'   \item{times}{Timepoint coordinates used.}
 #'   \item{power}{Target power (forward mode) or power achieved by \code{n}
@@ -284,6 +288,18 @@ design_trend <- function(prevalence_start,
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
 
+  # ---- reverse mode: supplied n must fit the cluster layout ----
+  # Without this, n < n_sites gives an average cluster size below 1, so the
+  # Kish design effect drops below 1 and the reported power is overstated.
+  if (!solve_n && !is.null(n_sites) && n < n_sites)
+    stop("`n` (", n, ") is smaller than `n_sites` (", n_sites, "): the supplied ",
+         "per-timepoint sample cannot provide even one person per site. ",
+         "Increase `n`, or lower `n_sites`.")
+  if (!solve_n && !is.null(n_per_site) && n < n_per_site)
+    stop("`n` (", n, ") is smaller than `n_per_site` (", n_per_site, "): the ",
+         "supplied per-timepoint sample is less than a single cluster. ",
+         "Increase `n`, or lower `n_per_site`.")
+
   # ---- true-scale slope and endpoints ----
   if (!is.null(prevalence_end)) {
     slope_true <- (prevalence_end - prevalence_start) / t_span
@@ -342,15 +358,24 @@ design_trend <- function(prevalence_start,
     } else {
       deff <- 1 + (n / n_sites - 1) * icc
     }
-    n_eff_pt <- n / deff
+    deff <- max(deff, 1)   # Kish deff is >= 1 by construction
+
+    # Undo forward mode's operations in reverse order: forward applied the
+    # FPC to the already-deff-inflated n, so invert the FPC on the actual
+    # collected n first, then remove the design effect.
+    n_cont_full <- n
     if (!is.null(fpc_N)) {
       if (n >= fpc_N)
         stop("`n` (", n, ") must be smaller than `fpc_N` (", fpc_N, ").")
-      n_eff_pt <- n_eff_pt * (fpc_N - 1) / (fpc_N - n_eff_pt)
+      n_cont_full <- n * (fpc_N - 1) / (fpc_N - n)
     }
+    n_eff_pt <- n_cont_full / deff
 
     ncp   <- abs(slope_app) * sqrt(n_eff_pt * sxx / sigma2_app)
-    power_out <- stats::pnorm(ncp - z_a) + stats::pnorm(-ncp - z_a)
+    power_out <- if (alternative == "two.sided")
+      stats::pnorm(ncp - z_a) + stats::pnorm(-ncp - z_a)
+    else
+      stats::pnorm(ncp - z_a)
 
     if (!is.null(n_per_site)) {
       n_sites_out    <- ceiling(n / n_per_site)
