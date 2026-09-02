@@ -311,7 +311,9 @@ test_threshold <- function(x,
   if (se_null == 0)
     stop("Null standard error is zero (theta_app = ", theta_app,
          ", n_eff_adj = ", round(n_eff_adj, 2), "). ",
-         "This occurs when threshold is 0 or 1, or when n_eff_adj is effectively infinite.")
+         "`threshold` is validated to (0, 1), so this only happens when the ",
+         "FPC drives the effective sample size to infinity, i.e. `fpc_N` is ",
+         "just above `n_eff`. Set `fpc_N = NULL`, or use a larger `fpc_N`.")
 
   z_stat <- (p_hat - theta_app) / se_null
 
@@ -327,6 +329,15 @@ test_threshold <- function(x,
   # ---- two-sided CI on true prevalence (same construction as estimate_prevalence) ----
   # `ci_method` controls only this reported interval, not the hypothesis test
   # above (which always uses the null-variance z-statistic).
+  #
+  # TODO(review): the reported CI is ALWAYS two-sided at conf_level, even
+  # when `alternative` is one-sided. This matches estimate_prevalence()
+  # (which only does two-sided) but differs from base R's binom.test() /
+  # prop.test(), which return a one-sided CI for a one-sided test. As a
+  # result `reject` and the CI can visibly disagree (e.g. reject = TRUE
+  # for "greater" while `threshold` still sits inside [ci_lower, ci_upper]).
+  # DECISION NEEDED: keep two-sided everywhere for twin consistency, or
+  # switch to an alternative-matched CI here and in design_threshold().
   z_ci <- stats::qnorm(1 - alpha / 2)
 
   if (ci_method == "wald") {
