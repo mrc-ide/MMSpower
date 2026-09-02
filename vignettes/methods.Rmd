@@ -45,8 +45,8 @@ same variance model, so the two round-trip (see
 | $D_{eff}$ | Kish design effect | `deff` |
 | $n_{total}$ | $\sum_i n_i$ | `n_total` |
 | $n_{eff}$ | effective (independent-equivalent) sample size | `n_eff` |
-| $N$ | population size for the finite-population correction | input `fpc_N` |
-| $f$ | finite-population variance factor | — |
+| $N$ | population size (headcount) for the finite-population correction | input `fpc_N` |
+| $f$ | finite-population variance factor, $(N - n_{total})/(N - 1)$ | — |
 | $n_{eff,adj}$ | effective sample size after the FPC | — |
 | $z$ | $\Phi^{-1}(1 - \alpha/2)$, with $\alpha = 1 -$ `conf_level` | — |
 
@@ -153,8 +153,18 @@ fraction of a **finite** population of known size $N$ (`fpc_N`), sampling
 you sample everyone, there is none. The variance is multiplied by
 
 $$
-f \;=\; \frac{N - n_{eff}}{N - 1} \;\in\; (0, 1].
+f \;=\; \frac{N - n_{total}}{N - 1} \;\in\; [0, 1).
 $$
+
+The FPC uses the **collected count** $n_{total}$ — the real sampling
+fraction $n_{total}/N$ — not the design-effect-adjusted $n_{eff}$. The
+design effect and the FPC are independent: $D_{eff}$ measures how
+*inefficient* the design was, the FPC measures how *much of the
+population* you observed. (`fpc_N` is a headcount, so the population is
+treated as finite in individuals; a study that sampled nearly all *sites*
+would also shrink the between-cluster variance, which this single-FPC
+shortcut does not separately model.) `design_precision()` and
+`design_threshold()` apply the FPC the same way.
 
 Instead of carrying $f$ through three different variance expressions, it is
 folded once into an adjusted sample size:
@@ -171,7 +181,7 @@ $\dfrac{\hat{p}(1-\hat{p})}{n_{eff}} \cdot f
 All three CI methods then use $n_{eff,adj}$ and nothing else changes. With no
 FPC (`fpc_N = NULL`), $f = 1$ and $n_{eff,adj} = n_{eff}$.
 
-As $n_{eff} \to N$, $f \to 0$ and $n_{eff,adj} \to \infty$: the sampling
+As $n_{total} \to N$, $f \to 0$ and $n_{eff,adj} \to \infty$: the sampling
 variance vanishes. The function stops with an informative error before that
 point (you have effectively surveyed the whole population; no CI is needed).
 

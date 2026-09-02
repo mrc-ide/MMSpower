@@ -134,7 +134,7 @@ test_that("input validation catches bad arguments", {
   expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = -10), "`fpc_N`")
   # fpc_N smaller than sample
   expect_error(estimate_prevalence(x = c(3,3), n = c(10,10), fpc_N = 5),
-               "at least as large")
+               "greater than the total sample size")
 })
 
 test_that("n_bar=1 (clusters of 1) does not produce Inf/NaN ICC", {
@@ -248,11 +248,17 @@ test_that("EP-7: character x gives informative type error (not NA/NaN/Inf messag
   )
 })
 
-test_that("EP-8: fpc_N = n_total (SRS census) -> error: n_eff = fpc_N, variance undefined", {
-  # SRS: n_eff = n_total = fpc_N -> fpc = 0 -> CI undefined. Clustered case is valid.
+test_that("EP-8: fpc_N = n_total (whole population surveyed) -> error", {
+  # fpc_N == n_total => FPC factor (fpc_N - n_total)/(fpc_N - 1) = 0 =>
+  # sampling variance is zero and the CI is undefined. The FPC now acts on
+  # the collected n_total (not n_eff), so this holds for clustered data too.
   expect_error(
     estimate_prevalence(x = 30, n = 100, fpc_N = 100),
-    "n_eff"
+    "greater than the total sample size"
+  )
+  expect_error(
+    estimate_prevalence(x = c(10, 10, 10), n = c(40, 40, 40), fpc_N = 120),
+    "greater than the total sample size"
   )
 })
 
@@ -338,6 +344,20 @@ test_that("EP-R5-4: fpc_N = n_total+1 (near-census) dramatically reduces moe", {
   expect_lt(r_fpc$moe, r_no$moe / 5)
   expect_equal(r_fpc$moe, r_no$moe * sqrt(1/100),
                tolerance = 1e-5)
+})
+
+test_that("EP-R5-4b: the FPC acts on the collected n_total, not n_eff", {
+  # clustered design: n_total = 300, deff > 1 so n_eff << 300.
+  # An FPC on n_total sees a 300/310 sampling fraction (strong); an FPC on
+  # n_eff would see a ~44/310 fraction (weak). The strong one is correct.
+  x  <- c(5, 30, 10, 40, 15); n <- rep(60, 5)          # overdispersed
+  r_no  <- estimate_prevalence(x, n, icc = 0.1)
+  r_fpc <- estimate_prevalence(x, n, icc = 0.1, fpc_N = 310)
+
+  f2 <- (310 - sum(n)) / (310 - 1)                     # element-level FPC factor
+  expect_equal(r_fpc$n_eff_adj, r_no$n_eff / f2, tolerance = 1e-6)
+  expect_lt(r_fpc$moe, r_no$moe / 4)                   # near-census -> tiny CI
+  expect_equal(r_fpc$n_eff, r_no$n_eff)               # n_eff itself unchanged
 })
 
 test_that("EP-R5-5: specificity=0 is rejected (boundary, not in (0,1])", {

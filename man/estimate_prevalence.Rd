@@ -155,7 +155,18 @@ non-trivial fraction of a population of known size \eqn{N}
 (\code{fpc_N}), sampling without replacement reduces the sampling
 variance by the factor
 
-\deqn{f = \frac{N - n_{eff}}{N - 1}}
+\deqn{f = \frac{N - n_{total}}{N - 1}}
+
+The FPC uses the \emph{collected} count \eqn{n_{total}} -- the actual
+sampling fraction \eqn{n_{total}/N} -- not the design-effect-adjusted
+\eqn{n_{eff}}. The design effect and the FPC are independent
+adjustments: \eqn{D_{eff}} measures the inefficiency of the design, the
+FPC measures how much of the population was observed. This matches
+\code{design_precision()} / \code{design_threshold()}. (\code{fpc_N} is
+a headcount, so the population is treated as finite in individuals; a
+study that sampled nearly all \emph{sites} would also shrink the
+between-cluster variance, which this single-FPC shortcut does not
+separately model.)
 
 Rather than multiply each method's variance by \eqn{f}, the correction
 is folded into a single adjusted sample size
@@ -165,8 +176,8 @@ is folded into a single adjusted sample size
 shared by all three CI methods (with no FPC, \eqn{f = 1} and
 \eqn{n_{eff,adj} = n_{eff}}). This makes the methods agree in the
 large-sample limit while each keeps its own boundary behaviour.
-\eqn{n_{eff,adj} \to \infty} as \eqn{n_{eff} \to N}; the function stops
-before that point, where the sampling variance would be zero.
+\eqn{n_{eff,adj} \to \infty} as \eqn{n_{total} \to N}; the function
+stops before that point, where the sampling variance would be zero.
 
 \strong{5. Confidence interval on apparent prevalence.} Let
 \eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},

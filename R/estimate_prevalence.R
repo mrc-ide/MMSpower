@@ -136,7 +136,18 @@
 #' (\code{fpc_N}), sampling without replacement reduces the sampling
 #' variance by the factor
 #'
-#' \deqn{f = \frac{N - n_{eff}}{N - 1}}
+#' \deqn{f = \frac{N - n_{total}}{N - 1}}
+#'
+#' The FPC uses the \emph{collected} count \eqn{n_{total}} -- the actual
+#' sampling fraction \eqn{n_{total}/N} -- not the design-effect-adjusted
+#' \eqn{n_{eff}}. The design effect and the FPC are independent
+#' adjustments: \eqn{D_{eff}} measures the inefficiency of the design, the
+#' FPC measures how much of the population was observed. This matches
+#' \code{design_precision()} / \code{design_threshold()}. (\code{fpc_N} is
+#' a headcount, so the population is treated as finite in individuals; a
+#' study that sampled nearly all \emph{sites} would also shrink the
+#' between-cluster variance, which this single-FPC shortcut does not
+#' separately model.)
 #'
 #' Rather than multiply each method's variance by \eqn{f}, the correction
 #' is folded into a single adjusted sample size
@@ -146,8 +157,8 @@
 #' shared by all three CI methods (with no FPC, \eqn{f = 1} and
 #' \eqn{n_{eff,adj} = n_{eff}}). This makes the methods agree in the
 #' large-sample limit while each keeps its own boundary behaviour.
-#' \eqn{n_{eff,adj} \to \infty} as \eqn{n_{eff} \to N}; the function stops
-#' before that point, where the sampling variance would be zero.
+#' \eqn{n_{eff,adj} \to \infty} as \eqn{n_{total} \to N}; the function
+#' stops before that point, where the sampling variance would be zero.
 #'
 #' \strong{5. Confidence interval on apparent prevalence.} Let
 #' \eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},
@@ -440,10 +451,11 @@ estimate_prevalence <- function(x,
   n_clusters <- length(n)
   n_total    <- sum(n)
 
-  if (!is.null(fpc_N) && fpc_N < n_total)
-    stop("`fpc_N` = ", fpc_N, " is less than the total sample size = ", n_total, ". ",
-         "The population must be at least as large as the sample. ",
-         "Check your inputs, or set `fpc_N = NULL` to skip the FPC.")
+  if (!is.null(fpc_N) && fpc_N <= n_total)
+    stop("`fpc_N` (", fpc_N, ") must be greater than the total sample size (",
+         n_total, "). At `fpc_N = n_total` you have surveyed the whole ",
+         "population, the sampling variance is zero, and the CI is undefined. ",
+         "Set `fpc_N = NULL` if no FPC is needed.")
 
   p_hat <- sum(x) / n_total   # apparent prevalence
 
@@ -491,25 +503,18 @@ estimate_prevalence <- function(x,
 
   n_eff <- n_total / deff
 
-  # Check after computing n_eff: if fpc_N <= n_eff the FPC collapses to 0
-  # and the CI is undefined. For SRS (deff=1) this is fpc_N == n_total; for
-  # clustered data n_eff < n_total so fpc_N = n_total is still valid.
-  if (!is.null(fpc_N) && fpc_N <= n_eff)
-    stop("`fpc_N` (", fpc_N, ") is <= the effective sample size n_eff (", round(n_eff, 2),
-         "). Sampling variance is zero and the CI is undefined. For SRS this means ",
-         "you have surveyed the entire population; set `fpc_N = NULL` if no FPC is needed.")
-
-  # TODO(review): which sample size does the finite-population correction
-  # act on? Here the FPC factor is sqrt((fpc_N - n_eff) / (fpc_N - 1)),
-  # i.e. it uses the EFFECTIVE (post-deff) size n_eff. For a clustered
-  # design that sampled most of the population this makes the FPC weak
-  # (the CI barely narrows). An element-level FPC on the actual number
-  # sampled, sqrt((fpc_N - n_total) / (fpc_N - 1)), would narrow it much
-  # more. Both appear in the literature. DECISION NEEDED -- flagged for
-  # the team's statistical review; see also design_precision()/
-  # design_threshold(), which apply the FPC to the collected n.
-  # FPC factor (1 when fpc_N is NULL)
-  fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_eff) / (fpc_N - 1)) else 1
+  # Finite-population correction. The FPC is a property of the sampling
+  # fraction of the units actually drawn -- the collected count n_total,
+  # NOT the design-effect-adjusted n_eff (Cochran 1977 sec. 2.8; Kish
+  # 1965). It is a separate adjustment from the design effect: deff
+  # measures the inefficiency of the design, the FPC measures how much of
+  # the population was observed. So the factor uses n_total, matching
+  # design_precision() / design_threshold(). (This treats the population
+  # as finite in individuals -- `fpc_N` is a headcount. A study that
+  # sampled nearly all *sites* would also shrink the between-cluster
+  # variance, which this single-FPC shortcut does not separately model.)
+  # FPC factor (1 when fpc_N is NULL); fpc_N > n_total is guaranteed above.
+  fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_total) / (fpc_N - 1)) else 1
 
   # -----------------------------------------------------------------
   # Confidence interval on apparent prevalence
