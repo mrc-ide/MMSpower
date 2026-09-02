@@ -66,6 +66,26 @@
 #' same closed-form logic as \code{design_threshold()} /
 #' \code{design_precision()}.
 #'
+#' @section Equations and sources:
+#' \itemize{
+#'   \item \emph{"Detect at least one" sample size}
+#'     \eqn{n = \log(1 - detection\_prob)/\log(1 - q)} -- the MMS-SD
+#'     workshop refers to this as DRpower's
+#'     \code{get_sample_size_presence()} (Module 6 "The DRpower tool";
+#'     Module 7 "Designing a study for multiple end-points", slide "Choose
+#'     the largest sample size!"). The geometric derivation itself is not
+#'     in the workshop; standard surveillance form, Cannon & Roe (1982),
+#'     Cannon (2001).
+#'   \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
+#'     Module 5 "Dealing with over-dispersion in multi-cluster studies",
+#'     slide "Why is the ICC useful?" (lecture slides p. 5).
+#'   \item \emph{Per-sample probability} \eqn{q = prevalence \times
+#'     sensitivity} -- see the "Known limitation" section below; the
+#'     apparent-prevalence alternative would be Rogan & Gladen (1978).
+#'   \item \emph{Finite-population correction} -- not in the workshop;
+#'     Cochran (1977), \emph{Sampling Techniques}.
+#' }
+#'
 #' @section Known limitation -- specificity is not yet used:
 #' \strong{This is a deliberate v1 simplification that must be revisited.}
 #' \code{design_detection()} currently sets \eqn{q = prevalence \times
@@ -114,13 +134,18 @@
 #'     SRS.}
 #'
 #' @references
+#' MMS-SD Study Design Workshop, Modules 5 (ICC / design effect), 6 (the
+#' DRpower tool) and 7 (multiple end-points).
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#'
 #' Cannon RM, Roe RT (1982). Livestock Disease Surveys: A Field Manual for
 #' Veterinarians. Australian Bureau of Animal Health.
 #'
 #' Cannon RM (2001). Sense and sensitivity -- designing surveys based on an
 #' imperfect test. Preventive Veterinary Medicine 49(3):141-163.
 #'
-#' MMS-SD workshop Module 6 (DRpower presence/detection logic).
+#' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+#' (Finite-population correction.)
 #'
 #' @export
 #'
