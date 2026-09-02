@@ -13,13 +13,13 @@ test_that("EC-2: with sites: total = sampling + site fixed costs", {
   expect_equal(res$total_cost, 323 * 15 + 10 * 200)
 })
 
-test_that("EC-3: n_sites supplied but cost_per_site=0 → site_cost = 0", {
+test_that("EC-3: n_sites supplied but cost_per_site=0 -> site_cost = 0", {
   res <- estimate_cost(n = 100, cost_per_sample = 5, n_sites = 10, cost_per_site = 0)
   expect_equal(res$site_cost, 0)
   expect_equal(res$total_cost, 500)
 })
 
-test_that("EC-4: cost_per_sample = 0 (free test) → sampling_cost = 0", {
+test_that("EC-4: cost_per_sample = 0 (free test) -> sampling_cost = 0", {
   res <- estimate_cost(n = 500, cost_per_sample = 0)
   expect_equal(res$sampling_cost, 0)
   expect_equal(res$total_cost, 0)
@@ -79,63 +79,63 @@ test_that("EC-12: total_cost = sampling_cost + site_cost always", {
   }
 })
 
-# ── Validation errors ─────────────────────────────────────────────────────────
+# --------------------------- Validation errors ---------------------------
 
-test_that("EC-V1: n = 0 → error", {
+test_that("EC-V1: n = 0 -> error", {
   expect_error(estimate_cost(n = 0, cost_per_sample = 10), "positive integer")
 })
 
-test_that("EC-V2: n negative → error", {
+test_that("EC-V2: n negative -> error", {
   expect_error(estimate_cost(n = -5, cost_per_sample = 10), "positive integer")
 })
 
-test_that("EC-V3: n non-integer → error", {
+test_that("EC-V3: n non-integer -> error", {
   expect_error(estimate_cost(n = 10.5, cost_per_sample = 10), "positive integer")
 })
 
-test_that("EC-V4: n = Inf → error", {
+test_that("EC-V4: n = Inf -> error", {
   expect_error(estimate_cost(n = Inf, cost_per_sample = 10), "finite")
 })
 
-test_that("EC-V5: n as character → error", {
+test_that("EC-V5: n as character -> error", {
   expect_error(estimate_cost(n = "100", cost_per_sample = 10), "character")
 })
 
-test_that("EC-V6: n as vector → error", {
+test_that("EC-V6: n as vector -> error", {
   expect_error(estimate_cost(n = c(100, 200), cost_per_sample = 10), "single")
 })
 
-test_that("EC-V7: cost_per_sample negative → error", {
+test_that("EC-V7: cost_per_sample negative -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = -5), "non-negative")
 })
 
-test_that("EC-V8: cost_per_sample = NA → error", {
+test_that("EC-V8: cost_per_sample = NA -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = NA_real_), "finite")
 })
 
-test_that("EC-V9: n_sites = 0 → error", {
+test_that("EC-V9: n_sites = 0 -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, n_sites = 0), "positive integer")
 })
 
-test_that("EC-V10: n_sites non-integer → error", {
+test_that("EC-V10: n_sites non-integer -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, n_sites = 2.5), "positive integer")
 })
 
-test_that("EC-V11: n_sites > n → error", {
+test_that("EC-V11: n_sites > n -> error", {
   expect_error(
     estimate_cost(n = 5, cost_per_sample = 10, n_sites = 10),
     "cannot exceed"
   )
 })
 
-test_that("EC-V12: cost_per_site negative → error", {
+test_that("EC-V12: cost_per_site negative -> error", {
   expect_error(
     estimate_cost(n = 100, cost_per_sample = 5, n_sites = 10, cost_per_site = -1),
     "non-negative"
   )
 })
 
-test_that("EC-V13: cost_per_site as vector → error", {
+test_that("EC-V13: cost_per_site as vector -> error", {
   expect_error(
     estimate_cost(n = 100, cost_per_sample = 5, n_sites = 10,
                   cost_per_site = c(100, 200)),
@@ -143,15 +143,15 @@ test_that("EC-V13: cost_per_site as vector → error", {
   )
 })
 
-test_that("EC-V14: cost_per_sample as vector → error", {
+test_that("EC-V14: cost_per_sample as vector -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = c(5, 10)), "single")
 })
 
-test_that("EC-V15: n = NA → error", {
+test_that("EC-V15: n = NA -> error", {
   expect_error(estimate_cost(n = NA_integer_, cost_per_sample = 10), "finite")
 })
 
-# ── print method ──────────────────────────────────────────────────────────────
+# --------------------------- print method ---------------------------
 
 test_that("EC-P1: print returns the object invisibly", {
   res <- estimate_cost(n = 100, cost_per_sample = 10)
@@ -172,4 +172,35 @@ test_that("EC-P3: print shows site line only when site_cost > 0", {
   res_with_site <- estimate_cost(n = 100, cost_per_sample = 10,
                                  n_sites = 5, cost_per_site = 50)
   expect_output(print(res_with_site), "Site fixed")
+})
+
+# --------------------------- code-review fixes (2026-09-02) ---------------------------
+
+test_that("EC-R1: large totals print with grouping, not scientific notation", {
+  res <- estimate_cost(n = 1e6, cost_per_sample = 10)     # total 10,000,000
+  out <- capture.output(print(res))
+  expect_true(any(grepl("10,000,000", out, fixed = TRUE)))
+  expect_false(any(grepl("e\\+0", out)))
+
+  res2 <- estimate_cost(n = 250000, cost_per_sample = 40,
+                        n_sites = 500, cost_per_site = 2000)
+  out2 <- capture.output(print(res2))
+  expect_false(any(grepl("e\\+0", out2)))
+  expect_true(any(grepl("11,000,000", out2, fixed = TRUE)))
+})
+
+test_that("EC-R2: cost_per_site without n_sites warns and drops site costs", {
+  expect_warning(
+    res <- estimate_cost(n = 100, cost_per_sample = 12, cost_per_site = 200),
+    "ignored because"
+  )
+  expect_equal(res$site_cost, 0)
+  # default cost_per_site (0) with no n_sites is silent
+  expect_silent(estimate_cost(n = 100, cost_per_sample = 12))
+})
+
+test_that("EC-R3: integer n * integer unit cost does not overflow to NA", {
+  res <- estimate_cost(n = 100000L, cost_per_sample = 100000L)
+  expect_equal(res$total_cost, 1e10)
+  expect_false(is.na(res$total_cost))
 })

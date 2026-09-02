@@ -107,9 +107,17 @@ estimate_cost <- function(
     stop("`cost_per_site` must be a finite non-negative number (got ",
          cost_per_site, ").")
 
+  # A non-default `cost_per_site` with no `n_sites` is almost always a
+  # forgotten argument: warn rather than silently dropping the site costs.
+  if (is.null(n_sites) && cost_per_site != 0)
+    warning("`cost_per_site` = ", cost_per_site, " is ignored because ",
+            "`n_sites` is NULL. Supply `n_sites` to include fixed site costs.")
+
   # ---- compute ----
-  sampling_cost <- n * cost_per_sample
-  site_cost     <- if (!is.null(n_sites)) n_sites * cost_per_site else 0
+  # Coerce to double first: an integer `n` (as returned by the design
+  # helpers) times an integer unit cost can overflow to NA.
+  sampling_cost <- as.double(n) * cost_per_sample
+  site_cost     <- if (!is.null(n_sites)) as.double(n_sites) * cost_per_site else 0
 
   structure(
     list(
@@ -127,15 +135,19 @@ estimate_cost <- function(
 
 #' @export
 print.mms_cost <- function(x, ...) {
-  fmt <- function(v) format(round(v, 2), big.mark = ",", nsmall = 2)
+  # scientific = FALSE: without it format() renders round large numbers
+  # (e.g. 1e7) in scientific notation, defeating the big.mark grouping.
+  fmt  <- function(v) format(round(v, 2), big.mark = ",", nsmall = 2,
+                             scientific = FALSE)
+  fmti <- function(v) format(v, big.mark = ",", scientific = FALSE)
   cat(sprintf("Total cost: %s\n", fmt(x$total_cost)))
   cat(sprintf("  Sampling (%s samples x %s each): %s\n",
-              format(x$n, big.mark = ","),
+              fmti(x$n),
               fmt(x$cost_per_sample),
               fmt(x$sampling_cost)))
   if (!is.null(x$n_sites) && x$site_cost > 0)
     cat(sprintf("  Site fixed costs (%s sites x %s each): %s\n",
-                format(x$n_sites, big.mark = ","),
+                fmti(x$n_sites),
                 fmt(x$cost_per_site),
                 fmt(x$site_cost)))
   invisible(x)
