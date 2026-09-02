@@ -50,9 +50,13 @@
 #' threshold on the apparent-prevalence scale, and
 #' \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 #'
-#' The reported CI is two-sided at \code{conf_level} regardless of
-#' \code{alternative}, built the same way as in \code{estimate_prevalence()};
-#' \code{ci_method} selects Wald (default), Clopper-Pearson, or Agresti-Coull.
+#' The reported CI is \strong{matched to \code{alternative}}, like base R's
+#' \code{binom.test()} / \code{prop.test()}: a lower one-sided interval
+#' \eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
+#' \eqn{[0, U]} for \code{"less"}, and the usual two-sided interval for
+#' \code{"two.sided"}. So \code{reject} agrees with whether \code{threshold}
+#' lies outside \code{[ci_lower, ci_upper]}. \code{ci_method} selects Wald
+#' (default), Clopper-Pearson, or Agresti-Coull for the interval shape.
 #'
 #' @section Equations and sources:
 #' Direct workshop material (MMS-SD Study Design Workshop,
@@ -83,8 +87,10 @@
 #'   \item{threshold}{Decision threshold as supplied}
 #'   \item{alternative}{Alternative hypothesis as supplied}
 #'   \item{prevalence}{Rogan-Gladen corrected point estimate}
-#'   \item{ci_lower}{Lower bound of the two-sided CI (\code{ci_method})}
-#'   \item{ci_upper}{Upper bound of the two-sided CI (\code{ci_method})}
+#'   \item{ci_lower}{Lower CI bound on true prevalence. \code{0} when
+#'     \code{alternative = "less"} (upper one-sided interval).}
+#'   \item{ci_upper}{Upper CI bound on true prevalence. \code{1} when
+#'     \code{alternative = "greater"} (lower one-sided interval).}
 #'   \item{ci_method}{CI method used (as supplied)}
 #'   \item{n_total}{Total samples}
 #'   \item{n_eff}{Effective independent sample size before the FPC:
@@ -326,41 +332,42 @@ test_threshold <- function(x,
   alpha  <- 1 - conf_level
   reject <- p_value < alpha
 
-  # ---- two-sided CI on true prevalence (same construction as estimate_prevalence) ----
-  # `ci_method` controls only this reported interval, not the hypothesis test
-  # above (which always uses the null-variance z-statistic).
-  #
-  # TODO(review): the reported CI is ALWAYS two-sided at conf_level, even
-  # when `alternative` is one-sided. This matches estimate_prevalence()
-  # (which only does two-sided) but differs from base R's binom.test() /
-  # prop.test(), which return a one-sided CI for a one-sided test. As a
-  # result `reject` and the CI can visibly disagree (e.g. reject = TRUE
-  # for "greater" while `threshold` still sits inside [ci_lower, ci_upper]).
-  # DECISION NEEDED: keep two-sided everywhere for twin consistency, or
-  # switch to an alternative-matched CI here and in design_threshold().
-  z_ci <- stats::qnorm(1 - alpha / 2)
+  # ---- CI on true prevalence ----
+  # `ci_method` controls the interval shape; the interval is matched to
+  # `alternative` so it corresponds to the test: for "greater" a lower
+  # one-sided interval [L, 1], for "less" an upper one-sided interval
+  # [0, U], for "two.sided" the usual two-sided interval. This mirrors
+  # base R's binom.test() / prop.test(), so `reject` agrees with whether
+  # `threshold` lies outside the reported interval. (Independent of the
+  # hypothesis test above, which always uses the null-variance z.)
+  alpha_lo <- switch(alternative,
+    two.sided = alpha / 2, greater = alpha, less = 0)
+  alpha_hi <- switch(alternative,
+    two.sided = alpha / 2, greater = 0,     less = alpha)
+  # z multiplier for the closed side(s); NA on an open side.
+  z_lo <- if (alpha_lo > 0) stats::qnorm(1 - alpha_lo) else NA_real_
+  z_hi <- if (alpha_hi > 0) stats::qnorm(1 - alpha_hi) else NA_real_
+  z_ci <- max(z_lo, z_hi, na.rm = TRUE)   # for the AC pseudo-count
 
   if (ci_method == "wald") {
     se_est    <- sqrt(p_hat * (1 - p_hat) / n_eff_adj)
-    ci_lo_app <- max(p_hat - z_ci * se_est, 0)
-    ci_hi_app <- min(p_hat + z_ci * se_est, 1)
+    ci_lo_app <- if (is.na(z_lo)) 0 else max(p_hat - z_lo * se_est, 0)
+    ci_hi_app <- if (is.na(z_hi)) 1 else min(p_hat + z_hi * se_est, 1)
 
   } else if (ci_method == "clopper-pearson") {
     x_eff     <- p_hat * n_eff_adj   # effective successes (continuous)
-    ci_lo_app <- if (p_hat == 0) 0 else
-      stats::qbeta(alpha / 2,     x_eff,     n_eff_adj - x_eff + 1)
-    ci_hi_app <- if (p_hat == 1) 1 else
-      stats::qbeta(1 - alpha / 2, x_eff + 1, n_eff_adj - x_eff)
-    ci_lo_app <- max(ci_lo_app, 0)
-    ci_hi_app <- min(ci_hi_app, 1)
+    ci_lo_app <- if (is.na(z_lo) || p_hat == 0) 0 else
+      max(stats::qbeta(alpha_lo,     x_eff,     n_eff_adj - x_eff + 1), 0)
+    ci_hi_app <- if (is.na(z_hi) || p_hat == 1) 1 else
+      min(stats::qbeta(1 - alpha_hi, x_eff + 1, n_eff_adj - x_eff), 1)
 
   } else {   # agresti-coull
     x_eff     <- p_hat * n_eff_adj
     n_tilde   <- n_eff_adj + z_ci^2
     p_tilde   <- (x_eff + z_ci^2 / 2) / n_tilde
     se_tilde  <- sqrt(p_tilde * (1 - p_tilde) / n_tilde)
-    ci_lo_app <- max(p_tilde - z_ci * se_tilde, 0)
-    ci_hi_app <- min(p_tilde + z_ci * se_tilde, 1)
+    ci_lo_app <- if (is.na(z_lo)) 0 else max(p_tilde - z_lo * se_tilde, 0)
+    ci_hi_app <- if (is.na(z_hi)) 1 else min(p_tilde + z_hi * se_tilde, 1)
   }
 
   rg <- function(p) .rogan_gladen(p, sensitivity, specificity)

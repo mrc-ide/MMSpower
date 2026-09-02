@@ -55,8 +55,10 @@ A named list:
 \item{threshold}{Decision threshold as supplied}
 \item{alternative}{Alternative hypothesis as supplied}
 \item{prevalence}{Rogan-Gladen corrected point estimate}
-\item{ci_lower}{Lower bound of the two-sided CI (\code{ci_method})}
-\item{ci_upper}{Upper bound of the two-sided CI (\code{ci_method})}
+\item{ci_lower}{Lower CI bound on true prevalence. \code{0} when
+\code{alternative = "less"} (upper one-sided interval).}
+\item{ci_upper}{Upper CI bound on true prevalence. \code{1} when
+\code{alternative = "greater"} (lower one-sided interval).}
 \item{ci_method}{CI method used (as supplied)}
 \item{n_total}{Total samples}
 \item{n_eff}{Effective independent sample size before the FPC:
@@ -101,9 +103,13 @@ where \eqn{\theta_{app} = \theta \cdot Se + (1-\theta)(1-Sp)} is the
 threshold on the apparent-prevalence scale, and
 \eqn{n_{adj} = n_{eff} / fpc^2} folds in the design effect and FPC.
 
-The reported CI is two-sided at \code{conf_level} regardless of
-\code{alternative}, built the same way as in \code{estimate_prevalence()};
-\code{ci_method} selects Wald (default), Clopper-Pearson, or Agresti-Coull.
+The reported CI is \strong{matched to \code{alternative}}, like base R's
+\code{binom.test()} / \code{prop.test()}: a lower one-sided interval
+\eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
+\eqn{[0, U]} for \code{"less"}, and the usual two-sided interval for
+\code{"two.sided"}. So \code{reject} agrees with whether \code{threshold}
+lies outside \code{[ci_lower, ci_upper]}. \code{ci_method} selects Wald
+(default), Clopper-Pearson, or Agresti-Coull for the interval shape.
 }
 \section{Equations and sources}{
 

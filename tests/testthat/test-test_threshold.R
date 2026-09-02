@@ -119,9 +119,10 @@ test_that("two.sided p-value = 2 * min(one-sided p-values)", {
   expect_equal(res_ts$p_value, 2 * res_gt$p_value, tolerance = 1e-10)
 })
 
-test_that("CI is the two-sided Wald interval (hand-checked, threshold-independent)", {
+test_that("two-sided CI is the two-sided Wald interval (hand-checked, threshold-independent)", {
   # threshold does not affect the CI -- only x, n, conf_level matter
-  res <- test_threshold(x = 30, n = 100, threshold = 0.20)
+  res <- test_threshold(x = 30, n = 100, threshold = 0.20,
+                        alternative = "two.sided")
 
   # Wald CI: p_hat=0.3, n_eff_adj=100, z=1.96
   # moe = 1.96 * sqrt(0.3*0.7/100) = 0.08982
@@ -132,9 +133,32 @@ test_that("CI is the two-sided Wald interval (hand-checked, threshold-independen
   expect_equal(res$ci_upper,   0.3 + moe_check,  tolerance = 1e-6)
 
   # CI does not change when threshold changes (threshold only affects statistic)
-  res2 <- test_threshold(x = 30, n = 100, threshold = 0.40)
+  res2 <- test_threshold(x = 30, n = 100, threshold = 0.40,
+                         alternative = "two.sided")
   expect_equal(res$ci_lower, res2$ci_lower, tolerance = 1e-10)
   expect_equal(res$ci_upper, res2$ci_upper, tolerance = 1e-10)
+})
+
+test_that("the CI is matched to `alternative` (like binom.test/prop.test)", {
+  gt <- test_threshold(x = 30, n = 100, threshold = 0.20, alternative = "greater")
+  lt <- test_threshold(x = 30, n = 100, threshold = 0.20, alternative = "less")
+  ts <- test_threshold(x = 30, n = 100, threshold = 0.20, alternative = "two.sided")
+
+  # one-sided intervals leave the untested side fully open
+  expect_equal(gt$ci_upper, 1)
+  expect_equal(lt$ci_lower, 0)
+  # one-sided lower/upper bound uses z_{1-alpha}, so it is tighter than the
+  # two-sided z_{1-alpha/2} bound
+  expect_gt(gt$ci_lower, ts$ci_lower)
+  expect_lt(lt$ci_upper, ts$ci_upper)
+  # one-sided lower bound is the Wald p_hat - qnorm(0.95) * se
+  expect_equal(gt$ci_lower, 0.3 - qnorm(0.95) * sqrt(0.3 * 0.7 / 100),
+               tolerance = 1e-6)
+
+  # `reject` now agrees with "threshold outside the CI"
+  hi <- test_threshold(x = 30, n = 100, threshold = 0.10, alternative = "greater")
+  expect_true(hi$reject)
+  expect_gt(hi$ci_lower, 0.10)          # threshold below the one-sided bound
 })
 
 test_that("FPC tightens n_eff and increases |z|", {
