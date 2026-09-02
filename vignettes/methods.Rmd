@@ -308,7 +308,7 @@ noticeably.
 Eight clustered sites, an imperfect test ($Se = 0.90$, $Sp = 0.95$), 95%
 Clopper-Pearson interval, ICC estimated from the data:
 
-```{r worked}
+```{r worked, message = FALSE}
 x <- c(2, 5, 1, 18, 22, 14, 9, 6)
 n <- c(60, 80, 70, 100, 40, 60, 50, 90)
 
