@@ -124,11 +124,13 @@ the design effect, then by the squared FPC factor):
 \eqn{(Se + Sp - 1)} to return to the true scale (the Rogan-Gladen offset
 cancels in a difference). \code{"wald"} uses the unpooled standard error;
 \code{"newcombe"} combines per-group Wilson intervals. The interval is
-\strong{matched to \code{alternative}}, like \code{prop.test()}: a lower
-one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
-interval \eqn{[-1, U]} for \code{"less"}, two-sided for
-\code{"two.sided"}; so \code{reject} agrees with whether 0 lies outside
-it. Bounds are clamped to \eqn{[-1, 1]}.
+\strong{matched to \code{alternative}}: a lower one-sided interval
+\eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
+\eqn{[-1, U]} for \code{"less"}, two-sided for \code{"two.sided"}, so
+the interval and the test point the same way. (\code{reject} and "0
+outside the CI" agree in direction; they are not exactly equivalent,
+because the test uses the pooled-variance SE and the \code{"wald"} CI
+the unpooled SE.) Bounds are clamped to \eqn{[-1, 1]}.
 
 \strong{Design effect.} Estimated per group exactly as in
 \code{test_threshold()} / \code{estimate_prevalence()}: from the between-

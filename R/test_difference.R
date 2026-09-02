@@ -62,11 +62,13 @@
 #' \eqn{(Se + Sp - 1)} to return to the true scale (the Rogan-Gladen offset
 #' cancels in a difference). \code{"wald"} uses the unpooled standard error;
 #' \code{"newcombe"} combines per-group Wilson intervals. The interval is
-#' \strong{matched to \code{alternative}}, like \code{prop.test()}: a lower
-#' one-sided interval \eqn{[L, 1]} for \code{"greater"}, an upper one-sided
-#' interval \eqn{[-1, U]} for \code{"less"}, two-sided for
-#' \code{"two.sided"}; so \code{reject} agrees with whether 0 lies outside
-#' it. Bounds are clamped to \eqn{[-1, 1]}.
+#' \strong{matched to \code{alternative}}: a lower one-sided interval
+#' \eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
+#' \eqn{[-1, U]} for \code{"less"}, two-sided for \code{"two.sided"}, so
+#' the interval and the test point the same way. (\code{reject} and "0
+#' outside the CI" agree in direction; they are not exactly equivalent,
+#' because the test uses the pooled-variance SE and the \code{"wald"} CI
+#' the unpooled SE.) Bounds are clamped to \eqn{[-1, 1]}.
 #'
 #' \strong{Design effect.} Estimated per group exactly as in
 #' \code{test_threshold()} / \code{estimate_prevalence()}: from the between-
@@ -278,6 +280,9 @@ test_difference <- function(x1, n1, x2, n2,
   # ---- per-group design effect (same logic as test_threshold) ----
   group_deff <- function(x, n, icc_arg) {
     n_clusters <- length(n)
+    # TODO(review): arithmetic mean cluster size (matches Module 5);
+    # classical Kish for unequal clusters uses sum(n^2)/sum(n). Same open
+    # decision as estimate_prevalence() -- keep in lockstep; team resolves.
     n_bar      <- mean(n)
     p_hat      <- sum(x) / sum(n)
 
@@ -314,21 +319,21 @@ test_difference <- function(x1, n1, x2, n2,
     if (length(fpc_N) == 1) { fpc_N1 <- fpc_N; fpc_N2 <- fpc_N }
     else                    { fpc_N1 <- fpc_N[1]; fpc_N2 <- fpc_N[2] }
   }
-  fpc_check <- function(fN, n_tot, n_eff, grp) {
+  # The FPC acts on the collected count n_tot (the actual sampling
+  # fraction), NOT the design-effect-adjusted n_eff -- same as
+  # estimate_prevalence() / design_precision() (Cochran 1977 sec. 2.8).
+  fpc_check <- function(fN, n_tot, grp) {
     if (is.null(fN)) return(invisible())
-    if (fN < n_tot)
-      stop("`fpc_N` for group ", grp, " (", fN, ") is less than that group's ",
-           "sample size (", n_tot, "). The population must be at least the sample.")
-    if (fN <= n_eff)
-      stop("`fpc_N` for group ", grp, " (", fN, ") is <= its effective sample ",
-           "size n_eff (", round(n_eff, 2), "); the variance collapses to zero. ",
-           "Set `fpc_N = NULL` if no FPC is needed.")
+    if (fN <= n_tot)
+      stop("`fpc_N` for group ", grp, " (", fN, ") must be greater than that ",
+           "group's sample size (", n_tot, "). At `fpc_N = n_tot` the whole ",
+           "group was surveyed and its sampling variance is zero.")
   }
-  fpc_check(fpc_N1, n_tot1, n_eff1, 1)
-  fpc_check(fpc_N2, n_tot2, n_eff2, 2)
+  fpc_check(fpc_N1, n_tot1, 1)
+  fpc_check(fpc_N2, n_tot2, 2)
 
-  fpc1 <- if (!is.null(fpc_N1)) sqrt((fpc_N1 - n_eff1) / (fpc_N1 - 1)) else 1
-  fpc2 <- if (!is.null(fpc_N2)) sqrt((fpc_N2 - n_eff2) / (fpc_N2 - 1)) else 1
+  fpc1 <- if (!is.null(fpc_N1)) sqrt((fpc_N1 - n_tot1) / (fpc_N1 - 1)) else 1
+  fpc2 <- if (!is.null(fpc_N2)) sqrt((fpc_N2 - n_tot2) / (fpc_N2 - 1)) else 1
   m1   <- n_eff1 / fpc1^2     # variance-equivalent simple sample size
   m2   <- n_eff2 / fpc2^2
 
@@ -353,10 +358,10 @@ test_difference <- function(x1, n1, x2, n2,
   reject <- p_value < alpha
 
   # ---- CI on the difference, matched to `alternative` (apparent scale,
-  #      then / correction). Like binom.test()/prop.test(): "greater" ->
-  #      [L, 1], "less" -> [-1, U], "two.sided" -> [L, U]. The one-sided
-  #      bound uses z_{1-alpha}; `reject` then agrees with whether 0 lies
-  #      outside the interval.
+  #      then / correction). "greater" -> [L, 1], "less" -> [-1, U],
+  #      "two.sided" -> [L, U]. The one-sided bound uses z_{1-alpha}, so
+  #      the interval points the same way as the test (they are not
+  #      exactly equivalent: the test SE is pooled, the wald CI SE is not).
   alpha_lo <- switch(alternative,
     two.sided = alpha / 2, greater = alpha, less = 0)
   alpha_hi <- switch(alternative,

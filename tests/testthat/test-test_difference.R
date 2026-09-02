@@ -231,10 +231,15 @@ test_that("TD-R5-2: length-2 fpc_N applies per group", {
   expect_gt(res$n_eff_adj2, 200)
 })
 
-test_that("TD-R5-3: fpc_N below a group's sample size errors", {
+test_that("TD-R5-3: fpc_N <= a group's sample size errors", {
   expect_error(
     test_difference(x1 = 30, n1 = 200, x2 = 40, n2 = 200, fpc_N = 150),
-    "less than that group"
+    "greater than that group"
+  )
+  # fpc_N exactly equal to a group total is also rejected (zero variance)
+  expect_error(
+    test_difference(x1 = 30, n1 = 200, x2 = 40, n2 = 200, fpc_N = 200),
+    "greater than that group"
   )
 })
 
