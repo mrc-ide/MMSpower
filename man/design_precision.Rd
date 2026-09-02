@@ -120,6 +120,35 @@ When \code{n_per_site} is fixed instead, Deff is non-circular (cluster size is
 known directly) and the number of sites follows from
 \code{ceiling(n / n_per_site)}.
 }
+\section{Equations and sources}{
+
+Mostly direct workshop material (MMS-SD Study Design Workshop,
+\url{https://mrc-ide.github.io/MMS-SD_workshop/}):
+\itemize{
+\item \emph{MOE sample size} \eqn{n = z_{1-\alpha/2}^2\,p(1-p)/m^2} --
+Module 2 "Sample size calculation based on margin of error", slides
+"Deriving the sample size formula" (steps 1-3) and "Worked example"
+(lecture slides pp. 9-10).
+\item \emph{Margin of error / Wald interval}
+\eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/n}} -- Module 1
+"Sampling from a population" (p. 11), Module 2 "Precision and sample
+size" (p. 9).
+\item \emph{Design effect and effective sample size}
+\eqn{D_{eff} = 1 + (\bar n - 1)\,r}, \eqn{N_{eff} = N/D_{eff}}, and
+the clustered Wald interval
+\eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
+D_{eff}}} -- Module 5 "Dealing with over-dispersion", slides "The
+effective sample size", "Why is the ICC useful?" and "How can we
+design multi-cluster studies?" (pp. 4-5).
+\item \emph{Rogan-Gladen variance inflation} (the
+\eqn{/(Se + Sp - 1)^2} factor) -- \strong{not} in the workshop;
+Rogan & Gladen (1978).
+\item \emph{Fixed-\code{n_sites} closed-form circularity solve} and the
+\emph{finite-population correction} -- not in the workshop
+(package's own algebra; Cochran (1977) for the FPC).
+}
+}
+
 \examples{
 # Simple random sample, perfect test
 design_precision(prevalence = 0.3, moe = 0.05)
@@ -132,4 +161,14 @@ design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05)
 
 # Fixed number of sites: what is the target per-site sample?
 design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
+}
+\references{
+MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
+margin of error) and 5 (ICC / design effect).
+\url{https://mrc-ide.github.io/MMS-SD_workshop/}
+
+Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
+screening test. American Journal of Epidemiology 107(1):71-76.
+
+Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 }
