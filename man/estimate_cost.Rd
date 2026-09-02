@@ -41,9 +41,24 @@ directly with the output of \code{design_precision()} or
 \code{design_detection()}: pass their \code{n} and \code{n_sites} return
 values straight into \code{estimate_cost()}.
 
-All monetary inputs and outputs are in the same currency unit — the
+All monetary inputs and outputs are in the same currency unit -- the
 function does no currency conversion.
 }
+\section{Equations and sources}{
+
+This is a bookkeeping identity, not a statistical formula:
+\deqn{total = n \times cost\_per\_sample + n_{sites} \times cost\_per\_site.}
+The MMS-SD Study Design Workshop
+(\url{https://mrc-ide.github.io/MMS-SD_workshop/}) does not give a cost
+equation; it frames cost as the feasibility side of the design
+trade-off -- Module 7 "Designing a study for multiple end-points"
+("balance power vs feasibility of target sample sizes") and Module 2
+("Feedback from sample size calculation: what can you afford? What is
+logistically feasible?", lecture slides p. 10). This function just
+operationalises that trade-off so a design's \code{n} / \code{n_sites}
+can be costed directly.
+}
+
 \examples{
 # 323 samples at $15 each
 estimate_cost(n = 323, cost_per_sample = 15)
@@ -56,4 +71,9 @@ estimate_cost(n = 323, cost_per_sample = 15, n_sites = 10, cost_per_site = 200)
 des <- design_precision(prevalence = 0.15, moe = 0.05)
 estimate_cost(n = des$n, cost_per_sample = 12)
 }
+}
+\references{
+MMS-SD Study Design Workshop, Modules 2 (sample size / feasibility) and
+7 (designing for multiple end-points).
+\url{https://mrc-ide.github.io/MMS-SD_workshop/}
 }

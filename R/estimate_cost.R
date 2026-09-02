@@ -7,7 +7,7 @@
 #' \code{design_detection()}: pass their \code{n} and \code{n_sites} return
 #' values straight into \code{estimate_cost()}.
 #'
-#' All monetary inputs and outputs are in the same currency unit — the
+#' All monetary inputs and outputs are in the same currency unit -- the
 #' function does no currency conversion.
 #'
 #' @param n Positive integer. Total number of samples (e.g. the \code{n}
@@ -32,6 +32,24 @@
 #'   \item{n_sites}{\code{n_sites} as supplied, or \code{NULL}}
 #'   \item{cost_per_sample}{\code{cost_per_sample} as supplied}
 #'   \item{cost_per_site}{\code{cost_per_site} as supplied}
+#'
+#' @section Equations and sources:
+#' This is a bookkeeping identity, not a statistical formula:
+#' \deqn{total = n \times cost\_per\_sample + n_{sites} \times cost\_per\_site.}
+#' The MMS-SD Study Design Workshop
+#' (\url{https://mrc-ide.github.io/MMS-SD_workshop/}) does not give a cost
+#' equation; it frames cost as the feasibility side of the design
+#' trade-off -- Module 7 "Designing a study for multiple end-points"
+#' ("balance power vs feasibility of target sample sizes") and Module 2
+#' ("Feedback from sample size calculation: what can you afford? What is
+#' logistically feasible?", lecture slides p. 10). This function just
+#' operationalises that trade-off so a design's \code{n} / \code{n_sites}
+#' can be costed directly.
+#'
+#' @references
+#' MMS-SD Study Design Workshop, Modules 2 (sample size / feasibility) and
+#' 7 (designing for multiple end-points).
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 #'
 #' @export
 #'
