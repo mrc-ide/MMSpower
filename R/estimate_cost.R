@@ -28,14 +28,24 @@
 #' Please note that all monetary inputs and outputs are in one currency
 #' unit; the function does no conversion.
 #'
-#' @param n Positive integer. Total number of samples to be enrolled.
+#' @param n Positive integer. Total number of samples to be enrolled. This
+#'   is a design function's output: \code{$n} from
+#'   \code{design_precision()}, \code{design_threshold()} or
+#'   \code{design_detection()}, or \code{$n_total} from
+#'   \code{design_difference()} / \code{design_trend()}.
 #' @param cost_per_sample Non-negative number. Variable cost per enrolled
 #'   sample.
-#' @param n_sites Number of health facilities. Either a single positive
-#'   integer (one region), or a named positive-integer vector giving the
-#'   facility count in each region, e.g.
-#'   \code{c(North = 10, South = 8, West = 12)}. \code{NULL} (default) means
-#'   no facilities -- only the variable cost is computed.
+#' @param n_sites Number of health facilities. One of:
+#'   \itemize{
+#'     \item a single positive integer -- one region;
+#'     \item a named positive-integer vector -- the facility count in each
+#'       region, e.g. \code{c(North = 10, South = 8, West = 12)};
+#'     \item \code{NULL} (the default) -- no health facilities are costed,
+#'       so the result is the sample (variable) cost only.
+#'   }
+#'   A single-region count can be taken straight from a design function's
+#'   \code{$n_sites} (reported per group by \code{design_difference()} and
+#'   per timepoint by \code{design_trend()}).
 #' @param fixed_cost_per_site Non-negative number. Fixed cost per health
 #'   facility (training, equipment, administration), the same for every
 #'   region. Default 0.
@@ -76,12 +86,9 @@
 #'   (\mathrm{fixed\ cost\ per\ HF} + \mathrm{transport\ cost\ per\ HF}_r)}
 #' \deqn{\mathrm{Total\ Variable} = \mathrm{samples\ enrolled} \times
 #'   \mathrm{cost\ per\ sample}}
-#' The workshop frames cost as the feasibility side of the design
-#' trade-off (Module 7 "Designing a study for multiple end-points";
-#' Module 2 "what can you afford? what is logistically feasible?"). This
-#' function is bookkeeping, not statistics -- it operationalises those
-#' formulae so a design's \code{n} / \code{n_sites} can be costed and
-#' checked against a budget.
+#' The function frames cost as the feasibility side of the design
+#' trade-off; it operationalises those formulae so a design's \code{n} /
+#' \code{n_sites} can be costed and checked against a budget.
 #'
 #' @references
 #' MMS-SD Study Design Workshop, budget-officer activity; Modules 2 and 7.
