@@ -69,7 +69,7 @@ is \code{Inf} for \code{"greater"}, \code{ci_lower} is \code{-Inf}
 for \code{"less"}. So \code{reject} agrees with whether 0 lies
 outside the interval.}
 \item{prevalence_start_est, prevalence_end_est}{Fitted true prevalence
-at the earliest and latest observed timepoint, clamped to [0, 1].}
+at the earliest and latest observed timepoint, clamped to \link{0, 1}.}
 \item{times}{Sorted unique timepoints.}
 \item{apparent_prev}{Apparent prevalence at each unique timepoint.}
 \item{x_by_time, n_by_time}{Pooled positives and totals per timepoint.}
@@ -148,7 +148,7 @@ gives no method. This function fits a weighted least-squares line;
 the classical count-based alternative is the Cochran-Armitage trend
 test (Armitage 1955; Cochran 1954).
 \item \emph{Inverse-variance weights} \eqn{w_j = 1/\mathrm{Var}(\hat
-p_j)} with \eqn{\mathrm{Var}(\hat p_j) = \hat p_j(1-\hat p_j)/N_j}
+    p_j)} with \eqn{\mathrm{Var}(\hat p_j) = \hat p_j(1-\hat p_j)/N_j}
 -- the binomial variance of a proportion, as in Module 1's Wald
 interval (lecture slides p. 11).
 \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and the
