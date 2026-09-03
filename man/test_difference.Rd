@@ -58,7 +58,7 @@ always uses the pooled-variance z-statistic.}
 A named list:
 \item{difference}{Rogan-Gladen corrected prevalence difference
 (group 1 - group 2) on the true scale, computed as
-\code{difference_app / (Se + Sp - 1)} and clamped to [-1, 1]. This
+\code{difference_app / (Se + Sp - 1)} and clamped to \link{-1, 1}. This
 is the quantity the confidence interval is centred on; it can differ
 slightly from \code{prevalence1 - prevalence2} when a per-group
 estimate is clamped.}
@@ -69,7 +69,7 @@ estimate is clamped.}
 \item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
 \item{alternative}{Alternative hypothesis as supplied.}
 \item{prevalence1, prevalence2}{Per-group Rogan-Gladen corrected point
-estimates, each clamped to [0, 1].}
+estimates, each clamped to \link{0, 1}.}
 \item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
 \item{ci_lower, ci_upper}{Confidence interval on the true-scale
 difference at \code{conf_level}, matched to \code{alternative}:
@@ -158,7 +158,7 @@ e.g. Fleiss, Levin & Paik (2003), ch. 2.
 Module 5, slides "The Design Effect" / "Why is the ICC useful?"
 (pp. 4-5); applied per group.
 \item \emph{Wilson score interval} (used by \code{ci_method =
-"newcombe"}) and the \emph{Newcombe} hybrid-score difference
+    "newcombe"}) and the \emph{Newcombe} hybrid-score difference
 interval -- not in the workshop; Newcombe (1998).
 \item \emph{Rogan-Gladen correction} of the difference and its CI
 (divide by \eqn{Se + Sp - 1}) -- not in the workshop;
