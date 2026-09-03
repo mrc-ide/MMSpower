@@ -1,22 +1,98 @@
 ---
-title: "intro-to-mmspower"
+title: "Getting started with MMSpower"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{intro-to-mmspower}
+  %\VignetteIndexEntry{Getting started with MMSpower}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
-## This is a baseline vignette
+
 ```{r setup}
 library(MMSpower)
 ```
-```{r} 
-hello_mmspower()
+
+## The idea
+
+MMSpower supports the two halves of a malaria molecular surveillance
+study:
+
+1. **Design** -- before collecting data, work out how many samples, sites,
+   or survey rounds you need.
+2. **Analysis** -- once the data are in, produce an estimate, test, or
+   confidence interval.
+
+Each study question has a function for each half:
+
+| Question | Design | Analysis |
+|---|---|---|
+| Prevalence and its precision | `design_precision()` | `estimate_prevalence()` |
+| Above/below a threshold | `design_threshold()` | `test_threshold()` |
+| Difference between two groups | `design_difference()` | `test_difference()` |
+| Trend over time | `design_trend()` | `test_trend()` |
+| Detect a rare variant | `design_detection()` | -- |
+| Study cost | `estimate_cost()` | -- |
+
+All of them take the same three adjustments, so a design and its analysis
+stay consistent:
+
+* `sensitivity`, `specificity` -- Rogan-Gladen correction for an imperfect
+  assay;
+* `icc` (or `n_per_site` / `n_sites`) -- a Kish design effect for
+  clustered sampling;
+* `fpc_N` -- an optional finite-population correction.
+
+## A worked example: prevalence
+
+Suppose we plan a survey to estimate the prevalence of a resistance marker
+to within 5 percentage points, expecting roughly 15% prevalence, sampling
+30 people at each of several health facilities with a modest amount of
+between-facility correlation.
+
+```{r design, eval = FALSE}
+# design_precision() lives on its own feature branch for now
+design_precision(
+  prevalence = 0.15,
+  moe        = 0.05,
+  n_per_site = 30,
+  icc        = 0.05
+)
 ```
+
+After running the survey we have per-site positive counts and totals, and
+we know the assay is not perfect. `estimate_prevalence()` corrects for the
+assay, estimates the intra-cluster correlation from the spread between
+sites, and reports both the raw and effective sample sizes.
+
+```{r analysis}
+res <- estimate_prevalence(
+  x = c(2, 14, 4, 18, 6),
+  n = c(60, 60, 55, 65, 50),
+  sensitivity = 0.90,
+  specificity = 0.98
+)
+
+res[c("prevalence", "ci_lower", "ci_upper", "deff", "icc_used",
+      "n_total", "n_eff")]
+```
+
+Here the five sites vary more than sampling alone explains
+(`icc_used` `r round(res$icc_used, 3)`), so the design effect
+(`r round(res$deff, 1)`) inflates and the `r res$n_total` samples are
+worth only about `r round(res$n_eff)` independent observations. A design
+that assumed independent sampling would have been badly under-powered.
+
+## Where the methods come from
+
+Every function documents its equations and cites the MMS-SD Study Design
+Workshop module they come from, plus the standard references for the parts
+that go beyond the workshop. See `?estimate_prevalence` (the "Equations
+and sources" section) and:
+
+* `vignette("methods")` -- the full derivation for the prevalence /
+  precision pair;
+* `vignette("methods-and-sources")` -- the cross-function equation-to-
+  lecture index.
