@@ -78,8 +78,11 @@ no FPC.}
 A named list. Always present:
 \item{n_per_timepoint}{Per-timepoint sample size required (forward mode)
 or as supplied (reverse mode).}
-\item{n_total}{Total sample size across all timepoints
-(\code{n_per_timepoint * n_timepoints}).}
+\item{n}{Total sample size across all timepoints
+(\code{n_per_timepoint * n_timepoints}). Named \code{n} for
+consistency with the other design functions -- note this is the
+study total, whereas the \code{n} \emph{argument} (reverse mode) is
+the per-timepoint count.}
 \item{n_eff}{SRS-equivalent independent per-timepoint sample size. In
 forward mode: the base formula n, before the design effect and FPC.
 In reverse mode: the SRS-equivalent of the \emph{supplied} \code{n}

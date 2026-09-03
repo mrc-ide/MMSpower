@@ -115,8 +115,11 @@
 #' @return A named list. Always present:
 #'   \item{n_per_timepoint}{Per-timepoint sample size required (forward mode)
 #'     or as supplied (reverse mode).}
-#'   \item{n_total}{Total sample size across all timepoints
-#'     (\code{n_per_timepoint * n_timepoints}).}
+#'   \item{n}{Total sample size across all timepoints
+#'     (\code{n_per_timepoint * n_timepoints}). Named \code{n} for
+#'     consistency with the other design functions -- note this is the
+#'     study total, whereas the \code{n} \emph{argument} (reverse mode) is
+#'     the per-timepoint count.}
 #'   \item{n_eff}{SRS-equivalent independent per-timepoint sample size. In
 #'     forward mode: the base formula n, before the design effect and FPC.
 #'     In reverse mode: the SRS-equivalent of the \emph{supplied} \code{n}
@@ -443,7 +446,7 @@ design_trend <- function(prevalence_start,
 
     return(list(
       n_per_timepoint  = as.numeric(n),
-      n_total          = as.numeric(n) * T_pts,
+      n                = as.numeric(n) * T_pts,
       n_eff            = ceiling(n_eff_pt),
       n_timepoints     = T_pts,
       times            = tvec,
@@ -519,7 +522,7 @@ design_trend <- function(prevalence_start,
 
   list(
     n_per_timepoint  = n_per_timepoint,
-    n_total          = n_total,
+    n                = n_total,
     n_eff            = n_eff,
     n_timepoints     = T_pts,
     times            = tvec,
