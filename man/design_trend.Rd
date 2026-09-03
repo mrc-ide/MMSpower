@@ -181,7 +181,7 @@ result \eqn{n = (z_{1-\beta} + z_{1-\alpha/2})^2\,p(1-p)/(p-p_0)^2}
 sample size is not in the workshop; standard form, e.g. Dupont &
 Plummer (1998).
 \item \emph{Slope variance} \eqn{\mathrm{Var}(\hat\beta) =
-\sigma^2/(n\,S_{xx})}, \eqn{S_{xx} = \sum (t_i-\bar t)^2} --
+    \sigma^2/(n\,S_{xx})}, \eqn{S_{xx} = \sum (t_i-\bar t)^2} --
 ordinary least squares; not workshop material.
 \item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
 Module 5 "Dealing with over-dispersion", slide "Why is the ICC
