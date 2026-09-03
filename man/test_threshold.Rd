@@ -43,8 +43,8 @@ correction. \code{NULL} (default) = no FPC.}
 
 \item{ci_method}{Method for the reported confidence interval on true
 prevalence: \code{"wald"} (default), \code{"clopper-pearson"}, or
-\code{"agresti-coull"}. Same three methods as \code{estimate_prevalence()}.
-This affects only the reported interval, not the hypothesis test, which
+\code{"agresti-coull"}. Same three methods as \code{estimate_prevalence()}. This
+affects only the reported interval, not the hypothesis test, which
 always uses the null-variance z-statistic.}
 }
 \value{
@@ -64,8 +64,8 @@ A named list:
 \item{n_eff}{Effective independent sample size before the FPC:
 \code{n_total / deff}}
 \item{n_eff_adj}{Effective sample size the CI and test statistic actually
-use: \code{n_eff} divided by the squared FPC factor (equals \code{n_eff}
-when \code{fpc_N} is \code{NULL})}
+use: \code{n_eff} divided by the squared FPC factor (equals
+\code{n_eff} when \code{fpc_N} is \code{NULL})}
 \item{conf_level}{Confidence level (as supplied)}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
