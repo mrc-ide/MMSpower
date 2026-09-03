@@ -424,3 +424,23 @@ test_that("DP-R8-3: `prevalence` is returned and documented", {
   res <- design_precision(0.3, 0.05)
   expect_equal(res$prevalence, 0.3)
 })
+
+
+# ---------------------------------------------------------------------------
+# Round 9 -- final-review fixes (2026-09-03)
+# ---------------------------------------------------------------------------
+
+test_that("DP-R9-1: a cluster structure larger than the population is rejected", {
+  expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
+               "more clusters than individuals")
+  expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
+               "cannot be larger than the whole population")
+  # a feasible combination still works
+  expect_silent(design_precision(0.3, 0.05, n_sites = 20, fpc_N = 5000, icc = 0.05))
+})
+
+test_that("DP-R9-2: a hair-above-zero icc without a cluster structure is treated as SRS", {
+  res <- design_precision(0.3, 0.05, icc = 1e-12)
+  expect_equal(res$deff, 1)
+  expect_equal(res$n, design_precision(0.3, 0.05)$n)
+})

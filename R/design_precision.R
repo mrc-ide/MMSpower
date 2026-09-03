@@ -110,11 +110,13 @@
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
 #'   \item{icc}{ICC (as supplied; 0 for SRS)}
-#'   \item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs.
-#'     When an FPC shrinks a fixed-\code{n_sites} design, this is the design
-#'     effect of the smaller \emph{fielded} design, i.e. it stays consistent
-#'     with the returned \code{n_per_site}
-#'     (\code{deff = 1 + (n_per_site - 1) * icc}).}
+#'   \item{deff}{Design effect applied: 1 for SRS, > 1 for clustered
+#'     designs. Reported as the effect of the rounded, \emph{fielded}
+#'     design, \code{1 + (n_per_site - 1) * icc}. Because \code{n_per_site}
+#'     is rounded up (and, with an FPC, the FPC acts as a separate
+#'     variance factor), \code{n} is \strong{not} exactly
+#'     \code{n_eff * deff} -- treat \code{n} as the headline figure and
+#'     \code{deff} / \code{n_eff} as diagnostics.}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #'   The following fields depend on the design mode:
@@ -261,7 +263,18 @@ design_precision <- function(prevalence,
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
          "Use, e.g., 0.95 for a 95% confidence interval.")
 
-  if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
+  # A cluster structure cannot be larger than the population it is drawn from.
+  if (!is.null(fpc_N) && !is.null(n_sites) && n_sites > fpc_N)
+    stop("`n_sites` (", n_sites, ") exceeds `fpc_N` (", fpc_N, "): you cannot ",
+         "have more clusters than individuals in the population.")
+  if (!is.null(fpc_N) && !is.null(n_per_site) && n_per_site > fpc_N)
+    stop("`n_per_site` (", n_per_site, ") exceeds `fpc_N` (", fpc_N, "): a ",
+         "cluster cannot be larger than the whole population.")
+
+  # `icc == 0` below is an exact test; treat a hair above 0 as SRS so an
+  # upstream estimate like 1e-12 does not force the clustered code path.
+  icc_is_zero <- icc < sqrt(.Machine$double.eps)
+  if (!icc_is_zero && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure to compute the design effect ",
          "(Deff = 1 + (n_bar - 1) * icc, where n_bar = total n / n_sites). ",
          "Supply `n_sites` (fix the number of clusters) or `n_per_site` (fix the ",
@@ -274,10 +287,10 @@ design_precision <- function(prevalence,
   n_base_cont <- z^2 * p_app * (1 - p_app) / (moe^2 * correction^2)
 
   # ---- design effect and total n ----
-  # icc == 0 covers every unclustered case: the earlier guard already
+  # icc effectively 0 covers every unclustered case: the earlier guard
   # errored if icc > 0 without a cluster structure, so both-NULL implies
-  # icc == 0 here.
-  if (icc == 0) {
+  # icc_is_zero here.
+  if (icc_is_zero) {
     # SRS: no clustering adjustment needed
     deff   <- 1
     n_cont <- n_base_cont

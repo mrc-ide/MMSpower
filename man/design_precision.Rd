@@ -66,11 +66,13 @@ same way as \code{n_eff} in \code{estimate_prevalence()}.}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
 \item{icc}{ICC (as supplied; 0 for SRS)}
-\item{deff}{Design effect applied: 1 for SRS, > 1 for clustered designs.
-When an FPC shrinks a fixed-\code{n_sites} design, this is the design
-effect of the smaller \emph{fielded} design, i.e. it stays consistent
-with the returned \code{n_per_site}
-(\code{deff = 1 + (n_per_site - 1) * icc}).}
+\item{deff}{Design effect applied: 1 for SRS, > 1 for clustered
+designs. Reported as the effect of the rounded, \emph{fielded}
+design, \code{1 + (n_per_site - 1) * icc}. Because \code{n_per_site}
+is rounded up (and, with an FPC, the FPC acts as a separate
+variance factor), \code{n} is \strong{not} exactly
+\code{n_eff * deff} -- treat \code{n} as the headline figure and
+\code{deff} / \code{n_eff} as diagnostics.}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 
 The following fields depend on the design mode:
