@@ -137,7 +137,7 @@ Cannon (2001).
 Module 5 "Dealing with over-dispersion in multi-cluster studies",
 slide "Why is the ICC useful?" (lecture slides p. 5).
 \item \emph{Per-sample probability} \eqn{q = prevalence \times
-sensitivity} -- see the "Known limitation" section below; the
+    sensitivity} -- see the "Known limitation" section below; the
 apparent-prevalence alternative would be Rogan & Gladen (1978).
 \item \emph{Finite-population correction} -- not in the workshop;
 Cochran (1977), \emph{Sampling Techniques}.
@@ -154,7 +154,7 @@ unresolved and need a team decision:
 \item Whether "detection" should mean "detect a true occurrence"
 (current behaviour, \eqn{q = p \cdot Se}) or "observe any positive
 result" (the apparent-prevalence basis \eqn{q = p \cdot Se +
-(1 - p)(1 - Sp)} used by every other function in this package via
+    (1 - p)(1 - Sp)} used by every other function in this package via
 \code{.apparent_prev()}).
 \item If false positives are in scope, how a "detection" driven by a
 false positive should be reported / discounted.
