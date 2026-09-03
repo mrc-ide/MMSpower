@@ -138,7 +138,11 @@
 #'   \item{sensitivity}{As supplied.}
 #'   \item{specificity}{As supplied.}
 #'   \item{icc}{As supplied.}
-#'   \item{deff}{Design effect applied.}
+#'   \item{deff}{Design effect applied. In the fixed-\code{n_sites} +
+#'     \code{fpc_N} case it is the clustering inflation implied by the
+#'     design's \emph{pre-FPC} per-timepoint size (the value forward and
+#'     reverse mode agree on); the actually-fielded cluster size is a
+#'     little smaller, so the design is marginally conservative.}
 #'   \item{fpc_N}{As supplied, or \code{NULL}.}
 #'   \item{mode}{\code{"solve_n"} or \code{"solve_power"}.}
 #'
@@ -228,6 +232,9 @@ design_trend <- function(prevalence_start,
       stop("`times` must be a numeric vector of length >= 2 with finite values.")
     if (diff(range(times)) <= 0)
       stop("`times` must span a positive range (all values are equal).")
+    if (!is.null(n_timepoints))
+      warning("Both `times` and `n_timepoints` were supplied; `n_timepoints` ",
+              "is ignored (the timepoints come from `times`).")
     tvec <- as.numeric(times)
   } else {
     if (is.null(n_timepoints) ||
@@ -316,8 +323,8 @@ design_trend <- function(prevalence_start,
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, ").")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 ||
-      !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a single finite positive number (got ",
+      !is.finite(fpc_N) || fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N, ").")
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
@@ -385,24 +392,28 @@ design_trend <- function(prevalence_start,
   # REVERSE MODE: n supplied -> report achieved power.
   # ======================================================================
   if (!solve_n) {
-    if (icc == 0) {
-      deff <- 1
-    } else if (!is.null(n_per_site)) {
-      deff <- 1 + (n_per_site - 1) * icc
-    } else {
-      deff <- 1 + (n / n_sites - 1) * icc
-    }
-    deff <- max(deff, 1)   # Kish deff is >= 1 by construction
-
     # Undo forward mode's operations in reverse order: forward applied the
-    # FPC to the already-deff-inflated n, so invert the FPC on the actual
-    # collected n first, then remove the design effect.
+    # FPC to the already-deff-inflated n_cont, so invert the FPC on the
+    # collected n FIRST, then form the design effect from that pre-FPC
+    # size -- this is the cluster size forward's circular n_sites solve
+    # used, so forward $deff and reverse $deff describe one design the
+    # same way and the power round-trips.
     n_cont_full <- n
     if (!is.null(fpc_N)) {
       if (n >= fpc_N)
         stop("`n` (", n, ") must be smaller than `fpc_N` (", fpc_N, ").")
       n_cont_full <- n * (fpc_N - 1) / (fpc_N - n)
     }
+
+    if (icc == 0) {
+      deff <- 1
+    } else if (!is.null(n_per_site)) {
+      deff <- 1 + (n_per_site - 1) * icc
+    } else {
+      deff <- 1 + (n_cont_full / n_sites - 1) * icc
+    }
+    deff <- max(deff, 1)   # Kish deff is >= 1 by construction
+
     n_eff_pt <- n_cont_full / deff
 
     ncp   <- abs(slope_app) * sqrt(n_eff_pt * sxx / sigma2_app)
@@ -423,8 +434,8 @@ design_trend <- function(prevalence_start,
     }
 
     return(list(
-      n_per_timepoint  = as.integer(n),
-      n_total          = as.integer(n) * T_pts,
+      n_per_timepoint  = as.numeric(n),
+      n_total          = as.numeric(n) * T_pts,
       n_eff            = ceiling(n_eff_pt),
       n_timepoints     = T_pts,
       times            = tvec,
