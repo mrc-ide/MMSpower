@@ -101,7 +101,11 @@ comparable across modes.}
 \item{sensitivity}{As supplied.}
 \item{specificity}{As supplied.}
 \item{icc}{As supplied.}
-\item{deff}{Design effect applied.}
+\item{deff}{Design effect applied. In the fixed-\code{n_sites} +
+\code{fpc_N} case it is the clustering inflation implied by the
+design's \emph{pre-FPC} per-timepoint size (the value forward and
+reverse mode agree on); the actually-fielded cluster size is a
+little smaller, so the design is marginally conservative.}
 \item{fpc_N}{As supplied, or \code{NULL}.}
 \item{mode}{\code{"solve_n"} or \code{"solve_power"}.}
 

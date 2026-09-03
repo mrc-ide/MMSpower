@@ -310,7 +310,7 @@ test_that("DT-R8-2: reverse-mode one-sided power has no spurious opposite tail",
   expect_lt(r2$power, r$power)
 })
 
-test_that("DT-R8-3: forward/reverse round-trip agrees with FPC + clustering", {
+test_that("DT-R8-3: forward/reverse round-trip agrees with FPC + n_per_site", {
   fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
                       power = 0.80, n_per_site = 25, icc = 0.03, fpc_N = 600)
   rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
@@ -318,4 +318,33 @@ test_that("DT-R8-3: forward/reverse round-trip agrees with FPC + clustering", {
                       n_per_site = 25, icc = 0.03, fpc_N = 600)
   # power recovered from the design's own n should sit at ~the target
   expect_equal(rev$power, 0.80, tolerance = 0.03)
+})
+
+test_that("DT-R8-4: forward/reverse round-trip agrees with FPC + n_sites", {
+  # the case the fresh review flagged: n_sites (circular solve) + fpc_N
+  fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                      power = 0.80, n_sites = 20, icc = 0.05, fpc_N = 250)
+  rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                      n = fwd$n_per_timepoint,
+                      n_sites = 20, icc = 0.05, fpc_N = 250)
+  expect_equal(rev$power, 0.80, tolerance = 0.03)   # was ~0.88 before the fix
+  expect_equal(rev$deff, fwd$deff, tolerance = 0.05)  # modes describe one design alike
+})
+
+test_that("DT-R8-5: fpc_N must be a whole number; `times` + `n_timepoints` warns", {
+  expect_error(design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                            fpc_N = 500.5), "positive integer")
+  expect_silent(design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+                             fpc_N = 500))
+  expect_warning(
+    design_trend(0.10, prevalence_end = 0.20, times = c(0, 1, 2), n_timepoints = 9),
+    "n_timepoints` is ignored"
+  )
+})
+
+test_that("DT-R8-6: `n_per_timepoint` is numeric in both modes", {
+  fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5)
+  rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n = 150)
+  expect_type(fwd$n_per_timepoint, "double")
+  expect_type(rev$n_per_timepoint, "double")
 })
