@@ -4,76 +4,135 @@
 \alias{estimate_cost}
 \title{Estimate total study cost}
 \usage{
-estimate_cost(n, cost_per_sample, n_sites = NULL, cost_per_site = 0)
+estimate_cost(
+  n,
+  cost_per_sample,
+  n_sites = NULL,
+  fixed_cost_per_site = 0,
+  transport_cost_per_site = 0,
+  budget = NULL
+)
 }
 \arguments{
-\item{n}{Positive integer. Total number of samples (e.g. the \code{n}
-element returned by \code{design_precision()} or
-\code{design_detection()}).}
+\item{n}{Positive integer. Total number of samples to be enrolled.}
 
-\item{cost_per_sample}{Non-negative number. Cost per individual sample
-(e.g. cost of a rapid diagnostic test, lab processing fee, or combined
-per-person field cost).}
+\item{cost_per_sample}{Non-negative number. Variable cost per enrolled
+sample.}
 
-\item{n_sites}{Optional positive integer. Number of study sites. When
-supplied together with \code{cost_per_site}, a fixed site-level cost is
-added to the total. Set to \code{NULL} (default) to omit site costs.}
+\item{n_sites}{Number of health facilities. Either a single positive
+integer (one region), or a named positive-integer vector giving the
+facility count in each region, e.g.
+\code{c(North = 10, South = 8, West = 12)}. \code{NULL} (default) means
+no facilities -- only the variable cost is computed.}
 
-\item{cost_per_site}{Non-negative number. Fixed cost per site (e.g.
-travel, equipment setup, staff training). Default 0. Ignored when
-\code{n_sites} is \code{NULL}.}
+\item{fixed_cost_per_site}{Non-negative number. Fixed cost per health
+facility (training, equipment, administration), the same for every
+region. Default 0.}
+
+\item{transport_cost_per_site}{Non-negative. Transport cost per health
+facility. Either a single number applied to every region, or a named
+vector with the same region names as \code{n_sites}, e.g.
+\code{c(North = 1000, South = 1500, West = 800)}. Default 0.}
+
+\item{budget}{Optional positive number. Total money available. When
+supplied, the result reports \code{budget_remaining} and
+\code{over_budget}.}
 }
 \value{
 A named list of class \code{"mms_cost"}:
-\item{total_cost}{Total study cost (\code{sampling_cost + site_cost})}
-\item{sampling_cost}{\code{n * cost_per_sample}}
-\item{site_cost}{\code{n_sites * cost_per_site} (0 when \code{n_sites}
-is \code{NULL})}
-\item{n}{Total samples as supplied}
-\item{n_sites}{\code{n_sites} as supplied, or \code{NULL}}
-\item{cost_per_sample}{\code{cost_per_sample} as supplied}
-\item{cost_per_site}{\code{cost_per_site} as supplied}
+\item{total_cost}{\code{total_fixed_cost + total_variable_cost}.}
+\item{total_variable_cost}{\code{n * cost_per_sample}.}
+\item{total_fixed_cost}{\eqn{\sum_{r} n_{sites,r} \times
+    (fixed\_cost\_per\_site + transport\_cost\_per\_site_r)}; 0 when
+\code{n_sites} is \code{NULL}.}
+\item{by_region}{Data frame with one row per region -- \code{region},
+\code{n_sites}, \code{fixed_cost_per_site},
+\code{transport_cost_per_site}, \code{fixed_subtotal}
+(\code{n_sites * fixed_cost_per_site}), \code{transport_subtotal}
+(\code{n_sites * transport_cost_per_site}), \code{region_total}
+(their sum). \code{NULL} when \code{n_sites} is \code{NULL}.}
+\item{n}{Total samples as supplied.}
+\item{n_sites}{Total health facilities across all regions (0 when
+\code{n_sites} is \code{NULL}).}
+\item{cost_per_sample, fixed_cost_per_site}{As supplied.}
+\item{budget}{As supplied, or \code{NULL}.}
+\item{budget_remaining}{\code{budget - total_cost} (negative if over);
+\code{NULL} when no \code{budget}.}
+\item{over_budget}{Logical: \code{total_cost > budget}; \code{NULL}
+when no \code{budget}.}
 }
 \description{
-Calculates the total cost of a surveillance or prevalence study from a
-per-sample cost and an optional fixed cost per site. Designed to pair
-directly with the output of \code{design_precision()} or
-\code{design_detection()}: pass their \code{n} and \code{n_sites} return
-values straight into \code{estimate_cost()}.
+Costs a surveillance or prevalence study from its design choices, using
+the budget structure taught in the MMS-SD workshop budget-officer
+activity:
 
-All monetary inputs and outputs are in the same currency unit -- the
-function does no currency conversion.
+\itemize{
+\item \strong{Total variable cost} = total samples enrolled x cost per
+sample (collection, laboratory testing, consumables, data
+management).
+\item \strong{Total fixed cost} = for each region, number of health
+facilities x (fixed cost per facility + transport cost per facility).
+The fixed cost per facility (training, equipment, administration) is
+the same everywhere; transport cost per facility varies by region.
+}
+
+Give it the design you are considering -- total samples, health
+facilities per region, and the cost rates -- and it returns the fixed /
+variable / total breakdown, a per-region table, and (if you pass a
+\code{budget}) whether you are within it. To explore trade-offs, change
+\code{n} or \code{n_sites} and call it again.
+
+Pairs with the design functions: pass \code{design_precision()} /
+\code{design_detection()}'s \code{n} and \code{n_sites} straight in.
+
+All monetary inputs and outputs are in one currency unit; the function
+does no conversion.
 }
 \section{Equations and sources}{
 
-This is a bookkeeping identity, not a statistical formula:
-\deqn{total = n \times cost\_per\_sample + n_{sites} \times cost\_per\_site.}
-The MMS-SD Study Design Workshop
-(\url{https://mrc-ide.github.io/MMS-SD_workshop/}) does not give a cost
-equation; it frames cost as the feasibility side of the design
-trade-off -- Module 7 "Designing a study for multiple end-points"
-("balance power vs feasibility of target sample sizes") and Module 2
-("Feedback from sample size calculation: what can you afford? What is
-logistically feasible?", lecture slides p. 10). This function just
-operationalises that trade-off so a design's \code{n} / \code{n_sites}
-can be costed directly.
+Straight from the MMS-SD Study Design Workshop budget-officer group
+activity (\url{https://mrc-ide.github.io/MMS-SD_workshop/}):
+\deqn{\mathrm{Total\ Fixed} = \sum_{r} n_{HF,r} \times
+  (\mathrm{fixed\ cost\ per\ HF} + \mathrm{transport\ cost\ per\ HF}_r)}
+\deqn{\mathrm{Total\ Variable} = \mathrm{samples\ enrolled} \times
+  \mathrm{cost\ per\ sample}}
+The workshop frames cost as the feasibility side of the design
+trade-off (Module 7 "Designing a study for multiple end-points";
+Module 2 "what can you afford? what is logistically feasible?"). This
+function is bookkeeping, not statistics -- it operationalises those
+formulae so a design's \code{n} / \code{n_sites} can be costed and
+checked against a budget.
 }
 
 \examples{
-# 323 samples at $15 each
-estimate_cost(n = 323, cost_per_sample = 15)
+# Variable cost only
+estimate_cost(n = 323, cost_per_sample = 50)
 
-# With 10 sites and $200 fixed cost per site
-estimate_cost(n = 323, cost_per_sample = 15, n_sites = 10, cost_per_site = 200)
+# Single region, workshop rates ($5,000 fixed + $1,000 transport per HF)
+estimate_cost(
+  n = 600, cost_per_sample = 50,
+  n_sites = 12,
+  fixed_cost_per_site = 5000,
+  transport_cost_per_site = 1000
+)
 
-# Pipe directly from design_precision (once that function is available)
+# Multi-region, per-region transport costs, checked against a budget
+estimate_cost(
+  n = 800, cost_per_sample = 50,
+  n_sites = c(North = 10, South = 8, West = 12),
+  fixed_cost_per_site = 5000,
+  transport_cost_per_site = c(North = 1000, South = 1500, West = 800),
+  budget = 300000
+)
+
+# Pipe from a design function
 \dontrun{
-des <- design_precision(prevalence = 0.15, moe = 0.05)
-estimate_cost(n = des$n, cost_per_sample = 12)
+des <- design_precision(prevalence = 0.15, moe = 0.05, n_per_site = 30, icc = 0.05)
+estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
+              fixed_cost_per_site = 5000, transport_cost_per_site = 1200)
 }
 }
 \references{
-MMS-SD Study Design Workshop, Modules 2 (sample size / feasibility) and
-7 (designing for multiple end-points).
+MMS-SD Study Design Workshop, budget-officer activity; Modules 2 and 7.
 \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 }
