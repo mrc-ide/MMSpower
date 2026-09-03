@@ -42,7 +42,7 @@ test_that("DT-R1-1: 10% -> 20% over 5 rounds, perfect test -- hand-checked", {
   expect_equal(res$sigma2_app, 0.15 * 0.85, tolerance = 1e-12)
   expect_equal(res$n_per_timepoint, ceiling(nbase_trend(0.10, 0.20, 0:4)))  # 161
   expect_equal(res$n_per_timepoint, 161)
-  expect_equal(res$n_total, 161 * 5)
+  expect_equal(res$n, 161 * 5)
   expect_equal(res$n_eff, 161)
   expect_equal(res$deff, 1)
   expect_equal(res$mode, "solve_n")
