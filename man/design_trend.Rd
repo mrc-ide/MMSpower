@@ -10,7 +10,7 @@ design_trend(
   slope = NULL,
   n_timepoints = NULL,
   times = NULL,
-  n = NULL,
+  n_per_timepoint = NULL,
   power = 0.8,
   alternative = "two.sided",
   sensitivity = 1,
@@ -40,9 +40,11 @@ used when \code{times} is not given (timepoints are then
 coordinates, if they are not equally spaced or you want explicit units
 (e.g. calendar years). Overrides \code{n_timepoints}.}
 
-\item{n}{Optional positive integer. If supplied, the function reports the
-power achieved by this per-timepoint sample size instead of solving for
-\code{n}. When \code{n} is supplied, \code{power} is ignored.}
+\item{n_per_timepoint}{Optional positive integer. If supplied, the
+function runs in reverse: it reports the power this per-timepoint sample
+size achieves instead of solving for it. When \code{n_per_timepoint} is
+supplied, \code{power} is ignored. (This is the per-timepoint count; the
+\code{n} field in the result is the study total.)}
 
 \item{power}{Target power (1 - beta); default 0.80.}
 
@@ -79,20 +81,21 @@ A named list. Always present:
 \item{n_per_timepoint}{Per-timepoint sample size required (forward mode)
 or as supplied (reverse mode).}
 \item{n}{Total sample size across all timepoints
-(\code{n_per_timepoint * n_timepoints}). Named \code{n} for
-consistency with the other design functions -- note this is the
-study total, whereas the \code{n} \emph{argument} (reverse mode) is
-the per-timepoint count.}
+(\code{n_per_timepoint * n_timepoints}). This is the study total,
+matching the \code{n} field returned by the other design functions.
+The per-timepoint count -- what reverse mode takes as its
+\code{n_per_timepoint} argument -- is reported separately as
+\code{n_per_timepoint}.}
 \item{n_eff}{SRS-equivalent independent per-timepoint sample size. In
 forward mode: the base formula n, before the design effect and FPC.
-In reverse mode: the SRS-equivalent of the \emph{supplied} \code{n}
-after removing the FPC and design effect (the independent-sample size
-with the same slope-detection power) -- a different quantity, not
-comparable across modes.}
+In reverse mode: the SRS-equivalent of the supplied
+\code{n_per_timepoint} after removing the FPC and design effect (the
+independent-sample size with the same slope-detection power) -- a
+different quantity, not comparable across modes.}
 \item{n_timepoints}{Number of timepoints.}
 \item{times}{Timepoint coordinates used.}
-\item{power}{Target power (forward mode) or power achieved by \code{n}
-(reverse mode).}
+\item{power}{Target power (forward mode) or power achieved by
+\code{n_per_timepoint} (reverse mode).}
 \item{prevalence_start}{As supplied.}
 \item{prevalence_end}{As supplied, or implied by \code{slope}.}
 \item{slope}{True-scale slope (prevalence change per unit time).}
@@ -124,15 +127,18 @@ SRS.}
 Design function: given a starting prevalence and either an ending
 prevalence or a slope, returns the minimum \strong{per-timepoint} sample
 size needed to detect a linear time trend with the target power. Supply
-\code{n} instead of \code{power} to run the calculation in reverse and
-report the power a given per-timepoint sample size achieves.
+\code{n_per_timepoint} instead of \code{power} to run the calculation in
+reverse and report the power that per-timepoint sample size achieves. The
+reverse-mode input is \code{n_per_timepoint} (matching the forward-mode
+output of the same name); the \code{n} field in the returned list is
+always the study total, consistent with the other design functions.
 
 This is the design complement to \code{test_trend()}. Equal sample size at
 every timepoint is assumed. The same three design modes as
 \code{design_precision()} / \code{design_difference()} are supported, and
 clustering / FPC are applied to \emph{each} timepoint's sample:
 \describe{
-\item{SRS (no clustering args)}{Returns per-timepoint \code{n} only.}
+\item{SRS (no clustering args)}{Returns \code{n_per_timepoint} only.}
 \item{Fixed cluster size (\code{n_per_site} supplied)}{Solves for the
 number of clusters needed per timepoint.}
 \item{Fixed number of clusters (\code{n_sites} supplied)}{Solves for
@@ -168,7 +174,8 @@ the same closed-form logic as \code{design_threshold()} /
 \code{design_difference()}.
 
 Solving for the \emph{number} of timepoints is not implemented in this
-version; fix \code{n_timepoints} (or \code{times}) and solve for \code{n}.
+version; fix \code{n_timepoints} (or \code{times}) and solve for
+\code{n_per_timepoint}.
 }
 \section{Equations and sources}{
 
@@ -205,7 +212,8 @@ design_trend(prevalence_start = 0.10, prevalence_end = 0.20, n_timepoints = 5)
 design_trend(prevalence_start = 0.10, slope = 0.025, n_timepoints = 5)
 
 # Reverse mode: power from 150 samples per round
-design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n = 150)
+design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
+             n_per_timepoint = 150)
 
 # Clustered: how many sites per round?
 design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
