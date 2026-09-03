@@ -243,11 +243,24 @@ test_that("DD-R5-6: n_sites / n_per_site guards", {
                "positive integer")
 })
 
-test_that("DD-R5-7: fpc_N guard", {
+test_that("DD-R5-7: fpc_N guard (finite positive integer)", {
   expect_error(design_detection(prevalence = 0.02, fpc_N = -10),
-               "positive number")
+               "positive integer")
+  expect_error(design_detection(prevalence = 0.02, fpc_N = 500.5),
+               "positive integer")
   expect_error(design_detection(prevalence = 0.02, fpc_N = c(100, 200)),
                "length = 2")
+})
+
+test_that("DD-R5-8: a cluster structure larger than fpc_N is rejected", {
+  expect_error(
+    design_detection(prevalence = 0.02, n_sites = 100, fpc_N = 50, icc = 0.05),
+    "more clusters than individuals"
+  )
+  expect_error(
+    design_detection(prevalence = 0.02, n_per_site = 100, fpc_N = 50, icc = 0.05),
+    "cannot be larger than the whole population"
+  )
 })
 
 

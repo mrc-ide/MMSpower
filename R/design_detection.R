@@ -232,10 +232,18 @@ design_detection <- function(prevalence,
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (length(n_per_site) != 1) paste0("length = ", length(n_per_site)) else n_per_site, ").")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 ||
-      !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a single finite positive number (got ",
+      !is.finite(fpc_N) || fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N, ").")
-  if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
+  # A cluster structure cannot be larger than the population it is drawn from.
+  if (!is.null(fpc_N) && !is.null(n_sites) && n_sites > fpc_N)
+    stop("`n_sites` (", n_sites, ") exceeds `fpc_N` (", fpc_N, "): you cannot ",
+         "have more clusters than individuals in the population.")
+  if (!is.null(fpc_N) && !is.null(n_per_site) && n_per_site > fpc_N)
+    stop("`n_per_site` (", n_per_site, ") exceeds `fpc_N` (", fpc_N, "): a ",
+         "cluster cannot be larger than the whole population.")
+  icc_is_zero <- icc < sqrt(.Machine$double.eps)
+  if (!icc_is_zero && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
 
   # ---- reverse-mode: supplied n must be consistent with the cluster layout ----
@@ -271,7 +279,7 @@ design_detection <- function(prevalence,
   # deff is directly computable here (no circularity).
   # ======================================================================
   if (!solve_n) {
-    if (icc == 0) {
+    if (icc_is_zero) {
       deff <- 1
     } else if (!is.null(n_per_site)) {
       deff <- 1 + (n_per_site - 1) * icc
@@ -325,9 +333,9 @@ design_detection <- function(prevalence,
   # logic as design_threshold() / design_precision() (copied inline;
   # slated for extraction into .solve_cluster_design()).
   # ======================================================================
-  # icc == 0 covers every unclustered case: an earlier guard errored if
-  # icc > 0 without a cluster structure.
-  if (icc == 0) {
+  # icc effectively 0 covers every unclustered case: an earlier guard
+  # errored if icc > 0 without a cluster structure.
+  if (icc_is_zero) {
     deff   <- 1
     n_cont <- n_base_cont
 
