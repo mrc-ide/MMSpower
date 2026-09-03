@@ -301,15 +301,25 @@ print.mms_cost <- function(x, ...) {
     } else {
       cat(sprintf("  Budget %s -> within by %s\n",
                   money(x$budget), money(x$budget_remaining)))
+
+      # Re-express the leftover money as "how much more of one thing you
+      # could buy with it" -- each line spends the whole remainder on that
+      # item alone, so they are alternatives, not a combined plan.
+      extra <- character(0)
       if (x$cost_per_sample > 0)
-        cat(sprintf("    slack ~= %s more samples\n",
-                    int(floor(x$budget_remaining / x$cost_per_sample))))
+        extra <- c(extra, sprintf("%s more samples",
+                   int(floor(x$budget_remaining / x$cost_per_sample))))
       if (!is.null(x$by_region)) {
         per_hf <- mean(x$by_region$fixed_cost_per_site) +
                   mean(x$by_region$transport_cost_per_site)
         if (per_hf > 0)
-          cat(sprintf("    slack ~= %s more health facilities (at average per-HF cost)\n",
-                      int(floor(x$budget_remaining / per_hf))))
+          extra <- c(extra, sprintf(
+            "%s more health facilities (at the average per-facility cost)",
+            int(floor(x$budget_remaining / per_hf))))
+      }
+      if (length(extra) > 0) {
+        cat("    leftover budget would cover roughly:\n")
+        for (e in extra) cat(sprintf("      - %s\n", e))
       }
     }
   }
