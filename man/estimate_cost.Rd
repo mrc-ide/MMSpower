@@ -155,3 +155,12 @@ estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
 MMS-SD Study Design Workshop, budget-officer activity; Modules 2 and 7.
 \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 }
+\seealso{
+The design functions that produce the \code{n} / \code{n_sites}
+this costs: \code{\link{design_precision}}, \code{\link{design_threshold}},
+\code{\link{design_detection}}, \code{\link{design_difference}},
+\code{\link{design_trend}}.
+}
+\concept{budget}
+\concept{cost}
+\concept{study design}
