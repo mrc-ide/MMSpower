@@ -122,20 +122,20 @@ test_that("DT-R2-2: se + sp <= 1 is rejected", {
 test_that("DT-R3-1: reverse mode reports achieved power", {
   fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, power = 0.80)
   rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                      n = fwd$n_per_timepoint)
+                      n_per_timepoint = fwd$n_per_timepoint)
   expect_equal(rev$mode, "solve_power")
   expect_gt(rev$power, 0.80)                     # ceiling(n) exceeds the target
   expect_lt(rev$power, 0.82)
 
   rev_lo <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                         n = fwd$n_per_timepoint - 1)
+                         n_per_timepoint = fwd$n_per_timepoint - 1)
   expect_lt(rev_lo$power, 0.80)
 })
 
 test_that("DT-R3-2: power rises monotonically with n", {
   ns <- c(50, 100, 161, 250, 400)
   pw <- vapply(ns, function(k)
-    design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n = k)$power,
+    design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n_per_timepoint = k)$power,
     numeric(1))
   expect_true(all(diff(pw) > 0))
 })
@@ -250,7 +250,7 @@ test_that("DT-R6-5: direction checks", {
 test_that("DT-R6-6: power / n / icc guards", {
   expect_error(design_trend(0.1, prevalence_end = 0.2, n_timepoints = 5, power = 0.3),
                "at least 0.5")
-  expect_error(design_trend(0.1, prevalence_end = 0.2, n_timepoints = 5, n = 2.5),
+  expect_error(design_trend(0.1, prevalence_end = 0.2, n_timepoints = 5, n_per_timepoint = 2.5),
                "positive integer")
   expect_error(design_trend(0.1, prevalence_end = 0.2, n_timepoints = 5, icc = 0.05),
                "requires a cluster structure")
@@ -284,19 +284,19 @@ test_that("DT-R7-2: 'less' accepts a genuine decline", {
 test_that("DT-R8-1: reverse mode rejects n below the cluster layout", {
   expect_error(
     design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                 n = 40, n_sites = 80, icc = 0.03),
+                 n_per_timepoint = 40, n_sites = 80, icc = 0.03),
     "smaller than `n_sites`"
   )
   expect_error(
     design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                 n = 10, n_per_site = 25, icc = 0.03),
+                 n_per_timepoint = 10, n_per_site = 25, icc = 0.03),
     "smaller than `n_per_site`"
   )
 })
 
 test_that("DT-R8-2: reverse-mode one-sided power has no spurious opposite tail", {
   r <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                    n = 120, alternative = "greater")
+                    n_per_timepoint = 120, alternative = "greater")
   # recompute the non-centrality by hand and compare to the one-sided form
   p0a <- 0.10; p1a <- 0.20
   sxx <- 10; sigma2 <- 0.15 * 0.85
@@ -306,7 +306,7 @@ test_that("DT-R8-2: reverse-mode one-sided power has no spurious opposite tail",
   expect_equal(r$power, pnorm(ncp - z_a), tolerance = 1e-9)
   # the two-sided call at the same n is strictly less powered
   r2 <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                     n = 120, alternative = "two.sided")
+                     n_per_timepoint = 120, alternative = "two.sided")
   expect_lt(r2$power, r$power)
 })
 
@@ -314,7 +314,7 @@ test_that("DT-R8-3: forward/reverse round-trip agrees with FPC + n_per_site", {
   fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
                       power = 0.80, n_per_site = 25, icc = 0.03, fpc_N = 600)
   rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                      n = fwd$n_per_timepoint,
+                      n_per_timepoint = fwd$n_per_timepoint,
                       n_per_site = 25, icc = 0.03, fpc_N = 600)
   # power recovered from the design's own n should sit at ~the target
   expect_equal(rev$power, 0.80, tolerance = 0.03)
@@ -325,7 +325,7 @@ test_that("DT-R8-4: forward/reverse round-trip agrees with FPC + n_sites", {
   fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
                       power = 0.80, n_sites = 20, icc = 0.05, fpc_N = 250)
   rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
-                      n = fwd$n_per_timepoint,
+                      n_per_timepoint = fwd$n_per_timepoint,
                       n_sites = 20, icc = 0.05, fpc_N = 250)
   expect_equal(rev$power, 0.80, tolerance = 0.03)   # was ~0.88 before the fix
   expect_equal(rev$deff, fwd$deff, tolerance = 0.05)  # modes describe one design alike
@@ -344,7 +344,7 @@ test_that("DT-R8-5: fpc_N must be a whole number; `times` + `n_timepoints` warns
 
 test_that("DT-R8-6: `n_per_timepoint` is numeric in both modes", {
   fwd <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5)
-  rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n = 150)
+  rev <- design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5, n_per_timepoint = 150)
   expect_type(fwd$n_per_timepoint, "double")
   expect_type(rev$n_per_timepoint, "double")
 })
