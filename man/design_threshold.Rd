@@ -58,13 +58,12 @@ finite-population correction. \code{NULL} (default) = no FPC.}
 A named list. Always present:
 \item{n}{Total sample size required}
 \item{n_eff}{SRS-equivalent independent sample size the design achieves
-(the base power-formula n before the design effect and FPC). Clustering
-inflates the collected \code{n} above it. With no FPC \code{n_eff}
-\eqn{\le} \code{n}; \strong{with an FPC \code{n} is shrunk while
-\code{n_eff} stays at the pre-FPC value, so \code{n_eff} can exceed
-\code{n}.}
-Defined the same way as \code{n_eff} in \code{design_precision()} and
-\code{estimate_prevalence()}.}
+(the base power-formula n before the design effect and FPC).
+Clustering inflates the collected \code{n} above it. With no FPC
+\code{n_eff} \eqn{\le} \code{n}; \strong{with an FPC \code{n} is
+shrunk while \code{n_eff} stays at the pre-FPC value, so \code{n_eff}
+can exceed \code{n}.} Defined the same way as \code{n_eff} in
+\code{design_precision()} and \code{estimate_prevalence()}.}
 \item{threshold}{Decision threshold as supplied}
 \item{prevalence}{Alternative prevalence as supplied}
 \item{apparent_prev}{Alternative prevalence on the apparent scale}
@@ -76,9 +75,9 @@ Defined the same way as \code{n_eff} in \code{design_precision()} and
 \item{specificity}{Specificity as supplied}
 \item{icc}{ICC as supplied}
 \item{deff}{Design effect applied. When an FPC shrinks a
-fixed-\code{n_sites} design, this is the design effect of the smaller
-\emph{fielded} design, consistent with the returned \code{n_per_site}
-(\code{deff = 1 + (n_per_site - 1) * icc}).}
+fixed-\code{n_sites} design, this is the design effect of the
+smaller \emph{fielded} design, consistent with the returned
+\code{n_per_site} (\code{deff = 1 + (n_per_site - 1) * icc}).}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 
 Present when clustering is specified:
@@ -127,11 +126,11 @@ Direct workshop material (MMS-SD Study Design Workshop,
 \itemize{
 \item \emph{Power / sample-size formula}
 \eqn{n = ((z_{1-\beta}\sqrt{p_1(1-p_1)} + z_{1-\alpha}\sqrt{p_0
-(1-p_0)}) / |p_1 - p_0|)^2}, with \eqn{Power = 1 - \phi(z_{1-\alpha/2}
-- E[Z])} and \eqn{E[Z] = (p - p_0)/\sqrt{p(1-p)/n}} -- Module 4
+    (1-p_0)}) / |p_1 - p_0|)^2}, with \eqn{Power = 1 - \phi(z_{1-\alpha/2}
+    - E[Z])} and \eqn{E[Z] = (p - p_0)/\sqrt{p(1-p)/n}} -- Module 4
 "Statistical power", slides "How do we calculate power?", "Power as
 a function of sample size" and "Sample size formulae" (lecture
-slides pp. 6-7). ("For 80\% power, \eqn{z_{1-\beta} = 0.84}.")
+slides pp. 6-7). ("For 80\\% power, \eqn{z_{1-\beta} = 0.84}.")
 \item \emph{One-sample z-test against a threshold}
 \eqn{Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}} -- Module 3
 "Hypothesis testing", slide "Null hypothesis testing" (p. 8).
