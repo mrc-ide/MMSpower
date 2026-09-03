@@ -14,11 +14,12 @@ estimate_cost(
 )
 }
 \arguments{
-\item{n}{Positive integer. Total number of samples to be enrolled. This
-is a design function's output: \code{$n} from
-\code{design_precision()}, \code{design_threshold()} or
-\code{design_detection()}, or \code{$n_total} from
-\code{design_difference()} / \code{design_trend()}.}
+\item{n}{Positive integer. Total number of samples to be enrolled. All
+five design functions report this as \code{$n}:
+\code{design_precision()}, \code{design_threshold()},
+\code{design_detection()}, \code{design_difference()} and
+\code{design_trend()} (for the last two, \code{$n} is the study total --
+summed across both groups / all timepoints).}
 
 \item{cost_per_sample}{Non-negative number. Variable cost per enrolled
 sample.}
@@ -35,9 +36,10 @@ A single-region count can be taken straight from a design function's
 \code{$n_sites} (reported per group by \code{design_difference()} and
 per timepoint by \code{design_trend()}).}
 
-\item{fixed_cost_per_site}{Non-negative number. Fixed cost per health
-facility (training, equipment, administration), the same for every
-region. Default 0.}
+\item{fixed_cost_per_site}{Non-negative. Fixed cost per health facility
+(training, equipment, administration). Either a single number applied to
+every region, or a named vector with the same region names as
+\code{n_sites}, e.g. \code{c(North = 5000, South = 4000)}. Default 0.}
 
 \item{transport_cost_per_site}{Non-negative. Transport cost per health
 facility. Either a single number applied to every region, or a named
@@ -53,7 +55,7 @@ A named list of class \code{"mms_cost"}:
 \item{total_cost}{\code{total_fixed_cost + total_variable_cost}.}
 \item{total_variable_cost}{\code{n * cost_per_sample}.}
 \item{total_fixed_cost}{\eqn{\sum_{r} n_{sites,r} \times
-    (fixed\_cost\_per\_site + transport\_cost\_per\_site_r)}; 0 when
+    (fixed\_cost\_per\_site_r + transport\_cost\_per\_site_r)}; 0 when
 \code{n_sites} is \code{NULL}.}
 \item{by_region}{Data frame with one row per region -- \code{region},
 \code{n_sites}, \code{fixed_cost_per_site},
@@ -81,8 +83,9 @@ sample (collection, laboratory testing, consumables, data
 management).
 \item \strong{Total fixed cost} = for each region, number of health
 facilities x (fixed cost per facility + transport cost per facility).
-The fixed cost per facility (training, equipment, administration) is
-the same everywhere; transport cost per facility varies by region.
+Both the fixed cost per facility (training, equipment,
+administration) and the transport cost per facility may be given once
+for all regions or as a per-region named vector.
 }
 
 Provide the design: total samples, health facilities per region, and the
@@ -104,7 +107,7 @@ unit; the function does no conversion.
 Straight from the MMS-SD Study Design Workshop budget-officer group
 activity (\url{https://mrc-ide.github.io/MMS-SD_workshop/}):
 \deqn{\mathrm{Total\ Fixed} = \sum_{r} n_{HF,r} \times
-  (\mathrm{fixed\ cost\ per\ HF} + \mathrm{transport\ cost\ per\ HF}_r)}
+  (\mathrm{fixed\ cost\ per\ HF}_r + \mathrm{transport\ cost\ per\ HF}_r)}
 \deqn{\mathrm{Total\ Variable} = \mathrm{samples\ enrolled} \times
   \mathrm{cost\ per\ sample}}
 The function frames cost as the feasibility side of the design
@@ -131,6 +134,14 @@ estimate_cost(
   fixed_cost_per_site = 5000,
   transport_cost_per_site = c(North = 1000, South = 1500, West = 800),
   budget = 300000
+)
+
+# Fixed cost can also vary by region (e.g. higher setup in the North)
+estimate_cost(
+  n = 400, cost_per_sample = 50,
+  n_sites = c(North = 6, South = 6),
+  fixed_cost_per_site = c(North = 6000, South = 4500),
+  transport_cost_per_site = c(North = 1000, South = 1500)
 )
 
 # Pipe from a design function

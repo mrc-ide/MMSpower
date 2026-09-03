@@ -173,8 +173,23 @@ test_that("EC-V2: cost_per_sample guards", {
 test_that("EC-V3: fixed_cost_per_site guards", {
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, n_sites = 3,
                              fixed_cost_per_site = -1), "non-negative")
+  # unnamed multi-value fixed cost with a single region -> must be named
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, n_sites = 3,
-                             fixed_cost_per_site = c(1, 2)), "length = 2")
+                             fixed_cost_per_site = c(1, 2)), "must be named")
+  # per-region fixed cost missing a region
+  expect_error(estimate_cost(n = 100, cost_per_sample = 5,
+                             n_sites = c(A = 2, B = 3),
+                             fixed_cost_per_site = c(A = 10)),
+               "missing a value for region")
+})
+
+test_that("EC-V3b: fixed_cost_per_site varies by region", {
+  res <- estimate_cost(n = 10, cost_per_sample = 15,
+                       n_sites = c(North = 3, South = 4),
+                       fixed_cost_per_site = c(North = 3, South = 100))
+  expect_equal(res$total_fixed_cost, 3 * 3 + 4 * 100)
+  expect_equal(res$by_region$fixed_cost_per_site, c(3, 100))
+  expect_equal(res$total_cost, 9 + 400 + 10 * 15)
 })
 
 test_that("EC-V4: n_sites guards", {
