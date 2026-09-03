@@ -318,8 +318,12 @@ print.mms_cost <- function(x, ...) {
             int(floor(x$budget_remaining / per_hf))))
       }
       if (length(extra) > 0) {
-        cat("    leftover budget would cover roughly:\n")
-        for (e in extra) cat(sprintf("      - %s\n", e))
+        cat(if (length(extra) > 1)
+              "    leftover budget would cover roughly one of:\n"
+            else "    leftover budget would cover roughly:\n")
+        for (i in seq_along(extra))
+          cat(sprintf("      %s%s\n", extra[i],
+                      if (i < length(extra)) ", or" else ""))
       }
     }
   }
