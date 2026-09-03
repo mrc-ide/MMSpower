@@ -95,8 +95,9 @@ estimate_cost <- function(
     if (!is.finite(n_sites) || n_sites <= 0 || n_sites != floor(n_sites))
       stop("`n_sites` must be a finite positive integer (got ", n_sites, ").")
     if (n_sites > n)
-      stop("`n_sites` (", n_sites, ") cannot exceed `n` (", n,
-           "): that would mean fewer than 1 sample per site on average.")
+      warning("`n_sites` (", n_sites, ") exceeds `n` (", n, "): fewer than 1 ",
+              "sample per site on average. The cost is still computed; check ",
+              "whether this is the design you meant.")
   }
 
   # ---- validate cost_per_site ----

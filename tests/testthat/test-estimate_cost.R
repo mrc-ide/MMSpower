@@ -121,11 +121,13 @@ test_that("EC-V10: n_sites non-integer -> error", {
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, n_sites = 2.5), "positive integer")
 })
 
-test_that("EC-V11: n_sites > n -> error", {
-  expect_error(
-    estimate_cost(n = 5, cost_per_sample = 10, n_sites = 10),
-    "cannot exceed"
+test_that("EC-V11: n_sites > n -> warns but still returns a cost", {
+  expect_warning(
+    res <- estimate_cost(n = 5, cost_per_sample = 10, n_sites = 10,
+                         cost_per_site = 100),
+    "fewer than 1 sample per site"
   )
+  expect_equal(res$total_cost, 5 * 10 + 10 * 100)
 })
 
 test_that("EC-V12: cost_per_site negative -> error", {
