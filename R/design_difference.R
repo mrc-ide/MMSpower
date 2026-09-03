@@ -90,7 +90,8 @@
 #'
 #' @return A named list. Always present:
 #'   \item{n_per_group}{Per-group sample size required.}
-#'   \item{n_total}{Total sample size, both groups (\code{2 * n_per_group}).}
+#'   \item{n}{Total sample size across both groups (\code{2 * n_per_group}).
+#'     Named \code{n} for consistency with the other design functions.}
 #'   \item{n_eff}{SRS-equivalent independent per-group sample size (the base
 #'     power-formula n, before the design effect and FPC). Defined the same
 #'     way as \code{n_eff} in \code{design_precision()} /
@@ -346,7 +347,7 @@ design_difference <- function(prevalence1,
 
   list(
     n_per_group    = n_per_group,
-    n_total        = n_total,
+    n            = n_total,
     n_eff          = n_eff,
     n_sites        = n_sites_out,
     n_per_site     = n_per_site_out,
