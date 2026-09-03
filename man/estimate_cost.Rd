@@ -157,9 +157,9 @@ MMS-SD Study Design Workshop, budget-officer activity; Modules 2 and 7.
 }
 \seealso{
 The design functions that produce the \code{n} / \code{n_sites}
-this costs: \code{\link{design_precision}}, \code{\link{design_threshold}},
-\code{\link{design_detection}}, \code{\link{design_difference}},
-\code{\link{design_trend}}.
+this costs: \code{design_precision()}, \code{design_threshold()},
+\code{design_detection()}, \code{design_difference()},
+\code{design_trend()}.
 }
 \concept{budget}
 \concept{cost}
