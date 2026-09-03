@@ -237,7 +237,17 @@ design_threshold <- function(threshold,
       !is.finite(fpc_N) || fpc_N < 1 || fpc_N != floor(fpc_N)))
     stop("`fpc_N` must be a single finite positive integer (got ",
          if (length(fpc_N) != 1) paste0("length = ", length(fpc_N)) else fpc_N, ").")
-  if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
+  # A cluster structure cannot be larger than the population it is drawn from.
+  if (!is.null(fpc_N) && !is.null(n_sites) && n_sites > fpc_N)
+    stop("`n_sites` (", n_sites, ") exceeds `fpc_N` (", fpc_N, "): you cannot ",
+         "have more clusters than individuals in the population.")
+  if (!is.null(fpc_N) && !is.null(n_per_site) && n_per_site > fpc_N)
+    stop("`n_per_site` (", n_per_site, ") exceeds `fpc_N` (", fpc_N, "): a ",
+         "cluster cannot be larger than the whole population.")
+
+  # `icc == 0` below is exact; treat a hair above 0 as SRS.
+  icc_is_zero <- icc < sqrt(.Machine$double.eps)
+  if (!icc_is_zero && is.null(n_sites) && is.null(n_per_site))
     stop("icc > 0 requires a cluster structure: supply `n_sites` or `n_per_site`.")
 
   # ---- direction check ----
@@ -276,9 +286,9 @@ design_threshold <- function(threshold,
   n_base_cont <- ((z_a * se0 + z_b * se1) / delta)^2
 
   # ---- design effect (same closed-form logic as design_precision) ----
-  # icc == 0 covers every unclustered case: an earlier guard errored if
-  # icc > 0 without a cluster structure.
-  if (icc == 0) {
+  # icc effectively 0 covers every unclustered case: an earlier guard
+  # errored if icc > 0 without a cluster structure.
+  if (icc_is_zero) {
     deff   <- 1
     n_cont <- n_base_cont
 

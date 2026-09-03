@@ -141,7 +141,7 @@ test_that("n_eff is the SRS-equivalent size: <= n, and n/deff up to rounding", {
   expect_lte(res$n_eff, res$n)
   # n_eff = ceiling(n_base_cont); n = ceiling(n_base_cont * deff); they agree
   # to within one ceiling step per side
-  expect_equal(res$n_eff, res$n / res$deff, tolerance = 1)
+  expect_equal(res$n_eff, res$n / res$deff, tolerance = 0.1)
   # SRS: n_eff == n exactly
   srs <- design_threshold(threshold = 0.05, prevalence = 0.10)
   expect_equal(srs$n_eff, srs$n)
@@ -411,8 +411,8 @@ test_that("DD-S10: n_eff <= n and ~ n/deff in all three design modes", {
   expect_equal(r_srs$n_eff, r_srs$n)          # SRS: exact
   expect_lte(r_nps$n_eff, r_nps$n)
   expect_lte(r_ns$n_eff,  r_ns$n)
-  expect_equal(r_nps$n_eff, r_nps$n / r_nps$deff, tolerance = 1)
-  expect_equal(r_ns$n_eff,  r_ns$n  / r_ns$deff,  tolerance = 1)
+  expect_equal(r_nps$n_eff, r_nps$n / r_nps$deff, tolerance = 0.1)
+  expect_equal(r_ns$n_eff,  r_ns$n  / r_ns$deff,  tolerance = 0.1)
 })
 
 test_that("DD-S11: conf_level=0.50 (alpha=0.50) requires fewer samples than 0.95", {
@@ -496,7 +496,7 @@ test_that("DD-S22: n_eff is SRS-equivalent (== n for SRS, <= n clustered)", {
   r_cl <- design_threshold(threshold = 0.10, prevalence = 0.20,
                            n_per_site = 10, icc = 0.05)
   expect_lt(r_cl$n_eff, r_cl$n)
-  expect_equal(r_cl$n_eff, r_cl$n / r_cl$deff, tolerance = 1)
+  expect_equal(r_cl$n_eff, r_cl$n / r_cl$deff, tolerance = 0.1)
 })
 
 test_that("DD-S23: FPC reduces n relative to infinite-population case", {
@@ -600,4 +600,23 @@ test_that("DT-R8-3: reported deff is consistent with the returned n_per_site", {
 
   b <- design_threshold(0.05, 0.10, n_sites = 50, icc = 0.05, fpc_N = 5000)
   expect_equal(b$deff, 1 + (b$n_per_site - 1) * 0.05, tolerance = 1e-9)
+})
+
+
+# ---------------------------------------------------------------------------
+# Round 9 -- final-review fixes (2026-09-03)
+# ---------------------------------------------------------------------------
+
+test_that("DT-R9-1: a cluster structure larger than the population is rejected", {
+  expect_error(design_threshold(0.05, 0.10, n_sites = 100, fpc_N = 50, icc = 0.05),
+               "more clusters than individuals")
+  expect_error(design_threshold(0.05, 0.10, n_per_site = 100, fpc_N = 50, icc = 0.05),
+               "cannot be larger than the whole population")
+  expect_silent(design_threshold(0.05, 0.10, n_sites = 20, fpc_N = 5000, icc = 0.05))
+})
+
+test_that("DT-R9-2: a hair-above-zero icc without a cluster structure is SRS", {
+  res <- design_threshold(0.05, 0.10, icc = 1e-12)
+  expect_equal(res$deff, 1)
+  expect_equal(res$n, design_threshold(0.05, 0.10)$n)
 })
