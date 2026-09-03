@@ -58,7 +58,8 @@ for a finite-population correction. \code{NULL} (default) = no FPC.}
 \value{
 A named list. Always present:
 \item{n_per_group}{Per-group sample size required.}
-\item{n_total}{Total sample size, both groups (\code{2 * n_per_group}).}
+\item{n}{Total sample size across both groups (\code{2 * n_per_group}).
+Named \code{n} for consistency with the other design functions.}
 \item{n_eff}{SRS-equivalent independent per-group sample size (the base
 power-formula n, before the design effect and FPC). Defined the same
 way as \code{n_eff} in \code{design_precision()} /

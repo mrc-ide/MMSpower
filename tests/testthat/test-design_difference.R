@@ -35,7 +35,7 @@ test_that("DF-R1-1: SRS, perfect test, two-sided 80% power -- hand-checked", {
 
   expect_equal(res$n_per_group, ceiling(nbase(0.10, 0.20)))   # 199
   expect_equal(res$n_per_group, 199)
-  expect_equal(res$n_total, 398)
+  expect_equal(res$n, 398)
   expect_equal(res$n_eff, 199)
   expect_equal(res$deff, 1)
   expect_equal(res$alternative, "two.sided")
@@ -128,7 +128,7 @@ test_that("DF-R3-1: fixed n_per_site inflates n by the Kish deff", {
   expect_equal(r_cluster$n_eff, r_srs$n_eff)           # SRS-equivalent unchanged
   expect_equal(r_cluster$n_sites, ceiling(r_cluster$n_per_group / 30))
   expect_equal(r_cluster$n_per_site, 30)
-  expect_equal(r_cluster$n_total, 2 * r_cluster$n_per_group)
+  expect_equal(r_cluster$n, 2 * r_cluster$n_per_group)
 })
 
 test_that("DF-R3-2: fixed n_sites solved via closed form, deff > 1", {
