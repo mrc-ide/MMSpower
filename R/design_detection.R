@@ -180,14 +180,18 @@ design_detection <- function(prevalence,
 
   solve_n <- is.null(n)
 
-  if (length(detection_prob) != 1 || !is.numeric(detection_prob))
-    stop("`detection_prob` must be a single number (got ",
-         if (!is.numeric(detection_prob))
-           paste0("class `", class(detection_prob)[1], "`")
-         else paste0("length ", length(detection_prob)), ").")
-  if (!is.finite(detection_prob) || detection_prob <= 0 || detection_prob >= 1)
-    stop("`detection_prob` must be strictly between 0 and 1 (got ",
-         detection_prob, "). Use, e.g., 0.95 for 95% detection probability.")
+  # `detection_prob` is only used when solving for n; when `n` is supplied
+  # it is ignored, so it is not validated in that mode (matches the docs).
+  if (solve_n) {
+    if (length(detection_prob) != 1 || !is.numeric(detection_prob))
+      stop("`detection_prob` must be a single number (got ",
+           if (!is.numeric(detection_prob))
+             paste0("class `", class(detection_prob)[1], "`")
+           else paste0("length ", length(detection_prob)), ").")
+    if (!is.finite(detection_prob) || detection_prob <= 0 || detection_prob >= 1)
+      stop("`detection_prob` must be strictly between 0 and 1 (got ",
+           detection_prob, "). Use, e.g., 0.95 for 95% detection probability.")
+  }
 
   if (!solve_n &&
       (!is.numeric(n) || length(n) != 1 || !is.finite(n) ||
@@ -265,38 +269,40 @@ design_detection <- function(prevalence,
   # the "Known limitation" roxygen section and the README tracking note --
   # this must be revisited with the team before the function is treated as
   # validated.
-  q <- prevalence * sensitivity
-  if (q <= 0 || q >= 1)
-    stop("`prevalence * sensitivity` = ", signif(q, 4),
-         " is outside (0, 1); the detection formula is undefined.")
+  q <- prevalence * sensitivity   # in (0, 1): prevalence in (0,1), sensitivity in (0,1]
 
   # ---- base SRS size from the geometric detection formula ----
-  # n = log(1 - detection_prob) / log(1 - q)
-  n_base_cont <- log(1 - detection_prob) / log(1 - q)
+  # n = log(1 - detection_prob) / log(1 - q). Only meaningful in forward
+  # mode; reverse mode does not use it (or `detection_prob`).
+  n_base_cont <- if (solve_n) log(1 - detection_prob) / log(1 - q) else NA_real_
 
   # ======================================================================
   # REVERSE MODE: n supplied -> report the detection probability it buys.
   # deff is directly computable here (no circularity).
   # ======================================================================
   if (!solve_n) {
+    # Invert forward mode in reverse order: forward applied the FPC to the
+    # deff-inflated n_cont, so undo the FPC on the collected n FIRST, then
+    # form the design effect from that pre-FPC size (the cluster size
+    # forward's circular n_sites solve used, so forward $deff and reverse
+    # $deff describe one design the same way), then remove it.
+    n_cont_full <- n
+    if (!is.null(fpc_N)) {
+      if (n >= fpc_N)
+        stop("`n` (", n, ") must be smaller than `fpc_N` (", fpc_N, ").")
+      n_cont_full <- n * (fpc_N - 1) / (fpc_N - n)
+    }
+
     if (icc_is_zero) {
       deff <- 1
     } else if (!is.null(n_per_site)) {
       deff <- 1 + (n_per_site - 1) * icc
     } else {
-      # n_sites fixed: implied samples per cluster is n / n_sites
-      deff <- 1 + (n / n_sites - 1) * icc
+      deff <- 1 + (n_cont_full / n_sites - 1) * icc
     }
     deff   <- max(deff, 1)   # Kish deff is >= 1 by construction
 
-    n_cont <- n / deff
-
-    # undo the finite-population correction to recover the SRS-equivalent n
-    if (!is.null(fpc_N)) {
-      if (n >= fpc_N)
-        stop("`n` (", n, ") must be smaller than `fpc_N` (", fpc_N, ").")
-      n_cont <- n_cont * (fpc_N - 1) / (fpc_N - n_cont)
-    }
+    n_cont <- n_cont_full / deff
 
     achieved <- 1 - (1 - q)^n_cont
 

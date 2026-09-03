@@ -328,3 +328,29 @@ test_that("DD-R7-4: `n` has a consistent (numeric) type in both modes", {
   expect_type(fwd$n, "double")
   expect_type(rev$n, "double")
 })
+
+# ---------------------------------------------------------------------------
+# Round 9 -- final-review fixes (2026-09-03)
+# ---------------------------------------------------------------------------
+
+test_that("DD-R9-1: detection_prob is not validated in reverse mode (it is ignored)", {
+  expect_silent(design_detection(prevalence = 0.02, n = 150, detection_prob = NA))
+  expect_silent(design_detection(prevalence = 0.02, n = 150, detection_prob = 1.5))
+  expect_silent(design_detection(prevalence = 0.02, n = 150, detection_prob = "x"))
+  # still validated in forward mode
+  expect_error(design_detection(prevalence = 0.02, detection_prob = 1.5),
+               "strictly between 0 and 1")
+})
+
+test_that("DD-R9-2: forward and reverse report a consistent deff (n_sites branch)", {
+  fwd <- design_detection(prevalence = 0.02, n_sites = 50, icc = 0.05)
+  rev <- design_detection(prevalence = 0.02, n = fwd$n, n_sites = 50, icc = 0.05)
+  expect_equal(rev$deff, fwd$deff, tolerance = 0.02)
+  expect_equal(rev$detection_prob, 0.95, tolerance = 0.01)   # round-trips to target
+
+  # with FPC too
+  f2 <- design_detection(prevalence = 0.02, n_sites = 40, icc = 0.05, fpc_N = 4000)
+  r2 <- design_detection(prevalence = 0.02, n = f2$n, n_sites = 40, icc = 0.05,
+                         fpc_N = 4000)
+  expect_equal(r2$detection_prob, 0.95, tolerance = 0.02)
+})
