@@ -62,9 +62,8 @@ A named list of class \code{"mms_cost"}:
 when no \code{budget}.}
 }
 \description{
-Costs a surveillance or prevalence study from its design choices, using
-the budget structure taught in the MMS-SD workshop budget-officer
-activity:
+Costs an MMS study from its design choices, using the budget structure
+taught in the MMS-SD workshop budget-officer activity:
 
 \itemize{
 \item \strong{Total variable cost} = total samples enrolled x cost per
@@ -76,17 +75,19 @@ The fixed cost per facility (training, equipment, administration) is
 the same everywhere; transport cost per facility varies by region.
 }
 
-Give it the design you are considering -- total samples, health
-facilities per region, and the cost rates -- and it returns the fixed /
-variable / total breakdown, a per-region table, and (if you pass a
-\code{budget}) whether you are within it. To explore trade-offs, change
-\code{n} or \code{n_sites} and call it again.
+Provide the design: total samples, health facilities per region, and the
+cost rates, and \code{estimate_cost()} returns the fixed / variable /
+total breakdown, a per-region table, and (if you pass a \code{budget})
+whether you are within it. To explore trade-offs, change \code{n} or
+\code{n_sites} and call it again.
 
-Pairs with the design functions: pass \code{design_precision()} /
-\code{design_detection()}'s \code{n} and \code{n_sites} straight in.
+Pairs with the design functions: for a single-region design pass
+\code{design_precision()} / \code{design_detection()}'s \code{n} and
+\code{n_sites} straight in; for a multi-region budget, split their
+\code{n_sites} across regions yourself (a named \code{n_sites} vector).
 
-All monetary inputs and outputs are in one currency unit; the function
-does no conversion.
+Please note that all monetary inputs and outputs are in one currency
+unit; the function does no conversion.
 }
 \section{Equations and sources}{
 
