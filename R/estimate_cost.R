@@ -296,10 +296,10 @@ print.mms_cost <- function(x, ...) {
 
   if (!is.null(x$budget)) {
     if (isTRUE(x$over_budget)) {
-      cat(sprintf("  Budget %s -> OVER by %s\n",
+      cat(sprintf("  Budget %s -> over budget by %s\n",
                   money(x$budget), money(-x$budget_remaining)))
     } else {
-      cat(sprintf("  Budget %s -> within by %s\n",
+      cat(sprintf("  Budget %s -> under budget by %s\n",
                   money(x$budget), money(x$budget_remaining)))
 
       # Re-express the leftover money as "how much more of one thing you

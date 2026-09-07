@@ -262,16 +262,16 @@ test_that("EC-P2: print shows per-region lines and the budget verdict", {
   out <- capture.output(print(res))
   expect_true(any(grepl("North", out)))
   expect_true(any(grepl("South", out)))
-  expect_true(any(grepl("within by 78,400", out, fixed = TRUE)))
+  expect_true(any(grepl("under budget by 78,400", out, fixed = TRUE)))
   expect_true(any(grepl("more samples", out)))
 })
 
-test_that("EC-P3: over-budget print says OVER", {
+test_that("EC-P3: over-budget print says over budget", {
   res <- estimate_cost(n = 800, cost_per_sample = 50, n_sites = 20,
                        fixed_cost_per_site = 5000, transport_cost_per_site = 2000,
                        budget = 100000)
   out <- capture.output(print(res))
-  expect_true(any(grepl("OVER by 80,000", out, fixed = TRUE)))
+  expect_true(any(grepl("over budget by 80,000", out, fixed = TRUE)))
 })
 
 test_that("EC-P4: large totals print grouped, not scientific", {
