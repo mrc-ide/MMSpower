@@ -236,6 +236,18 @@ test_that("EC-V7: per-facility costs with no n_sites -> warn, still compute", {
   expect_silent(estimate_cost(n = 100, cost_per_sample = 50))
 })
 
+test_that("EC-V8: n_sites with no per-facility rates -> warn, still compute", {
+  expect_warning(
+    res <- estimate_cost(n = 100, cost_per_sample = 50, n_sites = 5),
+    "both per-facility rates are 0"
+  )
+  expect_equal(res$total_cost, 100 * 50)   # fixed cost is 0
+  expect_equal(res$n_sites, 5)
+  # supplying either rate silences it
+  expect_silent(estimate_cost(n = 100, cost_per_sample = 50, n_sites = 5,
+                              transport_cost_per_site = 800))
+})
+
 
 # ---------------------------------------------------------------------------
 # Round 5 -- print method

@@ -210,6 +210,12 @@ estimate_cost <- function(n,
            "c(North = 10, South = 8). Got an unnamed length-", length(n_sites),
            " vector.")
 
+    # Mirror of the NULL-n_sites warning above: facilities given but no rates.
+    if (all(fixed_cost_per_site == 0) && all(transport_cost_per_site == 0))
+      warning("`n_sites` supplied but both per-facility rates are 0. ",
+              "Supply `fixed_cost_per_site` / `transport_cost_per_site` to ",
+              "cost the facilities.")
+
     regions <- if (is.null(names(n_sites))) "(all)" else names(n_sites)
 
     # ---- resolve per-region costs ----
