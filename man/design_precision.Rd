@@ -27,7 +27,7 @@ test). Set below 1 to activate the Rogan-Gladen variance adjustment.}
 
 \item{specificity}{Diagnostic specificity in (0, 1]; default 1.}
 
-\item{conf_level}{Confidence level; default 0.95.}
+\item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
 \item{n_sites}{Optional positive integer. Fix the number of clusters.
 The function solves for the required samples per cluster and returns it
@@ -41,7 +41,9 @@ Cannot be used together with \code{n_sites}.}
 
 \item{icc}{Numeric in [0, 1]. Intra-cluster correlation; default 0 (SRS).
 If \code{icc > 0}, supply exactly one of \code{n_sites} or \code{n_per_site} --
-without a cluster structure, Deff is not computable.}
+without a cluster structure, Deff is not computable. An \code{icc} below
+\code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as 0 (SRS), so a
+negligible upstream estimate does not force the clustered code path.}
 
 \item{fpc_N}{Optional positive integer. Total population size, for a
 finite-population correction. Reduces the required \code{n} when the sample

@@ -25,7 +25,7 @@
 #' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (perfect
 #'   test). Set below 1 to activate the Rogan-Gladen variance adjustment.
 #' @param specificity Diagnostic specificity in (0, 1]; default 1.
-#' @param conf_level Confidence level; default 0.95.
+#' @param conf_level Confidence level, in (0, 1); default 0.95.
 #' @param n_sites Optional positive integer. Fix the number of clusters.
 #'   The function solves for the required samples per cluster and returns it
 #'   as `n_per_site` in the output.
@@ -36,7 +36,9 @@
 #'   Cannot be used together with `n_sites`.
 #' @param icc Numeric in \[0, 1\]. Intra-cluster correlation; default 0 (SRS).
 #'   If `icc > 0`, supply exactly one of `n_sites` or `n_per_site` --
-#'   without a cluster structure, Deff is not computable.
+#'   without a cluster structure, Deff is not computable. An `icc` below
+#'   `sqrt(.Machine$double.eps)` (about 1.5e-8) is treated as 0 (SRS), so a
+#'   negligible upstream estimate does not force the clustered code path.
 #' @param fpc_N Optional positive integer. Total population size, for a
 #'   finite-population correction. Reduces the required `n` when the sample
 #'   is a non-trivial fraction of the population. `NULL` (default) = no FPC.
