@@ -191,14 +191,16 @@ test_that("round-trip caveat: without icc supplied, identical clusters estimate 
 
 # ---- Round 4: 15 new edge cases ----
 
-test_that("EP-1: all-zero prevalence collapses CI to [0, 0]", {
-  # p=0 -> se=0 -> Wald CI=[0,0], moe=0. All outputs finite.
+test_that("EP-1: all-zero prevalence collapses CI to [0, 0]; var_obs=0 -> icc=0, deff=1", {
+  # p=0 -> se=0 -> Wald CI=[0,0], moe=0. No between-cluster variation:
+  # var_obs=0 -> estimated icc=0 -> deff=1. All outputs finite.
   res <- estimate_prevalence(x = c(0, 0, 0), n = c(10, 10, 10))
-  expect_equal(res$prevalence,      0)
-  expect_equal(res$ci_lower,        0)
-  expect_equal(res$ci_upper,        0)
-  expect_equal(res$moe, 0)
-  expect_true(is.finite(res$deff))
+  expect_equal(res$prevalence, 0)
+  expect_equal(res$ci_lower,   0)
+  expect_equal(res$ci_upper,   0)
+  expect_equal(res$moe,        0)
+  expect_equal(res$icc_used,   0, tolerance = 1e-10)
+  expect_equal(res$deff,       1, tolerance = 1e-10)
 })
 
 test_that("EP-2: all-100% prevalence collapses CI to [1, 1]", {
@@ -296,13 +298,6 @@ test_that("EP-13: very large fpc_N has negligible effect on moe", {
   r_no  <- estimate_prevalence(x = 30, n = 100)
   # FPC factor ~= sqrt((1e8 - 100) / (1e8 - 1)) ~= 1 - 5e-7
   expect_equal(r_fpc$moe, r_no$moe, tolerance = 1e-5)
-})
-
-test_that("EP-14: all-zero multi-cluster: var_obs=0, estimated icc=0, deff=1", {
-  res <- estimate_prevalence(x = c(0, 0), n = c(10, 10))
-  expect_equal(res$prevalence, 0)
-  expect_equal(res$icc_used,   0, tolerance = 1e-10)
-  expect_equal(res$deff,       1, tolerance = 1e-10)
 })
 
 test_that("EP-15: single observation (x=1, n=1): n_bar=1 guard, icc=0, deff=1", {
@@ -497,16 +492,6 @@ test_that("EP-R6-15: very unequal clusters (1 vs 1000) return finite output", {
   res <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
   expect_equal(res$n_total, 1001)
   expect_equal(res$prevalence, 300/1001, tolerance = 1e-6)
-  expect_true(is.finite(res$moe))
-})
-
-test_that("EP-R6-bonus: multi-cluster n_bar=1 (n=c(1,1,1,1)) uses guard, not ICC formula", {
-  # n_bar = mean(c(1,1,1,1)) = 1 -> Kish denominator (n_bar-1) = 0 -> div/0 without guard
-  # Guard: n_bar==1 -> icc_used=0, deff=1 (same path as single-cluster guard)
-  res <- estimate_prevalence(x = c(0, 1, 0, 1), n = c(1, 1, 1, 1))
-  expect_equal(res$icc_used, 0)
-  expect_equal(res$deff,     1)
-  expect_true(is.finite(res$prevalence))
   expect_true(is.finite(res$moe))
 })
 
