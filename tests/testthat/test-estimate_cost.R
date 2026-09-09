@@ -29,6 +29,15 @@ test_that("EC-2: single region -- fixed = n_HF * (fixed + transport)", {
   expect_equal(res$by_region$region, "(all)")
 })
 
+test_that("EC-2b: a named single region keeps its name in by_region", {
+  res <- estimate_cost(n = 100, cost_per_sample = 10, n_sites = c(North = 4),
+                       fixed_cost_per_site = 5000, transport_cost_per_site = 1000)
+  expect_equal(nrow(res$by_region), 1)
+  expect_equal(res$by_region$region, "North")   # not "(all)"
+  expect_equal(res$total_fixed_cost, 4 * (5000 + 1000))
+  expect_equal(res$n_sites, 4)
+})
+
 test_that("EC-3: multi-region with per-region transport -- hand-checked", {
   # North 10, South 8, West 12; fixed 5000; transport 1000 / 1500 / 800
   res <- estimate_cost(
@@ -243,6 +252,8 @@ test_that("EC-V5: transport_cost_per_site guards", {
 test_that("EC-V6: budget guard", {
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, budget = -1),
                "positive number")
+  expect_error(estimate_cost(n = 100, cost_per_sample = 5, budget = 0),
+               "positive number")
   expect_error(estimate_cost(n = 100, cost_per_sample = 5, budget = c(1, 2)),
                "length = 2")
 })
@@ -296,6 +307,18 @@ test_that("EC-P2: print shows per-region lines and the budget verdict", {
   expect_true(any(grepl("North", out)))
   expect_true(any(grepl("South", out)))
   expect_true(any(grepl("under budget by 78,400", out, fixed = TRUE)))
+  expect_true(any(grepl("more samples", out)))
+  # two ways to spend the leftover -> "one of:" header + the facilities line
+  expect_true(any(grepl("one of", out)))
+  expect_true(any(grepl("more health facilities", out)))
+})
+
+test_that("EC-P2b: a single leftover option uses 'roughly:' not 'one of:'", {
+  # variable-only, under budget -> only "more samples" is offered
+  res <- estimate_cost(n = 100, cost_per_sample = 50, budget = 10000)
+  out <- capture.output(print(res))
+  expect_true(any(grepl("would cover roughly:", out, fixed = TRUE)))
+  expect_false(any(grepl("one of", out)))
   expect_true(any(grepl("more samples", out)))
 })
 
