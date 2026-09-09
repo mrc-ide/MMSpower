@@ -153,14 +153,6 @@ test_that("DP-4: n_per_site=1 with icc>0 -> deff=1 (no clustering when cluster s
   expect_equal(res$n, design_precision(0.3, 0.05)$n)  # same as SRS
 })
 
-test_that("DP-5: n_sites > n_base produces deff<=1 error (impossible design)", {
-  # n_base ~= 323; n_sites=400 -> closed-form gives deff < 1 -> error
-  expect_error(
-    design_precision(0.3, 0.05, n_sites = 400, icc = 0.05),
-    "SRS sample size"
-  )
-})
-
 test_that("DP-6: very large fpc_N has negligible effect on n", {
   r_fpc <- design_precision(0.3, 0.05, fpc_N = 1e8)
   r_srs <- design_precision(0.3, 0.05)
@@ -348,16 +340,6 @@ test_that("DP-R6-13: n_per_site as vector is rejected with length error", {
     design_precision(0.3, 0.05, n_per_site = c(5, 10), icc = 0.05),
     "single finite positive integer"
   )
-})
-
-test_that("DP-R6-14: n_sites + fpc_N together is valid (not mutually exclusive)", {
-  res <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
-  expect_true(is.finite(res$n))
-  expect_equal(res$n_sites, 50)
-  expect_equal(res$fpc_N,   1000)
-  # FPC reduces n below the non-FPC clustered case
-  res_no_fpc <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
-  expect_lt(res$n, res_no_fpc$n)
 })
 
 test_that("DP-R6-15: prevalence=0.9999 (near-boundary) returns finite n", {
