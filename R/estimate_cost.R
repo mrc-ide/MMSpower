@@ -21,10 +21,10 @@
 #' whether you are within it. To explore trade-offs, change \code{n} or
 #' \code{n_sites} and call it again.
 #'
-#' Pairs with the design functions: for a single-region design pass
-#' \code{design_precision()} / \code{design_detection()}'s \code{n} and
-#' \code{n_sites} straight in; for a multi-region budget, split their
-#' \code{n_sites} across regions yourself (a named \code{n_sites} vector).
+#' Pairs with the design functions: for a single-region design, pass a
+#' design function's \code{n} and \code{n_sites} straight in; for a
+#' multi-region budget, split \code{n_sites} across regions yourself (a
+#' named \code{n_sites} vector).
 #'
 #' Please note that all monetary inputs and outputs are in one currency
 #' unit; the function does no conversion.
@@ -75,7 +75,8 @@
 #'   \item{n}{Total samples as supplied.}
 #'   \item{n_sites}{Total health facilities across all regions (0 when
 #'     \code{n_sites} is \code{NULL}).}
-#'   \item{cost_per_sample, fixed_cost_per_site}{As supplied.}
+#'   \item{cost_per_sample, fixed_cost_per_site, transport_cost_per_site}{As
+#'     supplied (scalar or per-region vector).}
 #'   \item{budget}{As supplied, or \code{NULL}.}
 #'   \item{budget_remaining}{\code{budget - total_cost} (negative if over);
 #'     \code{NULL} when no \code{budget}.}
@@ -137,7 +138,7 @@
 #'   transport_cost_per_site = c(North = 1000, South = 1500)
 #' )
 #'
-#' # Pipe from a design function
+#' # Feed a design function's output in
 #' \dontrun{
 #' des <- design_precision(prevalence = 0.15, moe = 0.05, n_per_site = 30, icc = 0.05)
 #' estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
@@ -168,11 +169,14 @@ estimate_cost <- function(n,
   # ---- validate the per-facility costs (scalar or per-region vector) ----
   # Full region-name matching happens later, once we know the regions; here
   # just reject non-numeric / negative / non-finite values.
-  for (nm in c("fixed_cost_per_site", "transport_cost_per_site")) {
-    v <- get(nm)
+  per_site_costs <- list(fixed_cost_per_site     = fixed_cost_per_site,
+                         transport_cost_per_site = transport_cost_per_site)
+  for (nm in names(per_site_costs)) {
+    v <- per_site_costs[[nm]]
     if (!is.numeric(v) || length(v) < 1 || !all(is.finite(v)) || any(v < 0))
       stop("`", nm, "` must be a finite non-negative number, or a named ",
-           "non-negative vector of per-region costs.")
+           "non-negative vector of per-region costs (got class `",
+           class(v)[1], "`, length ", length(v), ").")
   }
 
   # ---- validate budget ----
@@ -193,7 +197,7 @@ estimate_cost <- function(n,
     if (any(transport_cost_per_site != 0) || any(fixed_cost_per_site != 0))
       warning("`fixed_cost_per_site` / `transport_cost_per_site` are ignored ",
               "because `n_sites` is NULL. Supply `n_sites` to include ",
-              "per-facility fixed costs.")
+              "per-facility costs.")
 
     total_fixed_cost <- 0
     by_region        <- NULL
@@ -204,11 +208,19 @@ estimate_cost <- function(n,
     if (!is.numeric(n_sites) || length(n_sites) < 1 || !all(is.finite(n_sites)) ||
         any(n_sites <= 0) || any(n_sites != floor(n_sites)))
       stop("`n_sites` must be a positive integer, or a named positive-integer ",
-           "vector of per-region facility counts.")
-    if (length(n_sites) > 1 && is.null(names(n_sites)))
-      stop("A multi-region `n_sites` must be named, e.g. ",
-           "c(North = 10, South = 8). Got an unnamed length-", length(n_sites),
-           " vector.")
+           "vector of per-region facility counts (got class `",
+           class(n_sites)[1], "`, length ", length(n_sites), ").")
+    if (length(n_sites) > 1) {
+      nm <- names(n_sites)
+      if (is.null(nm) || any(is.na(nm)) || any(nm == ""))
+        stop("A multi-region `n_sites` must name every element, e.g. ",
+             "c(North = 10, South = 8) (got ",
+             if (is.null(nm)) "no names" else "a partially named vector", ").")
+      if (anyDuplicated(nm))
+        stop("A multi-region `n_sites` has a repeated region name: ",
+             paste(unique(nm[duplicated(nm)]), collapse = ", "),
+             ". Give each region a distinct name.")
+    }
 
     # Mirror of the NULL-n_sites warning above: facilities given but no rates.
     if (all(fixed_cost_per_site == 0) && all(transport_cost_per_site == 0))
@@ -235,12 +247,12 @@ estimate_cost <- function(n,
 
     by_region <- data.frame(
       region                  = regions,
-      n_sites                 = n_sites_vec,
+      n_sites                 = unname(n_sites_vec),
       fixed_cost_per_site      = unname(fixed_vec),
       transport_cost_per_site  = unname(transport_vec),
-      fixed_subtotal           = fixed_subtotal,
-      transport_subtotal       = transport_subtotal,
-      region_total             = region_total,
+      fixed_subtotal           = unname(fixed_subtotal),
+      transport_subtotal       = unname(transport_subtotal),
+      region_total             = unname(region_total),
       row.names = NULL,
       stringsAsFactors = FALSE
     )
@@ -256,17 +268,18 @@ estimate_cost <- function(n,
 
   structure(
     list(
-      total_cost          = total_cost,
+      total_cost = total_cost,
       total_variable_cost = total_variable_cost,
-      total_fixed_cost    = total_fixed_cost,
-      by_region           = by_region,
-      n                   = n,
-      n_sites             = n_sites_total,
-      cost_per_sample     = cost_per_sample,
-      fixed_cost_per_site  = fixed_cost_per_site,
-      budget              = budget,
-      budget_remaining    = budget_remaining,
-      over_budget         = over_budget
+      total_fixed_cost = total_fixed_cost,
+      by_region = by_region,
+      n = n,
+      n_sites = n_sites_total,
+      cost_per_sample = cost_per_sample,
+      fixed_cost_per_site = fixed_cost_per_site,
+      transport_cost_per_site = transport_cost_per_site,
+      budget = budget,
+      budget_remaining = budget_remaining,
+      over_budget = over_budget
     ),
     class = "mms_cost"
   )
@@ -310,26 +323,29 @@ print.mms_cost <- function(x, ...) {
 
       # Re-express the leftover money as "how much more of one thing you
       # could buy with it" -- each line spends the whole remainder on that
-      # item alone, so they are alternatives, not a combined plan.
-      extra <- character(0)
-      if (x$cost_per_sample > 0)
-        extra <- c(extra, sprintf("%s more samples",
-                   int(floor(x$budget_remaining / x$cost_per_sample))))
-      if (!is.null(x$by_region)) {
-        per_hf <- mean(x$by_region$fixed_cost_per_site) +
-                  mean(x$by_region$transport_cost_per_site)
-        if (per_hf > 0)
-          extra <- c(extra, sprintf(
-            "%s more health facilities (at the average per-facility cost)",
-            int(floor(x$budget_remaining / per_hf))))
-      }
-      if (length(extra) > 0) {
-        cat(if (length(extra) > 1)
-              "    leftover budget would cover roughly one of:\n"
-            else "    leftover budget would cover roughly:\n")
-        for (i in seq_along(extra))
-          cat(sprintf("      %s%s\n", extra[i],
-                      if (i < length(extra)) ", or" else ""))
+      # item alone, so they are alternatives, not a combined plan. Skipped
+      # when the headroom rounds to zero (exactly on budget).
+      if (round(x$budget_remaining, 2) > 0) {
+        extra <- character(0)
+        if (x$cost_per_sample > 0)
+          extra <- c(extra, sprintf("%s more samples",
+                     int(floor(x$budget_remaining / x$cost_per_sample))))
+        if (!is.null(x$by_region)) {
+          per_hf <- mean(x$by_region$fixed_cost_per_site) +
+                    mean(x$by_region$transport_cost_per_site)
+          if (per_hf > 0)
+            extra <- c(extra, sprintf(
+              "%s more health facilities (at the average per-facility cost)",
+              int(floor(x$budget_remaining / per_hf))))
+        }
+        if (length(extra) > 0) {
+          cat(if (length(extra) > 1)
+                "    leftover budget would cover roughly one of:\n"
+              else "    leftover budget would cover roughly:\n")
+          for (i in seq_along(extra))
+            cat(sprintf("      %s%s\n", extra[i],
+                        if (i < length(extra)) ", or" else ""))
+        }
       }
     }
   }
@@ -341,7 +357,9 @@ print.mms_cost <- function(x, ...) {
 #
 #   `x` unnamed, length 1 -- recycled to every region.
 #   `x` named             -- looked up by region name; every region in
-#                            `regions` must be present (extra names ignored).
+#                            `regions` must be present. Names in `x` that are
+#                            not regions in `n_sites` are dropped, with a
+#                            warning (usually a typo'd region name).
 #
 # Numeric / finite / non-negative checks happen in `estimate_cost()` before
 # this is called, so only the shape / name matching is enforced here.
@@ -355,10 +373,22 @@ print.mms_cost <- function(x, ...) {
          paste0(regions, " = ...", collapse = ", "),
          ")); or give a single number to apply to every region.")
 
+  dup_r <- unique(names(x)[duplicated(names(x))])
+  if (length(dup_r) > 0)
+    stop("`", name, "` has more than one value for region(s): ",
+         paste(dup_r, collapse = ", "), ". Give each region one value.")
+
   missing_r <- setdiff(regions, names(x))
   if (length(missing_r) > 0)
     stop("`", name, "` is missing a value for region(s): ",
          paste(missing_r, collapse = ", "), ".")
+
+  extra_r <- setdiff(names(x), regions)
+  if (length(extra_r) > 0)
+    warning("`", name, "` has values for region(s) not in `n_sites`: ",
+            paste(extra_r, collapse = ", "), ". These are ignored -- ",
+            "check the region names match `n_sites` (",
+            paste(regions, collapse = ", "), ").")
 
   stats::setNames(as.double(x[regions]), regions)
 }

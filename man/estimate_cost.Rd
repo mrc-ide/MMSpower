@@ -66,7 +66,8 @@ A named list of class \code{"mms_cost"}:
 \item{n}{Total samples as supplied.}
 \item{n_sites}{Total health facilities across all regions (0 when
 \code{n_sites} is \code{NULL}).}
-\item{cost_per_sample, fixed_cost_per_site}{As supplied.}
+\item{cost_per_sample, fixed_cost_per_site, transport_cost_per_site}{As
+supplied (scalar or per-region vector).}
 \item{budget}{As supplied, or \code{NULL}.}
 \item{budget_remaining}{\code{budget - total_cost} (negative if over);
 \code{NULL} when no \code{budget}.}
@@ -94,10 +95,10 @@ total breakdown, a per-region table, and (if you pass a \code{budget})
 whether you are within it. To explore trade-offs, change \code{n} or
 \code{n_sites} and call it again.
 
-Pairs with the design functions: for a single-region design pass
-\code{design_precision()} / \code{design_detection()}'s \code{n} and
-\code{n_sites} straight in; for a multi-region budget, split their
-\code{n_sites} across regions yourself (a named \code{n_sites} vector).
+Pairs with the design functions: for a single-region design, pass a
+design function's \code{n} and \code{n_sites} straight in; for a
+multi-region budget, split \code{n_sites} across regions yourself (a
+named \code{n_sites} vector).
 
 Please note that all monetary inputs and outputs are in one currency
 unit; the function does no conversion.
@@ -144,7 +145,7 @@ estimate_cost(
   transport_cost_per_site = c(North = 1000, South = 1500)
 )
 
-# Pipe from a design function
+# Feed a design function's output in
 \dontrun{
 des <- design_precision(prevalence = 0.15, moe = 0.05, n_per_site = 30, icc = 0.05)
 estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
