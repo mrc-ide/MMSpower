@@ -249,11 +249,19 @@ design_precision <- function(prevalence,
   if (moe <= 0 || moe >= 0.5)
     stop("`moe` must be in (0, 0.5) (got ", moe, "). ",
          "`moe` is the target half-width of the confidence interval, e.g. 0.05 for +/-5 pp.")
-  if (sensitivity <= 0 || sensitivity > 1)
-    stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
+  if (sensitivity < 0 || sensitivity > 1)
+    stop("`sensitivity` must be a proportion between 0 and 1 (got ", sensitivity, "). ",
+         "It represents a diagnostic probability and cannot be ",
+         if (sensitivity < 0) "negative." else "greater than 1.")
+  if (sensitivity == 0)
+    stop("`sensitivity` must be in (0, 1] (got 0). ",
          "A sensitivity of 0 means the test never detects true positives.")
-  if (specificity <= 0 || specificity > 1)
-    stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
+  if (specificity < 0 || specificity > 1)
+    stop("`specificity` must be a proportion between 0 and 1 (got ", specificity, "). ",
+         "It represents a diagnostic probability and cannot be ",
+         if (specificity < 0) "negative." else "greater than 1.")
+  if (specificity == 0)
+    stop("`specificity` must be in (0, 1] (got 0). ",
          "A specificity of 0 means the test always returns a false positive.")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)

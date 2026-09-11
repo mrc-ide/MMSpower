@@ -140,10 +140,11 @@ test_that("DP-R10-3: prevalence=1.5 is rejected as an invalid probability (> 1)"
 
 test_that("DP-R10-2: specificity's own domain guard is enforced, not just via se+sp", {
   # se+sp=0.2+0.2=0.4 is caught by the combined "must exceed 1" check instead --
-  # these pin specificity's own (0, 1] guard directly.
-  expect_error(design_precision(0.3, 0.05, specificity = 0),     "`specificity`")
-  expect_error(design_precision(0.3, 0.05, specificity = 1.001), "`specificity`")
-  expect_error(design_precision(0.3, 0.05, specificity = -0.5),  "`specificity`")
+  # these pin specificity's own (0, 1] guard directly, and that each branch's
+  # explanation actually matches the input that triggered it.
+  expect_error(design_precision(0.3, 0.05, specificity = 0),     "always returns a false positive")
+  expect_error(design_precision(0.3, 0.05, specificity = 1.001), "cannot be.*greater than 1")
+  expect_error(design_precision(0.3, 0.05, specificity = -0.5),  "cannot be.*negative")
 })
 
 # ---- Round 4: 15 new edge cases ----
@@ -253,15 +254,15 @@ test_that("DP-15: very low prevalence (p=0.001) returns valid n and apparent_pre
 # ---- Round 5: 7 new edge cases ----
 
 test_that("DP-R5-1: sensitivity=0 is rejected (boundary, not in (0,1])", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = 0), "`sensitivity`")
+  expect_error(design_precision(0.3, 0.05, sensitivity = 0), "never detects true positives")
 })
 
 test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "`sensitivity`")
+  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "cannot be.*greater than 1")
 })
 
 test_that("DP-R11-1: sensitivity=-0.5 is rejected (negative, invalid probability)", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = -0.5), "`sensitivity`")
+  expect_error(design_precision(0.3, 0.05, sensitivity = -0.5), "cannot be.*negative")
 })
 
 test_that("DP-R5-2: n_sites as vector gives informative length error", {
