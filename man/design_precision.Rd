@@ -131,6 +131,21 @@ The function stops with the minimum achievable MOE for that site count.
 When \code{n_per_site} is fixed instead, Deff is non-circular (cluster size is
 known directly) and the number of sites follows from
 \code{ceiling(n / n_per_site)}.
+
+\strong{Finite-population correction}: sampling without replacement from a
+finite population of size \eqn{N} shrinks the sampling variance by the
+factor \eqn{(N-n)/(N-1)} relative to sampling from an infinite
+population. Requiring the finite-population design to hit the same
+target variance as the continuous sample size \eqn{n_{pre}} computed
+above (after the Rogan-Gladen and design-effect inflation, before the
+FPC) and solving for \eqn{n} gives Cochran's (1977) adjustment:
+
+\deqn{n = \frac{n_{pre}}{1 + (n_{pre} - 1)/N} = \frac{n_{pre} \cdot N}{N + n_{pre} - 1}}
+
+applied with \eqn{N} = \code{fpc_N}. As \eqn{N \to \infty} this converges to
+\eqn{n_{pre}} (no correction); as \eqn{N} shrinks toward \eqn{n_{pre}},
+it pulls the required sample down toward \eqn{N} -- you cannot sample
+more people than exist in the population.
 }
 \section{Equations and sources}{
 
