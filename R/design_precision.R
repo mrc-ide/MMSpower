@@ -246,9 +246,16 @@ design_precision <- function(prevalence,
          "uncertainty left to estimate, so the sample-size formula degenerates ",
          "to n = 0. Use a value from a pilot study, historical data, or ",
          "conservative guess.")
-  if (moe <= 0 || moe >= 0.5)
-    stop("`moe` must be in (0, 0.5) (got ", moe, "). ",
-         "`moe` is the target half-width of the confidence interval, e.g. 0.05 for +/-5 pp.")
+  if (moe <= 0)
+    stop("`moe` must be a positive target margin of error (got ", moe, "). ",
+         "`moe` is the target half-width of the confidence interval; a value ",
+         "of 0 or less would demand infinite precision, so the sample-size ",
+         "formula would need n = Inf.")
+  if (moe >= 0.5)
+    stop("`moe` must be less than 0.5 (got ", moe, "). ",
+         "A margin of error of 0.5 or more spans (or exceeds) the entire ",
+         "(0, 1) prevalence range, so the target interval carries no ",
+         "information -- e.g. 0.05 for a target of +/-5 percentage points.")
   if (sensitivity < 0 || sensitivity > 1)
     stop("`sensitivity` must be a proportion between 0 and 1 (got ", sensitivity, "). ",
          "It represents a diagnostic probability and cannot be ",

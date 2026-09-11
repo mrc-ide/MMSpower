@@ -121,7 +121,7 @@ test_that("input validation catches bad arguments", {
 })
 
 test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
-  expect_error(design_precision(0.3, -0.05), "`moe`")
+  expect_error(design_precision(0.3, -0.05), "infinite precision")
 })
 
 test_that("DP-R6-8: prevalence=-0.01 is rejected as an invalid probability", {
@@ -287,7 +287,11 @@ test_that("DP-R5-4: icc=0.999, n_per_site=2 -> deff~=2, n~=2*n_base", {
 })
 
 test_that("DP-R5-5: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
-  expect_error(design_precision(0.3, 0.5), "`moe`")
+  expect_error(design_precision(0.3, 0.5), "carries no information")
+})
+
+test_that("DP-R11-2: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
+  expect_error(design_precision(0.3, 0.6), "carries no information")
 })
 
 test_that("DP-R5-6: prevalence vector is rejected with length error", {
