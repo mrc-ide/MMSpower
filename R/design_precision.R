@@ -236,7 +236,11 @@ design_precision <- function(prevalence,
     stop("`icc` must be a single finite number (got ", icc, "). ",
          "Use 0 for an unclustered (SRS) design.")
 
-  if (prevalence <= 0 || prevalence >= 1)
+  if (prevalence < 0 || prevalence > 1)
+    stop("`prevalence` must be a proportion between 0 and 1 (got ", prevalence, "). ",
+         "It represents a fraction of the population and cannot be ",
+         if (prevalence < 0) "negative." else "greater than 1.")
+  if (prevalence == 0 || prevalence == 1)
     stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
          "At 0 or 1 the binomial variance p*(1-p) is zero -- there is no ",
          "uncertainty left to estimate, so the sample-size formula degenerates ",

@@ -124,12 +124,18 @@ test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
   expect_error(design_precision(0.3, -0.05), "`moe`")
 })
 
-test_that("DP-R6-8: prevalence=-0.01 is rejected", {
-  expect_error(design_precision(-0.01, 0.05), "`prevalence`")
+test_that("DP-R6-8: prevalence=-0.01 is rejected as an invalid probability", {
+  # negative is a distinct failure mode from the degenerate 0/1 boundary --
+  # pin the "negative" wording so the two branches can't silently swap.
+  expect_error(design_precision(-0.01, 0.05), "cannot be.*negative")
 })
 
-test_that("DP-R10-1: prevalence=1 is rejected (upper boundary, must be < 1)", {
-  expect_error(design_precision(1, 0.05), "`prevalence`")
+test_that("DP-R10-1: prevalence=1 is rejected as degenerate (zero variance), not out-of-range", {
+  expect_error(design_precision(1, 0.05), "binomial variance")
+})
+
+test_that("DP-R10-3: prevalence=1.5 is rejected as an invalid probability (> 1)", {
+  expect_error(design_precision(1.5, 0.05), "cannot be.*greater than 1")
 })
 
 test_that("DP-R10-2: specificity's own domain guard is enforced, not just via se+sp", {
