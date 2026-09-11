@@ -107,8 +107,10 @@ cluster (\code{n_per_site} in the output).}
 }
 }
 \details{
-\strong{Rogan-Gladen variance adjustment}: the MOE formula uses the
-delta-method variance of the Rogan-Gladen estimator:
+\strong{Rogan-Gladen variance adjustment}: the Rogan-Gladen transform is
+linear in the apparent prevalence, so scaling its variance by the
+(constant) RG slope is exact -- not a delta-method approximation. The
+MOE formula uses that exact variance:
 
 \deqn{n = \frac{z^2 \, p_{app}(1-p_{app}) \cdot D_{eff}}{MOE^2 \cdot (Se + Sp - 1)^2}}
 

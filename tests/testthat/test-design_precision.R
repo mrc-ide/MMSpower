@@ -120,6 +120,25 @@ test_that("input validation catches bad arguments", {
   expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05), "`n_sites`")
 })
 
+test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
+  expect_error(design_precision(0.3, -0.05), "`moe`")
+})
+
+test_that("DP-R6-8: prevalence=-0.01 is rejected", {
+  expect_error(design_precision(-0.01, 0.05), "`prevalence`")
+})
+
+test_that("DP-R10-1: prevalence=1 is rejected (upper boundary, must be < 1)", {
+  expect_error(design_precision(1, 0.05), "`prevalence`")
+})
+
+test_that("DP-R10-2: specificity's own domain guard is enforced, not just via se+sp", {
+  # se+sp=0.2+0.2=0.4 is caught by the combined "must exceed 1" check instead --
+  # these pin specificity's own (0, 1] guard directly.
+  expect_error(design_precision(0.3, 0.05, specificity = 0),     "`specificity`")
+  expect_error(design_precision(0.3, 0.05, specificity = 1.001), "`specificity`")
+})
+
 # ---- Round 4: 15 new edge cases ----
 
 test_that("DP-1: prevalence=0.5 (max variance) gives largest n", {
@@ -268,10 +287,6 @@ test_that("DP-R5-7: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 
 # ---- Round 6: 15 new edge cases ----
 
-test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
-  expect_error(design_precision(0.3, -0.05), "`moe`")
-})
-
 test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "`sensitivity`")
 })
@@ -308,8 +323,9 @@ test_that("DP-R6-7: fpc_N=1 (population of 1) -> n=1 regardless of SRS n", {
   expect_equal(res$n, 1)
 })
 
-test_that("DP-R6-8: prevalence=-0.01 is rejected", {
-  expect_error(design_precision(-0.01, 0.05), "`prevalence`")
+test_that("DP-R6-11: fpc_N=2 -> n=2 (census of a 2-person population)", {
+  res <- design_precision(0.3, 0.05, fpc_N = 2)
+  expect_equal(res$n, 2)
 })
 
 test_that("DP-R6-9: wide moe=0.3 gives very small n", {
@@ -324,11 +340,6 @@ test_that("DP-R6-10: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
     design_precision(0.3, 0.05, n_sites = 323, icc = 0.05),
     "SRS sample size"
   )
-})
-
-test_that("DP-R6-11: fpc_N=2 -> n=2 (census of a 2-person population)", {
-  res <- design_precision(0.3, 0.05, fpc_N = 2)
-  expect_equal(res$n, 2)
 })
 
 test_that("DP-R6-12: conf_level=NA is rejected by is.finite check", {

@@ -44,8 +44,10 @@
 #'   is a non-trivial fraction of the population. `NULL` (default) = no FPC.
 #'
 #' @details
-#' **Rogan-Gladen variance adjustment**: the MOE formula uses the
-#' delta-method variance of the Rogan-Gladen estimator:
+#' **Rogan-Gladen variance adjustment**: the Rogan-Gladen transform is
+#' linear in the apparent prevalence, so scaling its variance by the
+#' (constant) RG slope is exact -- not a delta-method approximation. The
+#' MOE formula uses that exact variance:
 #'
 #' \deqn{n = \frac{z^2 \, p_{app}(1-p_{app}) \cdot D_{eff}}{MOE^2 \cdot (Se + Sp - 1)^2}}
 #'
@@ -170,22 +172,16 @@ design_precision <- function(prevalence,
   # A vector causes R's generic "the condition has length > 1" error deep in
   # an if(); a character/logical value slips past the length check and then
   # either crashes in is.finite() or (for logical) coerces silently.
-  if (length(prevalence) != 1 || !is.numeric(prevalence))
+  if (is.null(prevalence) || length(prevalence) != 1 || !is.numeric(prevalence))
     stop("`prevalence` must be a single number (got ",
-         if (!is.numeric(prevalence)) paste0("class `", class(prevalence)[1], "`")
-         else paste0("length ", length(prevalence)), ").")
-  if (length(moe) != 1 || !is.numeric(moe))
+         if (is.null(prevalence)) "NULL"
+         else if (!is.numeric(prevalence)) paste0("class `", class(prevalence)[1], "`")
+         else paste0("length = ", length(prevalence)), ").")
+  if (is.null(moe) || length(moe) != 1 || !is.numeric(moe))
     stop("`moe` must be a single number (got ",
-         if (!is.numeric(moe)) paste0("class `", class(moe)[1], "`")
-         else paste0("length ", length(moe)), ").")
-  if (length(icc) != 1 || !is.numeric(icc))
-    stop("`icc` must be a single number (got ",
-         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
-         else paste0("length ", length(icc)), "). Use 0 for an unclustered (SRS) design.")
-  if (length(conf_level) != 1 || !is.numeric(conf_level))
-    stop("`conf_level` must be a single number (got ",
-         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
-         else paste0("length ", length(conf_level)), ").")
+         if (is.null(moe)) "NULL"
+         else if (!is.numeric(moe)) paste0("class `", class(moe)[1], "`")
+         else paste0("length = ", length(moe)), ").")
   if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got ",
          if (is.null(sensitivity)) "NULL"
@@ -198,6 +194,16 @@ design_precision <- function(prevalence,
          else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
          else paste0("length = ", length(specificity)), "). ",
          "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+  if (is.null(conf_level) || length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number (got ",
+         if (is.null(conf_level)) "NULL"
+         else if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
+         else paste0("length = ", length(conf_level)), ").")
+  if (is.null(icc) || length(icc) != 1 || !is.numeric(icc))
+    stop("`icc` must be a single number (got ",
+         if (is.null(icc)) "NULL"
+         else if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
+         else paste0("length = ", length(icc)), "). Use 0 for an unclustered (SRS) design.")
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
@@ -209,11 +215,11 @@ design_precision <- function(prevalence,
     stop("`sensitivity` must be a single finite number (got ", sensitivity, ").")
   if (!is.finite(specificity))
     stop("`specificity` must be a single finite number (got ", specificity, ").")
+  if (!is.finite(conf_level))
+    stop("`conf_level` must be a single finite number (got ", conf_level, ").")
   if (!is.finite(icc))
     stop("`icc` must be a single finite number (got ", icc, "). ",
          "Use 0 for an unclustered (SRS) design.")
-  if (!is.finite(conf_level))
-    stop("`conf_level` must be a single finite number (got ", conf_level, ").")
 
   if (prevalence <= 0 || prevalence >= 1)
     stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
