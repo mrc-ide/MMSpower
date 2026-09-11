@@ -143,6 +143,7 @@ test_that("DP-R10-2: specificity's own domain guard is enforced, not just via se
   # these pin specificity's own (0, 1] guard directly.
   expect_error(design_precision(0.3, 0.05, specificity = 0),     "`specificity`")
   expect_error(design_precision(0.3, 0.05, specificity = 1.001), "`specificity`")
+  expect_error(design_precision(0.3, 0.05, specificity = -0.5),  "`specificity`")
 })
 
 # ---- Round 4: 15 new edge cases ----
@@ -255,6 +256,14 @@ test_that("DP-R5-1: sensitivity=0 is rejected (boundary, not in (0,1])", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0), "`sensitivity`")
 })
 
+test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "`sensitivity`")
+})
+
+test_that("DP-R11-1: sensitivity=-0.5 is rejected (negative, invalid probability)", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = -0.5), "`sensitivity`")
+})
+
 test_that("DP-R5-2: n_sites as vector gives informative length error", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = c(10, 20), icc = 0.05),
@@ -292,10 +301,6 @@ test_that("DP-R5-7: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 })
 
 # ---- Round 6: 15 new edge cases ----
-
-test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "`sensitivity`")
-})
 
 test_that("DP-R6-3: specificity=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
