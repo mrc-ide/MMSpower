@@ -131,7 +131,7 @@ test_that("DP-R6-8: prevalence=-0.01 is rejected as an invalid probability", {
 })
 
 test_that("DP-R10-1: prevalence=1 is rejected as degenerate (zero variance), not out-of-range", {
-  expect_error(design_precision(1, 0.05), "binomial variance")
+  expect_error(design_precision(1, 0.05), "no uncertainty to estimate")
 })
 
 test_that("DP-R10-3: prevalence=1.5 is rejected as an invalid probability (> 1)", {
@@ -269,6 +269,27 @@ test_that("DP-R5-2: n_sites as vector gives informative length error", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = c(10, 20), icc = 0.05),
     "single finite positive integer"
+  )
+})
+
+test_that("DP-R11-2: n_sites as a string names the class, not the length", {
+  expect_error(
+    design_precision(0.3, 0.05, n_sites = "50", icc = 0.05),
+    "class `character`"
+  )
+})
+
+test_that("DP-R11-3: n_per_site as a string names the class, not the length", {
+  expect_error(
+    design_precision(0.3, 0.05, n_per_site = "10", icc = 0.05),
+    "class `character`"
+  )
+})
+
+test_that("DP-R11-4: fpc_N as a string names the class, not the length", {
+  expect_error(
+    design_precision(0.3, 0.05, fpc_N = "500"),
+    "class `character`"
   )
 })
 
