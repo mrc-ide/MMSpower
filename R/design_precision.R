@@ -242,10 +242,9 @@ design_precision <- function(prevalence,
          if (prevalence < 0) "negative." else "greater than 1.")
   if (prevalence == 0 || prevalence == 1)
     stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
-         "At 0 or 1 the binomial variance p*(1-p) is zero -- there is no ",
-         "uncertainty left to estimate, so the sample-size formula degenerates ",
-         "to n = 0. Use a value from a pilot study, historical data, or ",
-         "conservative guess.")
+         "When the prevalence is 0 or 1, there is no uncertainty to estimate ",
+         "and no meaningful sample size. Use a value from a pilot study, ",
+         "historical data, or conservative guess.")
   if (moe <= 0)
     stop("`moe` must be a positive target margin of error (got ", moe, "). ",
          "`moe` is the target half-width of the confidence interval; a value ",
