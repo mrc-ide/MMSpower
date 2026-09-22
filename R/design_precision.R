@@ -1,22 +1,21 @@
-#' Calculate sample size for a target margin of error on prevalence
+#' Calculate sample size for a target margin of error when estimating prevalence
 #'
 #' @description
 #' Given a target precision (margin of error), returns the minimum total
 #' sample size required. Handles imperfect diagnostic tests via the
 #' Rogan-Gladen variance adjustment, clustered sampling via the design
-#' effect (Kish formula), and finite-population corrections.
+#' effect (Kish formula), and finite-population corrections via Cochran's
+#' (1977) adjustment.
 #'
 #' **Three design modes** -- controlled by `n_sites` and `n_per_site`:
 #' \describe{
 #'   \item{SRS (`n_sites = NULL`, `n_per_site = NULL`)}{Treats all
 #'     observations as independent. Returns total `n` only; `n_sites` and
 #'     `n_per_site` are both `NULL` in the output.}
-#'   \item{Fixed cluster size (`n_per_site` supplied)}{Deff is determined
-#'     directly from the cluster size; solves for the required number of
-#'     clusters (`n_sites` in the output).}
-#'   \item{Fixed number of clusters (`n_sites` supplied)}{Resolves the Deff/n
-#'     circularity via closed-form algebra; returns target samples per
-#'     cluster (`n_per_site` in the output).}
+#'   \item{Fixed cluster size (`n_per_site` supplied)}{Solves for the
+#'     required number of clusters, returned as `n_sites` in the output.}
+#'   \item{Fixed number of clusters (`n_sites` supplied)}{Solves for the
+#'     target samples per cluster, returned as `n_per_site` in the output.}
 #' }
 #'
 #' @param prevalence Numeric in (0, 1). Expected true prevalence.
@@ -183,42 +182,29 @@ design_precision <- function(prevalence,
                               fpc_N       = NULL) {
 
   # ---- validation ----
-  # Reject vectors and non-numeric types: all parameters are numeric scalars.
-  # A vector causes R's generic "the condition has length > 1" error deep in
-  # an if(); a character/logical value slips past the length check and then
-  # either crashes in is.finite() or (for logical) coerces silently.
-  if (is.null(prevalence) || length(prevalence) != 1 || !is.numeric(prevalence))
-    stop("`prevalence` must be a single number (got ",
-         if (is.null(prevalence)) "NULL"
-         else if (!is.numeric(prevalence)) paste0("class `", class(prevalence)[1], "`")
-         else paste0("length = ", length(prevalence)), ").")
-  if (is.null(moe) || length(moe) != 1 || !is.numeric(moe))
-    stop("`moe` must be a single number (got ",
-         if (is.null(moe)) "NULL"
-         else if (!is.numeric(moe)) paste0("class `", class(moe)[1], "`")
-         else paste0("length = ", length(moe)), ").")
-  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
-    stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL"
-         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
-         else paste0("length = ", length(sensitivity)), "). ",
+  # Every parameter must be a single number. Without this check, a vector
+  # fails later with a cryptic R error, and a logical (TRUE/FALSE) silently
+  # coerces to 1/0 instead of failing loudly.
+  if (length(prevalence) != 1 || !is.numeric(prevalence))
+    stop("`prevalence` must be a single number in (0, 1) (got class `",
+         class(prevalence)[1], "`, length ", length(prevalence), ").")
+  if (length(moe) != 1 || !is.numeric(moe))
+    stop("`moe` must be a single number in (0, 0.5) (got class `",
+         class(moe)[1], "`, length ", length(moe), ").")
+  if (length(sensitivity) != 1 || !is.numeric(sensitivity))
+    stop("`sensitivity` must be a single number in (0, 1] (got class `",
+         class(sensitivity)[1], "`, length ", length(sensitivity), "). ",
          "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
-  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
-    stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL"
-         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
-         else paste0("length = ", length(specificity)), "). ",
+  if (length(specificity) != 1 || !is.numeric(specificity))
+    stop("`specificity` must be a single number in (0, 1] (got class `",
+         class(specificity)[1], "`, length ", length(specificity), "). ",
          "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
-  if (is.null(conf_level) || length(conf_level) != 1 || !is.numeric(conf_level))
-    stop("`conf_level` must be a single number (got ",
-         if (is.null(conf_level)) "NULL"
-         else if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
-         else paste0("length = ", length(conf_level)), ").")
-  if (is.null(icc) || length(icc) != 1 || !is.numeric(icc))
-    stop("`icc` must be a single number (got ",
-         if (is.null(icc)) "NULL"
-         else if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
-         else paste0("length = ", length(icc)), "). Use 0 for an unclustered (SRS) design.")
+  if (length(conf_level) != 1 || !is.numeric(conf_level))
+    stop("`conf_level` must be a single number in (0, 1) (got class `",
+         class(conf_level)[1], "`, length ", length(conf_level), ").")
+  if (length(icc) != 1 || !is.numeric(icc))
+    stop("`icc` must be a single number in [0, 1] (got class `",
+         class(icc)[1], "`, length ", length(icc), "). Use 0 for an unclustered (SRS) design.")
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
