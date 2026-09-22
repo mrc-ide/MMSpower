@@ -305,11 +305,12 @@ design_precision <- function(prevalence,
          "It represents the fixed number of individuals sampled per cluster.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
       fpc_N < 1 || fpc_N != floor(fpc_N)))
-    stop("`fpc_N` must be a single finite positive integer representing total population size (got ",
+    stop("`fpc_N` must be a single finite positive integer (got ",
          if (!is.numeric(fpc_N)) paste0("class `", class(fpc_N)[1], "`")
          else if (length(fpc_N) != 1) paste0("length = ", length(fpc_N))
          else fpc_N,
-         "). Set `fpc_N = NULL` to skip the finite-population correction.")
+         "). It represents the total population size. ",
+         "Set `fpc_N = NULL` to skip the finite-population correction.")
   if (conf_level <= 0 || conf_level >= 1)
     stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
          "Use, e.g., 0.95 for a 95% confidence interval.")

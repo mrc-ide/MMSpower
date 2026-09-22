@@ -293,6 +293,13 @@ test_that("DP-R11-4: fpc_N as a string names the class, not the length", {
   )
 })
 
+test_that("DP-R12-3: fpc_N as vector is rejected with length error", {
+  expect_error(
+    design_precision(0.3, 0.05, fpc_N = c(500, 600)),
+    "single finite positive integer"
+  )
+})
+
 test_that("DP-R12-1: icc=-0.1 is rejected (negative, invalid correlation)", {
   expect_error(design_precision(0.3, 0.05, icc = -0.1), "cannot be.*negative")
 })
