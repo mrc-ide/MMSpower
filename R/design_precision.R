@@ -282,8 +282,9 @@ design_precision <- function(prevalence,
             "required n will be extremely large and results unreliable.")
   if (icc < 0 || icc > 1)
     stop("`icc` must be in [0, 1] (got ", icc, "). ",
-         "Values outside this range imply negative within-cluster variance, which ",
-         "is not possible. Use 0 for an unclustered (SRS) design.")
+         "It represents a correlation and cannot be ",
+         if (icc < 0) "negative." else "greater than 1.",
+         " Use 0 for an unclustered (SRS) design.")
   if (!is.null(n_sites) && !is.null(n_per_site))
     stop("Supply at most one of `n_sites` or `n_per_site`, not both. ",
          "`n_sites` fixes the number of clusters and solves for samples per cluster; ",

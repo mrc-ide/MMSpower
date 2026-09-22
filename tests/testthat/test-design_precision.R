@@ -293,6 +293,14 @@ test_that("DP-R11-4: fpc_N as a string names the class, not the length", {
   )
 })
 
+test_that("DP-R12-1: icc=-0.1 is rejected (negative, invalid correlation)", {
+  expect_error(design_precision(0.3, 0.05, icc = -0.1), "cannot be.*negative")
+})
+
+test_that("DP-R12-2: icc=1.5 is rejected (must be <= 1)", {
+  expect_error(design_precision(0.3, 0.05, icc = 1.5), "cannot be.*greater than 1")
+})
+
 test_that("DP-R5-3: conf_level=0.5 produces a small n (low confidence threshold)", {
   # z_0.5 = qnorm(0.75) ~= 0.674; n scales with z^2
   r_50 <- design_precision(0.3, 0.05, conf_level = 0.50)
