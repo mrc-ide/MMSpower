@@ -57,11 +57,12 @@ A named list. The following fields are always present:
 \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 the number of independent observations needed to hit the same \code{moe}
 (equal to the base SRS sample size before the design effect and FPC).
-Clustering inflates the collected \code{n} above this. With no FPC
-\code{n_eff} \eqn{\le} \code{n}, with equality only for an unclustered
-design; \strong{with an FPC \code{n} is shrunk while \code{n_eff}
-stays at the pre-FPC value, so \code{n_eff} can exceed \code{n}.}
-Defined the same way as \code{n_eff} in \code{estimate_prevalence()}.}
+Clustering inflates the collected \code{n} above this, before any FPC
+adjustment. With no FPC \code{n_eff} \eqn{\le} \code{n}, with equality
+only for an unclustered design; \strong{FPC shrinks \code{n} but does
+not affect \code{n_eff}, so \code{n_eff} can then exceed \code{n}.}
+Rounded up (\code{ceiling()}) to match \code{n}'s rounding, so the
+unclustered-equality case holds exactly.}
 \item{prevalence}{Expected true prevalence (as supplied).}
 \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 \code{prevalence}, \code{sensitivity}, and \code{specificity}}
