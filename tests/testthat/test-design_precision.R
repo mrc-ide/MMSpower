@@ -489,3 +489,9 @@ test_that("DP-R9-2: a hair-above-zero icc without a cluster structure is treated
   expect_equal(res$deff, 1)
   expect_equal(res$n, design_precision(0.3, 0.05)$n)
 })
+
+test_that("DP-R13-1: a hair-above-zero icc WITH n_sites is still treated as SRS (deff stays exactly 1)", {
+  res <- design_precision(0.3, 0.05, n_sites = 50, icc = 1e-12)
+  expect_equal(res$deff, 1)
+  expect_equal(res$n, design_precision(0.3, 0.05, n_sites = 50, icc = 0)$n)
+})

@@ -427,12 +427,13 @@ design_precision <- function(prevalence,
   } else if (!is.null(n_sites)) {
     n_per_site_out <- ceiling(n_total / n_sites)
     n_sites_out    <- n_sites
-    # Report the design effect of the design actually fielded: after the
-    # FPC shrinks n_total (and after the whole-number rounding of
-    # n_per_site), the closed-form pre-FPC `deff` no longer matches the
-    # returned n_per_site. Recompute so the output list is self-consistent
-    # (deff == 1 + (n_per_site - 1) * icc always holds).
-    if (icc > 0) deff <- 1 + (n_per_site_out - 1) * icc
+    # deff was computed from the closed-form solve's continuous (pre-rounding,
+    # pre-FPC) n. But as n_per_site_out is rounded up here, and n_total may
+    # have shrunk because of FPC -- deff no longer matches the actual
+    # per-site design being reported. It is recomputed from n_per_site_out
+    # so the output stays self-consistent (deff == 1 + (n_per_site - 1) *
+    # icc always holds).
+    if (!icc_is_zero) deff <- 1 + (n_per_site_out - 1) * icc
   } else {
     n_sites_out    <- NULL
     n_per_site_out <- NULL
