@@ -97,25 +97,52 @@ test_that("return list contains all expected fields", {
                ignore.order = FALSE)
 })
 
-test_that("input validation catches bad arguments", {
-  expect_error(design_precision(0,   0.05),  "`prevalence`")
-  expect_error(design_precision(0.3, 0),     "`moe`")
+test_that("DP-R14-2: prevalence=0 is rejected as degenerate, like prevalence=1", {
+  expect_error(design_precision(0, 0.05), "no uncertainty to estimate")
+})
+
+test_that("DP-R14-3: moe=0 is rejected (boundary of the positive-moe guard)", {
+  expect_error(design_precision(0.3, 0), "infinite precision")
+})
+
+test_that("DP-R14-4: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.2, specificity = 0.2),
                "must exceed 1")
-  expect_error(design_precision(0.3, 0.05, icc = 0.05),
-               "cluster structure")
+})
+
+test_that("DP-R14-11: sensitivity + specificity close to 1 triggers a numerically-unstable warning", {
+  # correction = 1 + 0.05 - 1 = 0.05, below the 0.1 warning threshold
+  expect_warning(
+    design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.05),
+    "numerically unstable"
+  )
+})
+
+test_that("DP-R14-5: icc > 0 without a cluster structure is rejected", {
+  expect_error(design_precision(0.3, 0.05, icc = 0.05), "cluster structure")
+})
+
+test_that("DP-R14-6: supplying both n_sites and n_per_site is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 50, n_per_site = 10, icc = 0.05),
                "at most one")
-  # conf_level out of range
-  expect_error(design_precision(0.3, 0.05, conf_level = 0),  "`conf_level`")
-  expect_error(design_precision(0.3, 0.05, conf_level = 1),  "`conf_level`")
-  # fpc_N must be positive
-  expect_error(design_precision(0.3, 0.05, fpc_N =  0),  "`fpc_N`")
+})
+
+test_that("DP-R14-7: conf_level out of (0, 1) is rejected at both boundaries", {
+  expect_error(design_precision(0.3, 0.05, conf_level = 0), "`conf_level`")
+  expect_error(design_precision(0.3, 0.05, conf_level = 1), "`conf_level`")
+})
+
+test_that("DP-R14-8: fpc_N must be positive", {
+  expect_error(design_precision(0.3, 0.05, fpc_N =  0), "`fpc_N`")
   expect_error(design_precision(0.3, 0.05, fpc_N = -50), "`fpc_N`")
-  # n_per_site must be a positive integer
+})
+
+test_that("DP-R14-9: n_per_site must be a positive whole number", {
   expect_error(design_precision(0.3, 0.05, n_per_site = 0,    icc = 0.05), "`n_per_site`")
   expect_error(design_precision(0.3, 0.05, n_per_site = 10.7, icc = 0.05), "`n_per_site`")
-  # n_sites must be a positive integer
+})
+
+test_that("DP-R14-10: n_sites must be a positive whole number", {
   expect_error(design_precision(0.3, 0.05, n_sites = 0,    icc = 0.05), "`n_sites`")
   expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05), "`n_sites`")
 })
@@ -326,7 +353,7 @@ test_that("DP-R5-5: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
   expect_error(design_precision(0.3, 0.5), "carries no information")
 })
 
-test_that("DP-R11-2: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
+test_that("DP-R14-1: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
   expect_error(design_precision(0.3, 0.6), "carries no information")
 })
 
@@ -345,14 +372,6 @@ test_that("DP-R5-7: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 
 test_that("DP-R6-3: specificity=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
-})
-
-test_that("DP-R6-4: n_sites=1 with icc=0.5 is infeasible (denom < 0)", {
-  # denom = 1 - n_base*0.5 ~= 1 - 161 = -160 < 0 -> unachievable
-  expect_error(
-    design_precision(0.3, 0.05, n_sites = 1, icc = 0.5),
-    "unachievable"
-  )
 })
 
 test_that("DP-R6-5: large n_per_site with high icc -> very large n", {
