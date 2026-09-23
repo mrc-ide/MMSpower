@@ -91,6 +91,10 @@ test_that("Case 5b: the reported minimum achievable MOE matches the MOE_min form
   )
 })
 
+# FPC values below sit at the two extremes of the sampling fraction
+# f = n/N (Cochran 1977's standard threshold: f > ~5-10% is where FPC
+# starts to matter). fpc_N=500 -> f ~= 65% (matters); fpc_N=1e8 ->
+# f ~= 0.0003% (negligible).
 test_that("Case 6: FPC reduces required n for a small population", {
   res_fpc  <- design_precision(0.3, 0.05, fpc_N = 500)
   res_nofpc <- design_precision(0.3, 0.05)
