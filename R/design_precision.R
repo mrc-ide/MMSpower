@@ -28,11 +28,13 @@
 #' @param n_sites Optional positive integer. Fix the number of clusters.
 #'   The function solves for the required samples per cluster and returns it
 #'   as `n_per_site` in the output.
-#'   Cannot be used together with `n_per_site`.
+#'   Cannot be used together with `n_per_site` -- see the "Known limitation"
+#'   section below.
 #' @param n_per_site Optional positive integer. Fix the samples per cluster.
 #'   The function computes Deff directly, then solves for the number of
 #'   clusters needed and returns it as `n_sites` in the output.
-#'   Cannot be used together with `n_sites`.
+#'   Cannot be used together with `n_sites` -- see the "Known limitation"
+#'   section below.
 #' @param icc Numeric in \[0, 1\]. Intra-cluster correlation; default 0 (SRS).
 #'   If `icc > 0`, supply exactly one of `n_sites` or `n_per_site` --
 #'   without a cluster structure, Deff is not computable. An `icc` below
@@ -109,6 +111,18 @@
 #'     \emph{finite-population correction} -- not in the workshop
 #'     (package's own algebra; Cochran (1977) for the FPC).
 #' }
+#'
+#' @section Known limitation -- n_sites and n_per_site cannot both be fixed:
+#' \strong{This is a scope limitation, flagged for a team decision, not a
+#' bug.} This function only solves forward for the required sample size
+#' \code{n}, so supplying both a fixed number of clusters and a fixed
+#' cluster size is rejected -- with both fixed, the total sample size is
+#' already determined and there is nothing left to solve for. Someone who
+#' already has both numbers fixed (e.g. "I'm running 50 sites of 20 people
+#' each -- what MOE do I actually get?") needs the reverse calculation
+#' instead: achieved MOE from a given \code{n_sites * n_per_site}. That mode
+#' does not exist yet -- it would need to be added, not just unlocked by
+#' relaxing this guard.
 #'
 #' @return A named list. The following fields are always present:
 #'   \item{n}{Total sample size required (ceiling of the continuous solution)}
@@ -204,7 +218,7 @@ design_precision <- function(prevalence,
          class(conf_level)[1], "`, length ", length(conf_level), ").")
   if (length(icc) != 1 || !is.numeric(icc))
     stop("`icc` must be a single number in [0, 1] (got class `",
-         class(icc)[1], "`, length ", length(icc), "). Use 0 for an unclustered (SRS) design.")
+         class(icc)[1], "`, length ", length(icc), ").")
 
   # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
   # generic "missing value where TRUE/FALSE needed" with no context.
@@ -219,58 +233,66 @@ design_precision <- function(prevalence,
   if (!is.finite(conf_level))
     stop("`conf_level` must be a single finite number (got ", conf_level, ").")
   if (!is.finite(icc))
-    stop("`icc` must be a single finite number (got ", icc, "). ",
-         "Use 0 for an unclustered (SRS) design.")
+    stop("`icc` must be a single finite number (got ", icc, ").")
 
   if (prevalence < 0 || prevalence > 1)
-    stop("`prevalence` must be a proportion between 0 and 1 (got ", prevalence, "). ",
-         "It represents a fraction of the population and cannot be ",
+    stop("`prevalence` must be in (0, 1) (got ", prevalence, "). ",
+         "`prevalence` is a fraction of the population and cannot be ",
          if (prevalence < 0) "negative." else "greater than 1.")
   if (prevalence == 0 || prevalence == 1)
-    stop("`prevalence` must be strictly between 0 and 1 (got ", prevalence, "). ",
+    stop("`prevalence` must be in (0, 1) (got ", prevalence, "). ",
          "When the prevalence is 0 or 1, there is no uncertainty to estimate ",
          "and no meaningful sample size. Use a value from a pilot study, ",
          "historical data, or conservative guess.")
   if (moe <= 0)
     stop("`moe` must be a positive target margin of error (got ", moe, "). ",
          "`moe` is the target half-width of the confidence interval; a value ",
-         "of 0 or less would demand infinite precision, so the sample-size ",
-         "formula would need n = Inf.")
+         "of 0 or less would demand infinite precision to achieve.")
   if (moe >= 0.5)
     stop("`moe` must be less than 0.5 (got ", moe, "). ",
          "A margin of error of 0.5 or more spans (or exceeds) the entire ",
          "(0, 1) prevalence range, so the target interval carries no ",
-         "information -- e.g. 0.05 for a target of +/-5 percentage points.")
+         "information. `moe` is a decimal fraction, not a percentage -- ",
+         "e.g. use 0.05 to target a precision of +/-5 percentage points.")
   if (sensitivity < 0 || sensitivity > 1)
-    stop("`sensitivity` must be a proportion between 0 and 1 (got ", sensitivity, "). ",
-         "It represents a diagnostic probability and cannot be ",
+    stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
+         "`sensitivity` is a diagnostic probability and cannot be ",
          if (sensitivity < 0) "negative." else "greater than 1.")
   if (sensitivity == 0)
     stop("`sensitivity` must be in (0, 1] (got 0). ",
-         "A sensitivity of 0 means the test never detects true positives.")
+         "A sensitivity of 0 means everyone who truly has the condition ",
+         "tests negative.")
   if (specificity < 0 || specificity > 1)
-    stop("`specificity` must be a proportion between 0 and 1 (got ", specificity, "). ",
-         "It represents a diagnostic probability and cannot be ",
+    stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
+         "`specificity` is a diagnostic probability and cannot be ",
          if (specificity < 0) "negative." else "greater than 1.")
   if (specificity == 0)
     stop("`specificity` must be in (0, 1] (got 0). ",
-         "A specificity of 0 means the test always returns a false positive.")
+         "A specificity of 0 means everyone who truly does not have the ",
+         "condition tests positive.")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)
-    stop("sensitivity + specificity must exceed 1 for the Rogan-Gladen correction ",
+    stop("`sensitivity` + `specificity` must exceed 1 for the Rogan-Gladen correction ",
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
-         "With se + sp <= 1 the test performs at or below chance and true prevalence ",
-         "is not identifiable from apparent prevalence.")
+         "A test with `sensitivity` + `specificity` of 1 or less performs no better ",
+         "than random guessing, so its results cannot be corrected into a ",
+         "reliable prevalence estimate.")
   if (correction < 0.1)
-    warning("sensitivity + specificity = ", round(sensitivity + specificity, 4),
-            " is very close to 1 (correction = ", round(correction, 4), "). ",
+    warning("`sensitivity` + `specificity` = ", round(sensitivity + specificity, 4),
+            " is only ", round(correction, 4), " above the required minimum of 1. ",
             "The Rogan-Gladen adjustment is numerically unstable here -- ",
             "required n will be extremely large and results unreliable.")
   if (icc < 0 || icc > 1)
     stop("`icc` must be in [0, 1] (got ", icc, "). ",
-         "It represents a correlation and cannot be ",
-         if (icc < 0) "negative." else "greater than 1.",
-         " Use 0 for an unclustered (SRS) design.")
+         "`icc` is a correlation and cannot be ",
+         if (icc < 0) "negative." else "greater than 1.")
+  if (conf_level <= 0 || conf_level >= 1)
+    stop("`conf_level` must be in (0, 1) (got ", conf_level, "). ",
+         "For example, use 0.95 for a 95% confidence interval.")
+  # Both fixed would mean the total n is already determined, leaving nothing
+  # to solve for -- see the "Known limitation" roxygen section: this rejects
+  # a real use case (achieved MOE from a fixed n_sites * n_per_site) that
+  # would need a new reverse mode, not just relaxing this guard.
   if (!is.null(n_sites) && !is.null(n_per_site))
     stop("Supply at most one of `n_sites` or `n_per_site`, not both. ",
          "`n_sites` fixes the number of clusters and solves for samples per cluster; ",
@@ -281,25 +303,22 @@ design_precision <- function(prevalence,
          if (!is.numeric(n_sites)) paste0("class `", class(n_sites)[1], "`")
          else if (length(n_sites) != 1) paste0("length = ", length(n_sites))
          else n_sites, "). ",
-         "It represents the number of sampling clusters in your design.")
+         "`n_sites` is the number of sampling clusters.")
   if (!is.null(n_per_site) &&
       (!is.numeric(n_per_site) || length(n_per_site) != 1 || !is.finite(n_per_site) || n_per_site != floor(n_per_site) || n_per_site < 1))
     stop("`n_per_site` must be a single finite positive integer (got ",
          if (!is.numeric(n_per_site)) paste0("class `", class(n_per_site)[1], "`")
          else if (length(n_per_site) != 1) paste0("length = ", length(n_per_site))
          else n_per_site, "). ",
-         "It represents the fixed number of individuals sampled per cluster.")
+         "`n_per_site` is the fixed number of individuals sampled per cluster.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
       fpc_N < 1 || fpc_N != floor(fpc_N)))
     stop("`fpc_N` must be a single finite positive integer (got ",
          if (!is.numeric(fpc_N)) paste0("class `", class(fpc_N)[1], "`")
          else if (length(fpc_N) != 1) paste0("length = ", length(fpc_N))
          else fpc_N,
-         "). It represents the total population size. ",
+         "). `fpc_N` is the total population size. ",
          "Set `fpc_N = NULL` to skip the finite-population correction.")
-  if (conf_level <= 0 || conf_level >= 1)
-    stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
-         "Use, e.g., 0.95 for a 95% confidence interval.")
 
   # A cluster structure cannot be larger than the population it is drawn from.
   if (!is.null(fpc_N) && !is.null(n_sites) && n_sites > fpc_N)
@@ -309,12 +328,12 @@ design_precision <- function(prevalence,
     stop("`n_per_site` (", n_per_site, ") exceeds `fpc_N` (", fpc_N, "): a ",
          "cluster cannot be larger than the whole population.")
 
-  # `icc == 0` below is an exact test; treat a hair above 0 as SRS so an
-  # upstream estimate like 1e-12 does not force the clustered code path.
+  # Uses a fuzzy zero-threshold instead of an exact icc == 0 comparison, so
+  # an upstream estimate like 1e-12 (floating-point noise, not a real signal)
+  # is still treated as SRS rather than forcing the clustered code path.
   icc_is_zero <- icc < sqrt(.Machine$double.eps)
   if (!icc_is_zero && is.null(n_sites) && is.null(n_per_site))
-    stop("icc > 0 requires a cluster structure to compute the design effect ",
-         "(Deff = 1 + (n_bar - 1) * icc, where n_bar = total n / n_sites). ",
+    stop("icc > 0 requires a cluster structure to compute the design effect. ",
          "Supply `n_sites` (fix the number of clusters) or `n_per_site` (fix the ",
          "cluster size), or set `icc = 0` for an unclustered (SRS) design."
     )

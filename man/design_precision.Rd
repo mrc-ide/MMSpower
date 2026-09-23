@@ -2,7 +2,7 @@
 % Please edit documentation in R/design_precision.R
 \name{design_precision}
 \alias{design_precision}
-\title{Calculate sample size for a target margin of error on prevalence}
+\title{Calculate sample size for a target margin of error when estimating prevalence}
 \usage{
 design_precision(
   prevalence,
@@ -32,12 +32,14 @@ test). Set below 1 to activate the Rogan-Gladen variance adjustment.}
 \item{n_sites}{Optional positive integer. Fix the number of clusters.
 The function solves for the required samples per cluster and returns it
 as \code{n_per_site} in the output.
-Cannot be used together with \code{n_per_site}.}
+Cannot be used together with \code{n_per_site} -- see the "Known limitation"
+section below.}
 
 \item{n_per_site}{Optional positive integer. Fix the samples per cluster.
 The function computes Deff directly, then solves for the number of
 clusters needed and returns it as \code{n_sites} in the output.
-Cannot be used together with \code{n_sites}.}
+Cannot be used together with \code{n_sites} -- see the "Known limitation"
+section below.}
 
 \item{icc}{Numeric in [0, 1]. Intra-cluster correlation; default 0 (SRS).
 If \code{icc > 0}, supply exactly one of \code{n_sites} or \code{n_per_site} --
@@ -91,19 +93,18 @@ sizes vary.}
 Given a target precision (margin of error), returns the minimum total
 sample size required. Handles imperfect diagnostic tests via the
 Rogan-Gladen variance adjustment, clustered sampling via the design
-effect (Kish formula), and finite-population corrections.
+effect (Kish formula), and finite-population corrections via Cochran's
+(1977) adjustment.
 
 \strong{Three design modes} -- controlled by \code{n_sites} and \code{n_per_site}:
 \describe{
 \item{SRS (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Treats all
 observations as independent. Returns total \code{n} only; \code{n_sites} and
 \code{n_per_site} are both \code{NULL} in the output.}
-\item{Fixed cluster size (\code{n_per_site} supplied)}{Deff is determined
-directly from the cluster size; solves for the required number of
-clusters (\code{n_sites} in the output).}
-\item{Fixed number of clusters (\code{n_sites} supplied)}{Resolves the Deff/n
-circularity via closed-form algebra; returns target samples per
-cluster (\code{n_per_site} in the output).}
+\item{Fixed cluster size (\code{n_per_site} supplied)}{Solves for the
+required number of clusters, returned as \code{n_sites} in the output.}
+\item{Fixed number of clusters (\code{n_sites} supplied)}{Solves for the
+target samples per cluster, returned as \code{n_per_site} in the output.}
 }
 }
 \details{
@@ -174,6 +175,20 @@ Rogan & Gladen (1978).
 \emph{finite-population correction} -- not in the workshop
 (package's own algebra; Cochran (1977) for the FPC).
 }
+}
+
+\section{Known limitation -- n_sites and n_per_site cannot both be fixed}{
+
+\strong{This is a scope limitation, flagged for a team decision, not a
+bug.} This function only solves forward for the required sample size
+\code{n}, so supplying both a fixed number of clusters and a fixed
+cluster size is rejected -- with both fixed, the total sample size is
+already determined and there is nothing left to solve for. Someone who
+already has both numbers fixed (e.g. "I'm running 50 sites of 20 people
+each -- what MOE do I actually get?") needs the reverse calculation
+instead: achieved MOE from a given \code{n_sites * n_per_site}. That mode
+does not exist yet -- it would need to be added, not just unlocked by
+relaxing this guard.
 }
 
 \examples{
