@@ -78,6 +78,19 @@ test_that("Case 5: infeasible n_sites produces informative error", {
   )
 })
 
+test_that("Case 5b: the reported minimum achievable MOE matches the MOE_min formula", {
+  # Computed independently here via the same formula the code uses, rather
+  # than a hand-typed percentage, so this catches a real regression in the
+  # formula itself (wrong variable, wrong exponent) instead of just
+  # confirming the word "unachievable" appears.
+  z       <- qnorm(0.975)
+  min_moe <- z * sqrt(0.3 * 0.7 * 0.05 / (10 * 1^2))
+  expect_error(
+    design_precision(0.3, 0.05, n_sites = 10, icc = 0.05),
+    sprintf("%.1f%%", 100 * min_moe)
+  )
+})
+
 test_that("Case 6: FPC reduces required n for a small population", {
   res_fpc  <- design_precision(0.3, 0.05, fpc_N = 500)
   res_nofpc <- design_precision(0.3, 0.05)
@@ -107,6 +120,11 @@ test_that("DP-R14-3: moe=0 is rejected (boundary of the positive-moe guard)", {
 
 test_that("DP-R14-4: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.2, specificity = 0.2),
+               "must exceed 1")
+})
+
+test_that("DP-R14-12: sensitivity + specificity = 1 exactly (correction = 0) is rejected", {
+  expect_error(design_precision(0.3, 0.05, sensitivity = 0.5, specificity = 0.5),
                "must exceed 1")
 })
 
@@ -438,8 +456,9 @@ test_that("DP-R7-1: character prevalence/moe give a friendly class error", {
 })
 
 test_that("DP-R7-2: logical params are rejected, not coerced", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = TRUE), "`sensitivity`")
-  expect_error(design_precision(0.3, 0.05, icc = FALSE), "`icc`")
+  expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),  "`sensitivity`")
+  expect_error(design_precision(0.3, 0.05, specificity = FALSE), "`specificity`")
+  expect_error(design_precision(0.3, 0.05, icc = FALSE),         "`icc`")
 })
 
 test_that("DP-R7-3: list-valued conf_level gives a friendly class error", {
