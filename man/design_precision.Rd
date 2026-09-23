@@ -76,7 +76,10 @@ design, \code{1 + (n_per_site - 1) * icc}. Because \code{n_per_site}
 is rounded up (and, with an FPC, the FPC acts as a separate
 variance factor), \code{n} is \strong{not} exactly
 \code{n_eff * deff} -- treat \code{n} as the headline figure and
-\code{deff} / \code{n_eff} as diagnostics.}
+\code{deff} / \code{n_eff} as diagnostics. This assumes clusters
+come out equal-sized (\code{n_per_site} exactly, not an average)
+-- unequal realized cluster sizes in the field will inflate the
+true design effect beyond this estimate.}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 
 The following fields depend on the design mode:
@@ -126,8 +129,15 @@ which depends on n. Substituting and solving gives the closed-form:
 \deqn{n = \frac{n_0 \cdot n_{sites} \cdot (1-ICC)}{n_{sites} - n_0 \cdot ICC}}
 
 where \eqn{n_0} is the SRS sample size. A solution exists only when
-\eqn{n_{sites} > n_0 \cdot ICC}; if not, the target MOE is unachievable.
-The function stops with the minimum achievable MOE for that site count.
+\eqn{n_{sites} > n_0 \cdot ICC}; if not, the target MOE is unachievable --
+adding more samples per site inflates Deff proportionally, so MOE floors
+at:
+
+\deqn{MOE_{min} = z_{1-\alpha/2}\sqrt{\frac{p_{app}(1-p_{app}) \cdot ICC}
+{n_{sites} \cdot (Se + Sp - 1)^2}}}
+
+The function stops and reports this minimum achievable MOE for that site
+count.
 
 When \code{n_per_site} is fixed instead, Deff is non-circular (cluster size is
 known directly) and the number of sites follows from

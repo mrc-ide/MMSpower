@@ -63,8 +63,15 @@
 #' \deqn{n = \frac{n_0 \cdot n_{sites} \cdot (1-ICC)}{n_{sites} - n_0 \cdot ICC}}
 #'
 #' where \eqn{n_0} is the SRS sample size. A solution exists only when
-#' \eqn{n_{sites} > n_0 \cdot ICC}; if not, the target MOE is unachievable.
-#' The function stops with the minimum achievable MOE for that site count.
+#' \eqn{n_{sites} > n_0 \cdot ICC}; if not, the target MOE is unachievable --
+#' adding more samples per site inflates Deff proportionally, so MOE floors
+#' at:
+#'
+#' \deqn{MOE_{min} = z_{1-\alpha/2}\sqrt{\frac{p_{app}(1-p_{app}) \cdot ICC}
+#' {n_{sites} \cdot (Se + Sp - 1)^2}}}
+#'
+#' The function stops and reports this minimum achievable MOE for that site
+#' count.
 #'
 #' When `n_per_site` is fixed instead, Deff is non-circular (cluster size is
 #' known directly) and the number of sites follows from
@@ -148,7 +155,10 @@
 #'     is rounded up (and, with an FPC, the FPC acts as a separate
 #'     variance factor), \code{n} is \strong{not} exactly
 #'     \code{n_eff * deff} -- treat \code{n} as the headline figure and
-#'     \code{deff} / \code{n_eff} as diagnostics.}
+#'     \code{deff} / \code{n_eff} as diagnostics. This assumes clusters
+#'     come out equal-sized (\code{n_per_site} exactly, not an average)
+#'     -- unequal realized cluster sizes in the field will inflate the
+#'     true design effect beyond this estimate.}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #'   The following fields depend on the design mode:
@@ -344,9 +354,9 @@ design_precision <- function(prevalence,
   n_base_cont <- z^2 * p_app * (1 - p_app) / (moe^2 * correction^2)
 
   # ---- design effect and total n ----
-  # icc effectively 0 covers every unclustered case: the earlier guard
-  # errored if icc > 0 without a cluster structure, so both-NULL implies
-  # icc_is_zero here.
+  # This branch handles n_sites and n_per_site both NULL. If icc > 0 with no
+  # cluster structure, the earlier guard would already have rejected it --
+  # so reaching here with both NULL guarantees icc_is_zero.
   if (icc_is_zero) {
     # SRS: no clustering adjustment needed
     deff   <- 1
@@ -381,9 +391,9 @@ design_precision <- function(prevalence,
     n_cont <- n_base_cont * n_sites * (1 - icc) / denom
     deff   <- n_cont / n_base_cont
 
-    # Sanity check: deff must be > 1 when icc > 0 and we have multiple sites.
-    # deff <= 1 means n_cont <= n_sites, i.e., average cluster size < 1 --
-    # a physically impossible design. This happens when n_sites >= n_base,
+    # deff must be > 1 when icc > 0 and we have multiple sites. deff <= 1
+    # means n_cont <= n_sites, i.e., average cluster size <= 1 -- a
+    # physically impossible design. This happens when n_sites >= n_base,
     # meaning you have more sites than you'd need people under SRS.
     if (deff <= 1) {
       stop("n_sites = ", n_sites, " is >= the SRS sample size (n_base ~= ",
