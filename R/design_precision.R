@@ -131,7 +131,7 @@
 #' does not exist yet -- it would need to be added, not just unlocked by
 #' relaxing this guard.
 #'
-#' @return A named list. The following fields are always present:
+#' @return A named list with the following fields, in the order returned:
 #'   \item{n}{Total sample size required (ceiling of the continuous solution)}
 #'   \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 #'     the number of independent observations needed to hit the same \code{moe}
@@ -142,6 +142,14 @@
 #'     not affect \code{n_eff}, so \code{n_eff} can then exceed \code{n}.}
 #'     Rounded up (\code{ceiling()}) to match \code{n}'s rounding, so the
 #'     unclustered-equality case holds exactly.}
+#'   \item{n_sites}{If `n_per_site` was supplied: clusters required
+#'     (\code{ceiling(n / n_per_site)}). If `n_sites` was supplied: echoed
+#'     back. \code{NULL} for SRS.}
+#'   \item{n_per_site}{If `n_sites` was supplied: target samples per cluster
+#'     (\code{ceiling(n / n_sites)}). If `n_per_site` was supplied: echoed
+#'     back. \code{NULL} for SRS. Note: this is the minimum whole-number
+#'     cluster size needed -- actual allocation may differ if your real cluster
+#'     sizes vary.}
 #'   \item{prevalence}{Expected true prevalence (as supplied).}
 #'   \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 #'     \code{prevalence}, \code{sensitivity}, and \code{specificity}}
@@ -161,16 +169,6 @@
 #'     -- unequal realized cluster sizes in the field will inflate the
 #'     true design effect beyond this estimate.}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
-#'
-#'   The following fields depend on the design mode:
-#'   \item{n_sites}{If `n_per_site` was supplied: clusters required
-#'     (\code{ceiling(n / n_per_site)}). If `n_sites` was supplied: echoed
-#'     back. \code{NULL} for SRS.}
-#'   \item{n_per_site}{If `n_sites` was supplied: target samples per cluster
-#'     (\code{ceiling(n / n_sites)}). If `n_per_site` was supplied: echoed
-#'     back. \code{NULL} for SRS. Note: this is the minimum whole-number
-#'     cluster size needed -- actual allocation may differ if your real cluster
-#'     sizes vary.}
 #'
 #' @references
 #' MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from

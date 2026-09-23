@@ -52,7 +52,7 @@ finite-population correction. Reduces the required \code{n} when the sample
 is a non-trivial fraction of the population. \code{NULL} (default) = no FPC.}
 }
 \value{
-A named list. The following fields are always present:
+A named list with the following fields, in the order returned:
 \item{n}{Total sample size required (ceiling of the continuous solution)}
 \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 the number of independent observations needed to hit the same \code{moe}
@@ -63,6 +63,14 @@ only for an unclustered design; \strong{FPC shrinks \code{n} but does
 not affect \code{n_eff}, so \code{n_eff} can then exceed \code{n}.}
 Rounded up (\code{ceiling()}) to match \code{n}'s rounding, so the
 unclustered-equality case holds exactly.}
+\item{n_sites}{If \code{n_per_site} was supplied: clusters required
+(\code{ceiling(n / n_per_site)}). If \code{n_sites} was supplied: echoed
+back. \code{NULL} for SRS.}
+\item{n_per_site}{If \code{n_sites} was supplied: target samples per cluster
+(\code{ceiling(n / n_sites)}). If \code{n_per_site} was supplied: echoed
+back. \code{NULL} for SRS. Note: this is the minimum whole-number
+cluster size needed -- actual allocation may differ if your real cluster
+sizes vary.}
 \item{prevalence}{Expected true prevalence (as supplied).}
 \item{apparent_prev}{Apparent (observed-test) prevalence implied by
 \code{prevalence}, \code{sensitivity}, and \code{specificity}}
@@ -82,16 +90,6 @@ come out equal-sized (\code{n_per_site} exactly, not an average)
 -- unequal realized cluster sizes in the field will inflate the
 true design effect beyond this estimate.}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
-
-The following fields depend on the design mode:
-\item{n_sites}{If \code{n_per_site} was supplied: clusters required
-(\code{ceiling(n / n_per_site)}). If \code{n_sites} was supplied: echoed
-back. \code{NULL} for SRS.}
-\item{n_per_site}{If \code{n_sites} was supplied: target samples per cluster
-(\code{ceiling(n / n_sites)}). If \code{n_per_site} was supplied: echoed
-back. \code{NULL} for SRS. Note: this is the minimum whole-number
-cluster size needed -- actual allocation may differ if your real cluster
-sizes vary.}
 }
 \description{
 Given a target precision (margin of error), returns the minimum total
