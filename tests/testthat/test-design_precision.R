@@ -106,7 +106,7 @@ test_that("DP-F-1: FPC reduces required n for a small population", {
   expect_equal(res_fpc$fpc_N, 500)
 })
 
-test_that("return list contains all expected fields", {
+test_that("DP-R-1: return list contains all expected fields", {
   res <- design_precision(0.2, 0.05)
   expect_named(res, c("n", "n_eff", "n_sites", "n_per_site", "prevalence",
                        "apparent_prev", "moe", "conf_level", "sensitivity",
@@ -371,15 +371,15 @@ test_that("DP-C-9: icc=0.999, n_per_site=2 -> deff~=2, n~=2*n_base", {
   expect_equal(res$n, ceiling(design_precision(0.3, 0.05)$n * 1.999), tolerance = 1)
 })
 
-test_that("DP-R5-5: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
+test_that("DP-V-29: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
   expect_error(design_precision(0.3, 0.5), "carries no information")
 })
 
-test_that("DP-R14-1: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
+test_that("DP-V-30: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
   expect_error(design_precision(0.3, 0.6), "carries no information")
 })
 
-test_that("DP-R5-6: prevalence vector is rejected with length error", {
+test_that("DP-V-31: prevalence vector is rejected with length error", {
   expect_error(design_precision(c(0.2, 0.3), 0.05), "`prevalence`")
 })
 
@@ -392,7 +392,7 @@ test_that("DP-C-10: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 
 # ---- Round 6: 15 new edge cases ----
 
-test_that("DP-R6-3: specificity=NA is rejected by is.finite check", {
+test_that("DP-V-32: specificity=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
 })
 
@@ -403,7 +403,7 @@ test_that("DP-C-11: large n_per_site with high icc -> very large n", {
   expect_gt(res$n, 900000)
 })
 
-test_that("DP-R6-6: icc as vector is rejected with length error", {
+test_that("DP-V-33: icc as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
     "`icc`"
@@ -435,11 +435,11 @@ test_that("DP-C-12: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
   )
 })
 
-test_that("DP-R6-12: conf_level=NA is rejected by is.finite check", {
+test_that("DP-V-34: conf_level=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, conf_level = NA), "`conf_level`")
 })
 
-test_that("DP-R6-13: n_per_site as vector is rejected with length error", {
+test_that("DP-V-35: n_per_site as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = c(5, 10), icc = 0.05),
     "single finite positive integer"
@@ -454,22 +454,22 @@ test_that("DP-11: prevalence=0.9999 (near-boundary) returns finite n", {
   expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
 })
 
-test_that("DP-R7-1: character prevalence/moe give a friendly class error", {
+test_that("DP-V-36: character prevalence/moe give a friendly class error", {
   expect_error(design_precision(prevalence = "0.3", moe = 0.05), "`prevalence`")
   expect_error(design_precision(prevalence = 0.3, moe = "0.05"), "`moe`")
 })
 
-test_that("DP-R7-2: logical params are rejected, not coerced", {
+test_that("DP-V-37: logical params are rejected, not coerced", {
   expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),  "`sensitivity`")
   expect_error(design_precision(0.3, 0.05, specificity = FALSE), "`specificity`")
   expect_error(design_precision(0.3, 0.05, icc = FALSE),         "`icc`")
 })
 
-test_that("DP-R7-3: list-valued conf_level gives a friendly class error", {
+test_that("DP-V-38: list-valued conf_level gives a friendly class error", {
   expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)), "`conf_level`")
 })
 
-test_that("DP-R7-4: n_eff is the SRS-equivalent size, not the post-FPC n / deff", {
+test_that("DP-R-2: n_eff is the SRS-equivalent size, not the post-FPC n / deff", {
   # SRS, no FPC: n_eff == n
   srs <- design_precision(0.3, 0.05)
   expect_equal(srs$n_eff, srs$n)
@@ -502,12 +502,12 @@ test_that("DP-C-13: reported deff is consistent with the returned n_per_site", {
   expect_lt(b$deff, a$deff)               # ... and hence the design effect
 })
 
-test_that("DP-R8-2: fpc_N must be a whole number", {
+test_that("DP-V-39: fpc_N must be a whole number", {
   expect_error(design_precision(0.3, 0.05, fpc_N = 500.5), "integer")
   expect_silent(design_precision(0.3, 0.05, fpc_N = 500))
 })
 
-test_that("DP-R8-3: `prevalence` is returned and documented", {
+test_that("DP-R-3: `prevalence` is returned and documented", {
   res <- design_precision(0.3, 0.05)
   expect_equal(res$prevalence, 0.3)
 })
@@ -517,7 +517,7 @@ test_that("DP-R8-3: `prevalence` is returned and documented", {
 # Round 9 -- final-review fixes (2026-09-03)
 # ---------------------------------------------------------------------------
 
-test_that("DP-R9-1: a cluster structure larger than the population is rejected", {
+test_that("DP-V-40: a cluster structure larger than the population is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
                "more clusters than individuals")
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
