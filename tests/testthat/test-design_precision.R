@@ -114,25 +114,25 @@ test_that("return list contains all expected fields", {
                ignore.order = FALSE)
 })
 
-test_that("DP-R14-2: prevalence=0 is rejected as degenerate, like prevalence=1", {
+test_that("DP-V-1: prevalence=0 is rejected as degenerate, like prevalence=1", {
   expect_error(design_precision(0, 0.05), "no uncertainty to estimate")
 })
 
-test_that("DP-R14-3: moe=0 is rejected (boundary of the positive-moe guard)", {
+test_that("DP-V-2: moe=0 is rejected (boundary of the positive-moe guard)", {
   expect_error(design_precision(0.3, 0), "infinite precision")
 })
 
-test_that("DP-R14-4: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
+test_that("DP-V-3: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.2, specificity = 0.2),
                "must exceed 1")
 })
 
-test_that("DP-R14-12: sensitivity + specificity = 1 exactly (correction = 0) is rejected", {
+test_that("DP-V-4: sensitivity + specificity = 1 exactly (correction = 0) is rejected", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.5, specificity = 0.5),
                "must exceed 1")
 })
 
-test_that("DP-R14-11: sensitivity + specificity close to 1 triggers a numerically-unstable warning", {
+test_that("DP-V-5: sensitivity + specificity close to 1 triggers a numerically-unstable warning", {
   # correction = 1 + 0.05 - 1 = 0.05, below the 0.1 warning threshold
   expect_warning(
     design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.05),
@@ -140,54 +140,54 @@ test_that("DP-R14-11: sensitivity + specificity close to 1 triggers a numericall
   )
 })
 
-test_that("DP-R14-5: icc > 0 without a cluster structure is rejected", {
+test_that("DP-V-6: icc > 0 without a cluster structure is rejected", {
   expect_error(design_precision(0.3, 0.05, icc = 0.05), "cluster structure")
 })
 
-test_that("DP-R14-6: supplying both n_sites and n_per_site is rejected", {
+test_that("DP-V-7: supplying both n_sites and n_per_site is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 50, n_per_site = 10, icc = 0.05),
                "at most one")
 })
 
-test_that("DP-R14-7: conf_level out of (0, 1) is rejected at both boundaries", {
+test_that("DP-V-8: conf_level out of (0, 1) is rejected at both boundaries", {
   expect_error(design_precision(0.3, 0.05, conf_level = 0), "`conf_level`")
   expect_error(design_precision(0.3, 0.05, conf_level = 1), "`conf_level`")
 })
 
-test_that("DP-R14-8: fpc_N must be positive", {
+test_that("DP-V-9: fpc_N must be positive", {
   expect_error(design_precision(0.3, 0.05, fpc_N =  0), "`fpc_N`")
   expect_error(design_precision(0.3, 0.05, fpc_N = -50), "`fpc_N`")
 })
 
-test_that("DP-R14-9: n_per_site must be a positive whole number", {
+test_that("DP-V-10: n_per_site must be a positive whole number", {
   expect_error(design_precision(0.3, 0.05, n_per_site = 0,    icc = 0.05), "`n_per_site`")
   expect_error(design_precision(0.3, 0.05, n_per_site = 10.7, icc = 0.05), "`n_per_site`")
 })
 
-test_that("DP-R14-10: n_sites must be a positive whole number", {
+test_that("DP-V-11: n_sites must be a positive whole number", {
   expect_error(design_precision(0.3, 0.05, n_sites = 0,    icc = 0.05), "`n_sites`")
   expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05), "`n_sites`")
 })
 
-test_that("DP-R6-1: moe=-0.05 is rejected (must be > 0)", {
+test_that("DP-V-12: moe=-0.05 is rejected (must be > 0)", {
   expect_error(design_precision(0.3, -0.05), "infinite precision")
 })
 
-test_that("DP-R6-8: prevalence=-0.01 is rejected as an invalid probability", {
+test_that("DP-V-13: prevalence=-0.01 is rejected as an invalid probability", {
   # negative is a distinct failure mode from the degenerate 0/1 boundary --
   # pin the "negative" wording so the two branches can't silently swap.
   expect_error(design_precision(-0.01, 0.05), "cannot be.*negative")
 })
 
-test_that("DP-R10-1: prevalence=1 is rejected as degenerate (zero variance), not out-of-range", {
+test_that("DP-V-14: prevalence=1 is rejected as degenerate (zero variance), not out-of-range", {
   expect_error(design_precision(1, 0.05), "no uncertainty to estimate")
 })
 
-test_that("DP-R10-3: prevalence=1.5 is rejected as an invalid probability (> 1)", {
+test_that("DP-V-15: prevalence=1.5 is rejected as an invalid probability (> 1)", {
   expect_error(design_precision(1.5, 0.05), "cannot be.*greater than 1")
 })
 
-test_that("DP-R10-2: specificity's own domain guard is enforced, not just via se+sp", {
+test_that("DP-V-16: specificity's own domain guard is enforced, not just via se+sp", {
   # se+sp=0.2+0.2=0.4 is caught by the combined "must exceed 1" check instead --
   # these pin specificity's own (0, 1] guard directly, and that each branch's
   # explanation actually matches the input that triggered it.
@@ -302,58 +302,58 @@ test_that("DP-8: very low prevalence (p=0.001) returns valid n and apparent_prev
 
 # ---- Round 5: 7 new edge cases ----
 
-test_that("DP-R5-1: sensitivity=0 is rejected (boundary, not in (0,1])", {
+test_that("DP-V-19: sensitivity=0 is rejected (boundary, not in (0,1])", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 0), "tests negative")
 })
 
-test_that("DP-R6-2: sensitivity=1.001 is rejected (must be <= 1)", {
+test_that("DP-V-20: sensitivity=1.001 is rejected (must be <= 1)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "cannot be.*greater than 1")
 })
 
-test_that("DP-R11-1: sensitivity=-0.5 is rejected (negative, invalid probability)", {
+test_that("DP-V-21: sensitivity=-0.5 is rejected (negative, invalid probability)", {
   expect_error(design_precision(0.3, 0.05, sensitivity = -0.5), "cannot be.*negative")
 })
 
-test_that("DP-R5-2: n_sites as vector gives informative length error", {
+test_that("DP-V-22: n_sites as vector gives informative length error", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = c(10, 20), icc = 0.05),
     "single finite positive integer"
   )
 })
 
-test_that("DP-R11-2: n_sites as a string names the class, not the length", {
+test_that("DP-V-23: n_sites as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = "50", icc = 0.05),
     "class `character`"
   )
 })
 
-test_that("DP-R11-3: n_per_site as a string names the class, not the length", {
+test_that("DP-V-24: n_per_site as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = "10", icc = 0.05),
     "class `character`"
   )
 })
 
-test_that("DP-R11-4: fpc_N as a string names the class, not the length", {
+test_that("DP-V-25: fpc_N as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, fpc_N = "500"),
     "class `character`"
   )
 })
 
-test_that("DP-R12-3: fpc_N as vector is rejected with length error", {
+test_that("DP-V-26: fpc_N as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, fpc_N = c(500, 600)),
     "single finite positive integer"
   )
 })
 
-test_that("DP-R12-1: icc=-0.1 is rejected (negative, invalid correlation)", {
+test_that("DP-V-27: icc=-0.1 is rejected (negative, invalid correlation)", {
   expect_error(design_precision(0.3, 0.05, icc = -0.1), "cannot be.*negative")
 })
 
-test_that("DP-R12-2: icc=1.5 is rejected (must be <= 1)", {
+test_that("DP-V-28: icc=1.5 is rejected (must be <= 1)", {
   expect_error(design_precision(0.3, 0.05, icc = 1.5), "cannot be.*greater than 1")
 })
 
