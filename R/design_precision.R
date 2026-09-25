@@ -256,11 +256,12 @@ design_precision <- function(prevalence,
     stop("`prevalence` must be in (0, 1) (got ", prevalence, "). ",
          "When the prevalence is 0 or 1, there is no uncertainty to estimate ",
          "and no meaningful sample size. Use a value from a pilot study, ",
-         "historical data, or conservative guess.")
+         "historical data, or a conservative guess.")
   if (moe <= 0)
     stop("`moe` must be a positive target margin of error (got ", moe, "). ",
-         "`moe` is the target half-width of the confidence interval; a value ",
-         "of 0 or less would demand infinite precision to achieve.")
+         "`moe` is the target half-width of the confidence interval; ",
+         if (moe == 0) "a margin of error of 0 would demand infinite precision."
+         else "it is a width and cannot be negative.")
   if (moe >= 0.5)
     stop("`moe` must be less than 0.5 (got ", moe, "). ",
          "A margin of error of 0.5 or more spans (or exceeds) the entire ",
@@ -287,14 +288,13 @@ design_precision <- function(prevalence,
   if (correction <= 0)
     stop("`sensitivity` + `specificity` must exceed 1 for the Rogan-Gladen correction ",
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
-         "A test with `sensitivity` + `specificity` of 1 or less performs no better ",
-         "than random guessing, so its results cannot be corrected into a ",
-         "reliable prevalence estimate.")
+         "The correction divides by `sensitivity` + `specificity` - 1, so a sum ",
+         "of 1 or less cannot be corrected.")
   if (correction < 0.1)
     warning("`sensitivity` + `specificity` = ", round(sensitivity + specificity, 4),
-            " is only ", round(correction, 4), " above the required minimum of 1. ",
-            "The Rogan-Gladen adjustment is numerically unstable here -- ",
-            "required n will be extremely large and results unreliable.")
+            ", which is very close to 1. Correcting for this much test error ",
+            "makes the required n very large, and small changes in the assumed ",
+            "sensitivity or specificity will change n a lot.")
   if (icc < 0 || icc > 1)
     stop("`icc` must be in [0, 1] (got ", icc, "). ",
          "`icc` is a correlation and cannot be ",
@@ -346,7 +346,9 @@ design_precision <- function(prevalence,
   # is still treated as SRS rather than forcing the clustered code path.
   icc_is_zero <- icc < sqrt(.Machine$double.eps)
   if (!icc_is_zero && is.null(n_sites) && is.null(n_per_site))
-    stop("icc > 0 requires a cluster structure to compute the design effect. ",
+    stop("`icc` is greater than 0 but there is no cluster structure (neither ",
+         "`n_sites` nor `n_per_site` was supplied), so the design effect cannot ",
+         "be computed. ",
          "Supply `n_sites` (fix the number of clusters) or `n_per_site` (fix the ",
          "cluster size), or set `icc = 0` for an unclustered (SRS) design."
     )

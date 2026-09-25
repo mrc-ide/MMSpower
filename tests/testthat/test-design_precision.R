@@ -126,89 +126,150 @@ test_that("DP-R-1: return list contains all expected fields", {
                ignore.order = FALSE)
 })
 
-test_that("DP-V-1: prevalence=0 is rejected as degenerate, like prevalence=1", {
+test_that("DP-V-1: prevalence = 0 and prevalence = 1 are rejected as degenerate", {
+  # Both are valid probabilities, but there is nothing uncertain to estimate.
   expect_error(design_precision(0, 0.05), "no uncertainty to estimate")
+  expect_error(design_precision(1, 0.05), "no uncertainty to estimate")
 })
 
-test_that("DP-V-2: moe=0 is rejected (boundary of the positive-moe guard)", {
-  expect_error(design_precision(0.3, 0), "infinite precision")
+test_that("DP-V-2: prevalence below 0 or above 1 is rejected as an invalid probability", {
+  # prevalence has two different error messages: one for 0 or 1 (DP-V-1:
+  # a valid probability, but nothing to estimate) and one for values
+  # outside 0-1 (not a probability at all). These should get the second.
+  expect_error(design_precision(-0.01, 0.05),
+               "`prevalence` is a fraction of the population and cannot be negative",
+               fixed = TRUE)
+  expect_error(design_precision(1.5, 0.05),
+               "`prevalence` is a fraction of the population and cannot be greater than 1",
+               fixed = TRUE)
 })
 
-test_that("DP-V-3: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
+test_that("DP-V-3: moe must be > 0 -- 0 and negative are rejected, a small positive value works", {
+  # 0 and negative get different explanations in the message.
+  expect_error(design_precision(0.3, 0),
+               "a margin of error of 0 would demand infinite precision", fixed = TRUE)
+  expect_error(design_precision(0.3, -0.05),
+               "it is a width and cannot be negative", fixed = TRUE)
+  # Just above the boundary is accepted and gives the hand-checked n:
+  # n = ceiling(1.959964^2 * 0.3 * 0.7 / 0.001^2) = 806707
+  expect_equal(design_precision(0.3, 0.001)$n, 806707)
+})
+
+test_that("DP-V-4: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
+  # The correction divides by (sensitivity + specificity - 1), so that
+  # value must be above 0.
+  # Sum below 1 (0.2 + 0.2 = 0.4): it would divide by a negative number.
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.2, specificity = 0.2),
                "must exceed 1")
-})
-
-test_that("DP-V-4: sensitivity + specificity = 1 exactly (correction = 0) is rejected", {
+  # Sum exactly 1 (0.5 + 0.5): it would divide by 0.
   expect_error(design_precision(0.3, 0.05, sensitivity = 0.5, specificity = 0.5),
                "must exceed 1")
 })
 
-test_that("DP-V-5: sensitivity + specificity close to 1 triggers a numerically-unstable warning", {
-  # correction = 1 + 0.05 - 1 = 0.05, below the 0.1 warning threshold
+test_that("DP-V-5: sensitivity + specificity above 1 but below 1.1 warns, 1.1 and above does not", {
+  # Sums between 1 and 1.1 are allowed (no error), but n gets very large
+  # (20,760 at 1.05 vs 323 for a perfect test), so the function warns.
   expect_warning(
-    design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.05),
-    "numerically unstable"
+    design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.05),   # 1.05
+    "which is very close to 1", fixed = TRUE
   )
+  # Either side of the 1.1 cutoff:
+  expect_warning(
+    design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.09),   # 1.09
+    "which is very close to 1", fixed = TRUE
+  )
+  expect_no_warning(design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.10))  # 1.10
+  expect_no_warning(design_precision(0.3, 0.05, sensitivity = 1, specificity = 0.11))  # 1.11
 })
 
-test_that("DP-V-6: icc > 0 without a cluster structure is rejected", {
-  expect_error(design_precision(0.3, 0.05, icc = 0.05), "cluster structure")
+test_that("DP-V-6: icc > 0 with no cluster structure (no n_sites or n_per_site) is rejected", {
+  expect_error(design_precision(0.3, 0.05, icc = 0.05),
+               "there is no cluster structure", fixed = TRUE)
+  # The reverse is allowed: n_sites or n_per_site without icc uses the
+  # default icc = 0 (no clustering effect), so n is the SRS n of 323.
+  expect_equal(design_precision(0.3, 0.05, n_sites = 50)$n,    323)
+  expect_equal(design_precision(0.3, 0.05, n_per_site = 10)$n, 323)
 })
 
 test_that("DP-V-7: supplying both n_sites and n_per_site is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 50, n_per_site = 10, icc = 0.05),
-               "at most one")
+               "Supply at most one of `n_sites` or `n_per_site`, not both", fixed = TRUE)
 })
 
-test_that("DP-V-8: conf_level out of (0, 1) is rejected at both boundaries", {
-  expect_error(design_precision(0.3, 0.05, conf_level = 0), "`conf_level`")
-  expect_error(design_precision(0.3, 0.05, conf_level = 1), "`conf_level`")
+test_that("DP-V-8: conf_level must be in (0, 1) -- boundaries and outside values rejected, inside works", {
+  for (cl in c(0, 1, -0.05, 1.05)) {
+    expect_error(design_precision(0.3, 0.05, conf_level = cl),
+                 "`conf_level` must be in (0, 1)", fixed = TRUE)
+  }
+  # A valid value inside the range gives the hand-checked n:
+  # n = ceiling(qnorm(0.95)^2 * 0.3 * 0.7 / 0.05^2) = ceiling(227.27) = 228
+  expect_equal(design_precision(0.3, 0.05, conf_level = 0.90)$n, 228)
 })
 
-test_that("DP-V-9: fpc_N must be positive", {
-  expect_error(design_precision(0.3, 0.05, fpc_N =  0), "`fpc_N`")
-  expect_error(design_precision(0.3, 0.05, fpc_N = -50), "`fpc_N`")
+test_that("DP-V-9: fpc_N must be a positive whole number", {
+  expect_error(design_precision(0.3, 0.05, fpc_N =  0),
+               "`fpc_N` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, fpc_N = -50),
+               "`fpc_N` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, fpc_N = 500.5),
+               "`fpc_N` must be a single finite positive integer", fixed = TRUE)
+  # A valid value gives the hand-checked n (see DP-F-1 in the header): 197
+  expect_equal(design_precision(0.3, 0.05, fpc_N = 500)$n, 197)
 })
 
 test_that("DP-V-10: n_per_site must be a positive whole number", {
-  expect_error(design_precision(0.3, 0.05, n_per_site = 0,    icc = 0.05), "`n_per_site`")
-  expect_error(design_precision(0.3, 0.05, n_per_site = 10.7, icc = 0.05), "`n_per_site`")
+  expect_error(design_precision(0.3, 0.05, n_per_site = 0,    icc = 0.05),
+               "`n_per_site` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, n_per_site = -5,   icc = 0.05),
+               "`n_per_site` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, n_per_site = 10.7, icc = 0.05),
+               "`n_per_site` must be a single finite positive integer", fixed = TRUE)
+  # A valid value gives the hand-checked n (see DP-C-1 in the header): 468
+  expect_equal(design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05)$n, 468)
 })
 
 test_that("DP-V-11: n_sites must be a positive whole number", {
-  expect_error(design_precision(0.3, 0.05, n_sites = 0,    icc = 0.05), "`n_sites`")
-  expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05), "`n_sites`")
+  expect_error(design_precision(0.3, 0.05, n_sites = 0,    icc = 0.05),
+               "`n_sites` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, n_sites = -5,   icc = 0.05),
+               "`n_sites` must be a single finite positive integer", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, n_sites = 50.5, icc = 0.05),
+               "`n_sites` must be a single finite positive integer", fixed = TRUE)
+  # A valid value gives the hand-checked n (see DP-C-2 in the header): 453
+  expect_equal(design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)$n, 453)
 })
 
-test_that("DP-V-12: moe=-0.05 is rejected (must be > 0)", {
-  expect_error(design_precision(0.3, -0.05), "infinite precision")
+test_that("DP-V-12: specificity's own range check (0, 1] gives the right message for each bad value", {
+  # These can't use DP-V-4's values (0.2 + 0.2): each of those is fine on
+  # its own, so they are stopped by the combined "must exceed 1" check
+  # instead of by specificity's own check.
+  # specificity = 0 with the default sensitivity = 1 is the "1 + 0 = 1"
+  # case: it is stopped here, by specificity's own check, before the
+  # combined check runs. The mirror case (sensitivity = 0, specificity = 1)
+  # is in DP-V-13.
+  expect_error(design_precision(0.3, 0.05, specificity = 0),
+               "A specificity of 0 means", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, specificity = 1.001),
+               "`specificity` is a diagnostic probability and cannot be greater than 1",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, specificity = -0.5),
+               "`specificity` is a diagnostic probability and cannot be negative",
+               fixed = TRUE)
 })
 
-test_that("DP-V-13: prevalence=-0.01 is rejected as an invalid probability", {
-  # negative is a distinct failure mode from the degenerate 0/1 boundary --
-  # pin the "negative" wording so the two branches can't silently swap.
-  expect_error(design_precision(-0.01, 0.05), "cannot be.*negative")
+test_that("DP-V-13: sensitivity's own range check (0, 1] gives the right message for each bad value", {
+  # Mirror of the specificity test above. sensitivity = 0 with the default
+  # specificity = 1 is the "0 + 1 = 1" case: it is stopped here, by
+  # sensitivity's own check, before the combined check runs.
+  expect_error(design_precision(0.3, 0.05, sensitivity = 0),
+               "A sensitivity of 0 means", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001),
+               "`sensitivity` is a diagnostic probability and cannot be greater than 1",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, sensitivity = -0.5),
+               "`sensitivity` is a diagnostic probability and cannot be negative",
+               fixed = TRUE)
 })
-
-test_that("DP-V-14: prevalence=1 is rejected as degenerate (zero variance), not out-of-range", {
-  expect_error(design_precision(1, 0.05), "no uncertainty to estimate")
-})
-
-test_that("DP-V-15: prevalence=1.5 is rejected as an invalid probability (> 1)", {
-  expect_error(design_precision(1.5, 0.05), "cannot be.*greater than 1")
-})
-
-test_that("DP-V-16: specificity's own domain guard is enforced, not just via se+sp", {
-  # se+sp=0.2+0.2=0.4 is caught by the combined "must exceed 1" check instead --
-  # these pin specificity's own (0, 1] guard directly, and that each branch's
-  # explanation actually matches the input that triggered it.
-  expect_error(design_precision(0.3, 0.05, specificity = 0),     "tests positive")
-  expect_error(design_precision(0.3, 0.05, specificity = 1.001), "cannot be.*greater than 1")
-  expect_error(design_precision(0.3, 0.05, specificity = -0.5),  "cannot be.*negative")
-})
-
-# ---- Round 4: 15 new edge cases ----
 
 test_that("DP-3: prevalence=0.5 (max variance) gives largest n", {
   # n = ceiling(1.96^2 * 0.25 / 0.05^2) = ceiling(384.16) = 385
@@ -257,11 +318,11 @@ test_that("DP-6: near-perfect se=sp=0.999 barely inflates n above perfect test",
   expect_lt(r_near$n, r_perfect$n + 5)  # inflation should be tiny
 })
 
-test_that("DP-V-17: moe=NA -> informative finite-value error", {
+test_that("DP-V-14: moe=NA -> informative finite-value error", {
   expect_error(design_precision(0.3, NA), "`moe`")
 })
 
-test_that("DP-V-18: prevalence=Inf -> informative finite-value error", {
+test_that("DP-V-15: prevalence=Inf -> informative finite-value error", {
   expect_error(design_precision(Inf, 0.05), "`prevalence`")
 })
 
@@ -315,58 +376,46 @@ test_that("DP-8: very low prevalence (p=0.001) returns valid n and apparent_prev
 
 # ---- Round 5: 7 new edge cases ----
 
-test_that("DP-V-19: sensitivity=0 is rejected (boundary, not in (0,1])", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = 0), "tests negative")
-})
-
-test_that("DP-V-20: sensitivity=1.001 is rejected (must be <= 1)", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = 1.001), "cannot be.*greater than 1")
-})
-
-test_that("DP-V-21: sensitivity=-0.5 is rejected (negative, invalid probability)", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = -0.5), "cannot be.*negative")
-})
-
-test_that("DP-V-22: n_sites as vector gives informative length error", {
+test_that("DP-V-16: n_sites as vector gives informative length error", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = c(10, 20), icc = 0.05),
     "single finite positive integer"
   )
 })
 
-test_that("DP-V-23: n_sites as a string names the class, not the length", {
+test_that("DP-V-17: n_sites as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, n_sites = "50", icc = 0.05),
     "class `character`"
   )
 })
 
-test_that("DP-V-24: n_per_site as a string names the class, not the length", {
+test_that("DP-V-18: n_per_site as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = "10", icc = 0.05),
     "class `character`"
   )
 })
 
-test_that("DP-V-25: fpc_N as a string names the class, not the length", {
+test_that("DP-V-19: fpc_N as a string names the class, not the length", {
   expect_error(
     design_precision(0.3, 0.05, fpc_N = "500"),
     "class `character`"
   )
 })
 
-test_that("DP-V-26: fpc_N as vector is rejected with length error", {
+test_that("DP-V-20: fpc_N as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, fpc_N = c(500, 600)),
     "single finite positive integer"
   )
 })
 
-test_that("DP-V-27: icc=-0.1 is rejected (negative, invalid correlation)", {
+test_that("DP-V-21: icc=-0.1 is rejected (negative, invalid correlation)", {
   expect_error(design_precision(0.3, 0.05, icc = -0.1), "cannot be.*negative")
 })
 
-test_that("DP-V-28: icc=1.5 is rejected (must be <= 1)", {
+test_that("DP-V-22: icc=1.5 is rejected (must be <= 1)", {
   expect_error(design_precision(0.3, 0.05, icc = 1.5), "cannot be.*greater than 1")
 })
 
@@ -384,15 +433,15 @@ test_that("DP-C-9: icc=0.999, n_per_site=2 -> deff~=2, n~=2*n_base", {
   expect_equal(res$n, ceiling(design_precision(0.3, 0.05)$n * 1.999), tolerance = 1)
 })
 
-test_that("DP-V-29: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
+test_that("DP-V-23: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
   expect_error(design_precision(0.3, 0.5), "carries no information")
 })
 
-test_that("DP-V-30: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
+test_that("DP-V-24: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
   expect_error(design_precision(0.3, 0.6), "carries no information")
 })
 
-test_that("DP-V-31: prevalence vector is rejected with length error", {
+test_that("DP-V-25: prevalence vector is rejected with length error", {
   expect_error(design_precision(c(0.2, 0.3), 0.05), "`prevalence`")
 })
 
@@ -405,7 +454,7 @@ test_that("DP-C-10: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 
 # ---- Round 6: 15 new edge cases ----
 
-test_that("DP-V-32: specificity=NA is rejected by is.finite check", {
+test_that("DP-V-26: specificity=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
 })
 
@@ -416,7 +465,7 @@ test_that("DP-C-11: large n_per_site with high icc -> very large n", {
   expect_gt(res$n, 900000)
 })
 
-test_that("DP-V-33: icc as vector is rejected with length error", {
+test_that("DP-V-27: icc as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
     "`icc`"
@@ -448,11 +497,11 @@ test_that("DP-C-12: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
   )
 })
 
-test_that("DP-V-34: conf_level=NA is rejected by is.finite check", {
+test_that("DP-V-28: conf_level=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, conf_level = NA), "`conf_level`")
 })
 
-test_that("DP-V-35: n_per_site as vector is rejected with length error", {
+test_that("DP-V-29: n_per_site as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = c(5, 10), icc = 0.05),
     "single finite positive integer"
@@ -467,18 +516,18 @@ test_that("DP-11: prevalence=0.9999 (near-boundary) returns finite n", {
   expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
 })
 
-test_that("DP-V-36: character prevalence/moe give a friendly class error", {
+test_that("DP-V-30: character prevalence/moe give a friendly class error", {
   expect_error(design_precision(prevalence = "0.3", moe = 0.05), "`prevalence`")
   expect_error(design_precision(prevalence = 0.3, moe = "0.05"), "`moe`")
 })
 
-test_that("DP-V-37: logical params are rejected, not coerced", {
+test_that("DP-V-31: logical params are rejected, not coerced", {
   expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),  "`sensitivity`")
   expect_error(design_precision(0.3, 0.05, specificity = FALSE), "`specificity`")
   expect_error(design_precision(0.3, 0.05, icc = FALSE),         "`icc`")
 })
 
-test_that("DP-V-38: list-valued conf_level gives a friendly class error", {
+test_that("DP-V-32: list-valued conf_level gives a friendly class error", {
   expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)), "`conf_level`")
 })
 
@@ -515,7 +564,7 @@ test_that("DP-C-13: reported deff is consistent with the returned n_per_site", {
   expect_lt(b$deff, a$deff)               # ... and hence the design effect
 })
 
-test_that("DP-V-39: fpc_N must be a whole number", {
+test_that("DP-V-33: fpc_N must be a whole number", {
   expect_error(design_precision(0.3, 0.05, fpc_N = 500.5), "integer")
   expect_silent(design_precision(0.3, 0.05, fpc_N = 500))
 })
@@ -530,7 +579,7 @@ test_that("DP-R-3: `prevalence` is returned and documented", {
 # Round 9 -- final-review fixes (2026-09-03)
 # ---------------------------------------------------------------------------
 
-test_that("DP-V-40: a cluster structure larger than the population is rejected", {
+test_that("DP-V-34: a cluster structure larger than the population is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
                "more clusters than individuals")
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
