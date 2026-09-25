@@ -87,14 +87,14 @@ test_that("DP-C-4: the reported minimum achievable MOE matches the min_moe formu
   min_moe <- z * sqrt(0.3 * 0.7 * 0.05 / (10 * 1^2))
   expect_error(
     design_precision(0.3, 0.05, n_sites = 10, icc = 0.05),
-    sprintf("%.1f%%", 100 * min_moe)
+    sprintf("%.1f%%", 100 * min_moe),
+    fixed = TRUE
   )
 })
 
-# FPC values below sit at the two extremes of the sampling fraction
-# f = n/N (Cochran 1977's standard threshold: f > ~5-10% is where FPC
-# starts to matter). fpc_N=500 -> f ~= 65% (matters); fpc_N=1e8 ->
-# f ~= 0.0003% (negligible).
+# FPC matters once the sampling fraction f = n/N is large (Cochran 1977's
+# standard threshold: f > ~5-10%). fpc_N=500 here gives f = 197/500 ~= 39%
+# of the population sampled, well into the range where FPC matters.
 test_that("DP-F-1: FPC reduces required n for a small population", {
   res_fpc  <- design_precision(0.3, 0.05, fpc_N = 500)
   res_nofpc <- design_precision(0.3, 0.05)
@@ -232,6 +232,7 @@ test_that("DP-C-5: n_per_site=1 with icc>0 -> deff=1 (no clustering when cluster
 test_that("DP-F-2: very large fpc_N has negligible effect on n", {
   r_fpc <- design_precision(0.3, 0.05, fpc_N = 1e8)
   r_srs <- design_precision(0.3, 0.05)
+  # f = 323/1e8 ~= 0.0003% of the population sampled -> FPC negligible
   # FPC factor ~= 1 - n/(2N) -> barely changes n
   expect_equal(r_fpc$n, r_srs$n)
 })
