@@ -132,7 +132,11 @@
 #' relaxing this guard.
 #'
 #' @return A named list with the following fields, in the order returned:
-#'   \item{n}{Total sample size required (ceiling of the continuous solution)}
+#'   \item{n}{Total sample size required (ceiling of the continuous solution).
+#'     With clusters, the total actually collected is
+#'     \code{n_sites * n_per_site}, which can be slightly higher than
+#'     \code{n} because the per-site size is rounded up; budget for that
+#'     figure.}
 #'   \item{n_eff}{SRS-equivalent independent sample size the design achieves:
 #'     the number of independent observations needed to hit the same \code{moe}
 #'     (equal to the base SRS sample size before the design effect and FPC).

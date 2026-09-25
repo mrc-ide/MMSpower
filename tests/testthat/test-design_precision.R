@@ -233,7 +233,7 @@ test_that("DP-F-2: very large fpc_N has negligible effect on n", {
   r_fpc <- design_precision(0.3, 0.05, fpc_N = 1e8)
   r_srs <- design_precision(0.3, 0.05)
   # f = 323/1e8 ~= 0.0003% of the population sampled -> FPC negligible
-  # FPC factor ~= 1 - n/(2N) -> barely changes n
+  # FPC factor = N/(n + N - 1) ~= 1 - n/N ~= 0.999997 -> barely changes n
   expect_equal(r_fpc$n, r_srs$n)
 })
 
