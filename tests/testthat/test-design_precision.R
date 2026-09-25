@@ -79,14 +79,26 @@ test_that("DP-C-3: infeasible n_sites produces informative error", {
 })
 
 test_that("DP-C-4: the reported minimum achievable MOE matches the min_moe formula", {
-  # Computed independently here via the same formula the code uses, rather
-  # than a hand-typed percentage, so this catches a real regression in the
-  # formula itself (wrong variable, wrong exponent) instead of just
-  # confirming the word "unachievable" appears.
-  z       <- qnorm(0.975)
+  # DP-C-3 only checks that the error fires. This checks the minimum-MOE
+  # number the message reports, for both a perfect and an imperfect test.
+  # With a perfect test p_app = p and correction = 1, so a mistake in
+  # either term would not change the number; the imperfect case covers that.
+  z <- qnorm(0.975)
+
+  # Perfect test: p_app = 0.3, correction = 1 -> 6.4%
   min_moe <- z * sqrt(0.3 * 0.7 * 0.05 / (10 * 1^2))
   expect_error(
     design_precision(0.3, 0.05, n_sites = 10, icc = 0.05),
+    sprintf("%.1f%%", 100 * min_moe),
+    fixed = TRUE
+  )
+
+  # Imperfect test: p_app = 0.305, correction = 0.85 -> 7.5%
+  p_app   <- 0.3 * 0.9 + 0.7 * 0.05
+  min_moe <- z * sqrt(p_app * (1 - p_app) * 0.05 / (10 * 0.85^2))
+  expect_error(
+    design_precision(0.3, 0.05, sensitivity = 0.9, specificity = 0.95,
+                     n_sites = 10, icc = 0.05),
     sprintf("%.1f%%", 100 * min_moe),
     fixed = TRUE
   )
