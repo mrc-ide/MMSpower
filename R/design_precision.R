@@ -376,7 +376,7 @@ design_precision <- function(prevalence,
     # A solution exists only when n_sites > n_base * icc. If not, adding
     # more samples per site increases Deff proportionally, so MOE never
     # reaches the target -- it floors at:
-    #   MOE_min = z * sqrt(p_app*(1-p_app)*icc / (n_sites * correction^2))
+    #   min_moe = z * sqrt(p_app*(1-p_app)*icc / (n_sites * correction^2))
     denom <- n_sites - n_base_cont * icc
     if (denom <= 0) {
       min_moe <- z * sqrt(p_app * (1 - p_app) * icc /

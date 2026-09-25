@@ -78,7 +78,7 @@ test_that("DP-C-3: infeasible n_sites produces informative error", {
   )
 })
 
-test_that("DP-C-4: the reported minimum achievable MOE matches the MOE_min formula", {
+test_that("DP-C-4: the reported minimum achievable MOE matches the min_moe formula", {
   # Computed independently here via the same formula the code uses, rather
   # than a hand-typed percentage, so this catches a real regression in the
   # formula itself (wrong variable, wrong exponent) instead of just
