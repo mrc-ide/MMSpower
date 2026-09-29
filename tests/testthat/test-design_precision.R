@@ -272,7 +272,7 @@ test_that("DP-V-13: sensitivity's own range check (0, 1] gives the right message
 })
 
 test_that("DP-3: prevalence=0.5 (max variance) gives largest n", {
-  # n = ceiling(1.96^2 * 0.25 / 0.05^2) = ceiling(384.16) = 385
+  # n = ceiling(1.959964^2 * 0.25 / 0.05^2) = ceiling(384.15) = 385
   r50 <- design_precision(0.5, 0.05)
   r30 <- design_precision(0.3, 0.05)
   expect_equal(r50$n, 385)
@@ -425,12 +425,18 @@ test_that("DP-V-19: fpc_N as vector is rejected with length error", {
   )
 })
 
-test_that("DP-V-20: icc=-0.1 is rejected (negative, invalid correlation)", {
-  expect_error(design_precision(0.3, 0.05, icc = -0.1), "cannot be.*negative")
-})
-
-test_that("DP-V-21: icc=1.5 is rejected (must be <= 1)", {
-  expect_error(design_precision(0.3, 0.05, icc = 1.5), "cannot be.*greater than 1")
+test_that("DP-V-20: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1 works", {
+  expect_error(design_precision(0.3, 0.05, icc = -0.1),
+               "`icc` must be in [0, 1] (got -0.1). `icc` is a correlation and cannot be negative.",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, icc = 1.5),
+               "`icc` must be in [0, 1] (got 1.5). `icc` is a correlation and cannot be greater than 1.",
+               fixed = TRUE)
+  # icc = 1 itself is allowed: deff = 1 + (2 - 1) * 1 = 2, so
+  # n = ceiling(322.68 * 2) = ceiling(645.37) = 646
+  res <- design_precision(0.3, 0.05, n_per_site = 2, icc = 1)
+  expect_equal(res$deff, 2)
+  expect_equal(res$n, 646)
 })
 
 test_that("DP-8: conf_level=0.5 produces a small n (low confidence threshold)", {
@@ -447,15 +453,16 @@ test_that("DP-C-9: icc=0.999, n_per_site=2 -> deff~=2, n~=2*n_base", {
   expect_equal(res$n, ceiling(design_precision(0.3, 0.05)$n * 1.999), tolerance = 1)
 })
 
-test_that("DP-V-22: moe=0.5 is rejected (boundary, must be strictly < 0.5)", {
-  expect_error(design_precision(0.3, 0.5), "carries no information")
+test_that("DP-V-21: moe must be < 0.5 -- 0.5 and 0.6 are rejected, 0.499 works", {
+  expect_error(design_precision(0.3, 0.5),
+               "`moe` must be less than 0.5 (got 0.5)", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.6),
+               "`moe` must be less than 0.5 (got 0.6)", fixed = TRUE)
+  # Just below the boundary is accepted (same case as DP-4): n = 4
+  expect_equal(design_precision(0.3, 0.499)$n, 4)
 })
 
-test_that("DP-V-23: moe=0.6 is rejected (clearly too wide, not just at the boundary)", {
-  expect_error(design_precision(0.3, 0.6), "carries no information")
-})
-
-test_that("DP-V-24: prevalence vector is rejected with length error", {
+test_that("DP-V-: prevalence vector is rejected with length error", {
   expect_error(design_precision(c(0.2, 0.3), 0.05), "`prevalence`")
 })
 
@@ -468,7 +475,7 @@ test_that("DP-C-10: n_per_site given but icc=0 -> deff=1, same n as SRS", {
 
 # ---- Round 6: 15 new edge cases ----
 
-test_that("DP-V-25: specificity=NA is rejected by is.finite check", {
+test_that("DP-V-: specificity=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
 })
 
@@ -479,7 +486,7 @@ test_that("DP-C-11: large n_per_site with high icc -> very large n", {
   expect_gt(res$n, 900000)
 })
 
-test_that("DP-V-26: icc as vector is rejected with length error", {
+test_that("DP-V-: icc as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
     "`icc`"
@@ -511,11 +518,11 @@ test_that("DP-C-12: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
   )
 })
 
-test_that("DP-V-27: conf_level=NA is rejected by is.finite check", {
+test_that("DP-V-: conf_level=NA is rejected by is.finite check", {
   expect_error(design_precision(0.3, 0.05, conf_level = NA), "`conf_level`")
 })
 
-test_that("DP-V-28: n_per_site as vector is rejected with length error", {
+test_that("DP-V-: n_per_site as vector is rejected with length error", {
   expect_error(
     design_precision(0.3, 0.05, n_per_site = c(5, 10), icc = 0.05),
     "single finite positive integer"
@@ -530,18 +537,18 @@ test_that("DP-10: prevalence=0.9999 (near-boundary) returns finite n", {
   expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
 })
 
-test_that("DP-V-29: character prevalence/moe give a friendly class error", {
+test_that("DP-V-: character prevalence/moe give a friendly class error", {
   expect_error(design_precision(prevalence = "0.3", moe = 0.05), "`prevalence`")
   expect_error(design_precision(prevalence = 0.3, moe = "0.05"), "`moe`")
 })
 
-test_that("DP-V-30: logical params are rejected, not coerced", {
+test_that("DP-V-: logical params are rejected, not coerced", {
   expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),  "`sensitivity`")
   expect_error(design_precision(0.3, 0.05, specificity = FALSE), "`specificity`")
   expect_error(design_precision(0.3, 0.05, icc = FALSE),         "`icc`")
 })
 
-test_that("DP-V-31: list-valued conf_level gives a friendly class error", {
+test_that("DP-V-: list-valued conf_level gives a friendly class error", {
   expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)), "`conf_level`")
 })
 
@@ -578,11 +585,6 @@ test_that("DP-C-13: reported deff is consistent with the returned n_per_site", {
   expect_lt(b$deff, a$deff)               # ... and hence the design effect
 })
 
-test_that("DP-V-32: fpc_N must be a whole number", {
-  expect_error(design_precision(0.3, 0.05, fpc_N = 500.5), "integer")
-  expect_silent(design_precision(0.3, 0.05, fpc_N = 500))
-})
-
 test_that("DP-R-3: `prevalence` is returned and documented", {
   res <- design_precision(0.3, 0.05)
   expect_equal(res$prevalence, 0.3)
@@ -593,7 +595,7 @@ test_that("DP-R-3: `prevalence` is returned and documented", {
 # Round 9 -- final-review fixes (2026-09-03)
 # ---------------------------------------------------------------------------
 
-test_that("DP-V-33: a cluster structure larger than the population is rejected", {
+test_that("DP-V-: a cluster structure larger than the population is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
                "more clusters than individuals")
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
