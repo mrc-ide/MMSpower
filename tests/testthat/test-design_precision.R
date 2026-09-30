@@ -472,7 +472,7 @@ test_that("DP-V-13: sensitivity's own range check (0, 1] gives the right message
                fixed = TRUE)
 })
 
-test_that("DP-V-14: NaN, Inf and -Inf in moe or prevalence give the finite-value error", {
+test_that("DP-V-14: NaN, Inf and -Inf in any single-number argument give the finite-value error", {
   # Note: a bare NA is a logical value in R, so it is caught earlier by the
   # type check ("got class `logical`"), not by this check. NaN and Inf are
   # numbers, so they get through the type check and reach this one.
@@ -488,6 +488,15 @@ test_that("DP-V-14: NaN, Inf and -Inf in moe or prevalence give the finite-value
                "`prevalence` must be a single finite number (got Inf)", fixed = TRUE)
   expect_error(design_precision(-Inf, 0.05),
                "`prevalence` must be a single finite number (got -Inf)", fixed = TRUE)
+  # The other four single-number arguments each have their own check line
+  expect_error(design_precision(0.3, 0.05, sensitivity = NaN),
+               "`sensitivity` must be a single finite number (got NaN)", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, specificity = Inf),
+               "`specificity` must be a single finite number (got Inf)", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, conf_level = NaN),
+               "`conf_level` must be a single finite number (got NaN)", fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, icc = Inf),
+               "`icc` must be a single finite number (got Inf)", fixed = TRUE)
 })
 
 test_that("DP-V-15: n_sites as a string, vector, TRUE or Inf is rejected, naming the problem", {
