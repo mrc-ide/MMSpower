@@ -25,19 +25,24 @@ test). Set below 1 to activate the Rogan-Gladen correction.}
 
 \item{specificity}{Diagnostic specificity in (0, 1]; default 1.}
 
-\item{conf_level}{Confidence level; default 0.95.}
+\item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
-\item{icc}{Optional. Intra-cluster correlation. If \code{NULL} (default), ICC
-is estimated from the data. Set to \code{0} to force the SRS (no-clustering)
-case. Only relevant when \code{x} and \code{n} have more than one element.}
+\item{icc}{Optional. Intra-cluster correlation, in [0, 1]. If \code{NULL}
+(default), ICC is estimated from the data. Set to \code{0} to force the SRS
+(no-clustering) case. Only relevant when \code{x} and \code{n} have more than one
+element. A supplied \code{icc} below \code{sqrt(.Machine$double.eps)} (about
+1.5e-8) is treated as 0, so a negligible upstream estimate does not
+trigger the clustered code path.}
 
-\item{fpc_N}{Optional. Total population size for a finite-population
-correction. \code{NULL} (default) = no FPC applied.}
+\item{fpc_N}{Optional positive integer. Total population size for a
+finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
+(default) = no FPC applied.}
 
 \item{method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
 \code{"agresti-coull"}. See Description. Clopper-Pearson and Agresti-Coull
-produce asymmetric intervals; a \code{message()} is emitted when they differ
-noticeably from the symmetric summary \code{moe}.}
+produce asymmetric intervals, and a Wald interval cut at 0 or 1 becomes
+asymmetric too; a \code{message()} is emitted whenever the two sides differ
+by more than a tenth of \code{moe} (see Details).}
 }
 \value{
 A named list. The following fields are always present:
@@ -67,7 +72,9 @@ when \code{fpc_N} is \code{NULL})}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
 \item{icc_used}{ICC applied: estimated from data if \code{icc = NULL},
-else as supplied}
+else as supplied -- except 0 when a supplied \code{icc} was ignored
+(a single cluster, or clusters all of size 1) or was below about
+1.5e-8 (treated as 0)}
 \item{deff}{Design effect applied (1 for SRS)}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 }
@@ -80,8 +87,8 @@ estimate and confidence interval. Three CI methods are available:
 Fast and familiar; can extend below 0 or above 1 near the boundaries
 (clamped to [0, 1]).}
 \item{\code{"clopper-pearson"}}{Exact binomial interval via the beta distribution.
-Asymmetric; conservative (guaranteed coverage). Preferred for small
-samples or extreme prevalences.}
+Asymmetric; conservative (guaranteed coverage for a simple random
+sample). Preferred for small samples or extreme prevalences.}
 \item{\code{"agresti-coull"}}{Adjusted-proportion interval. Asymmetric; better
 coverage than Wald for moderate n, less conservative than
 Clopper-Pearson.}
@@ -125,7 +132,11 @@ where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
 intra-cluster correlation (ICC). Taking \eqn{\rho = 0} would understate
 uncertainty for any genuinely clustered survey.
 
-\emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly.
+\emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
+value below \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as
+0. With a single cluster, or clusters all of size 1, there is no cluster
+structure for it to act on, so it is ignored (with a warning) and
+\eqn{D_{eff} = 1}.
 
 \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
 clusters of size > 1, the design effect is estimated as the ratio of the
@@ -198,10 +209,12 @@ beta-quantile identity,
 \deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
 
 with \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
-\eqn{\hat{p} = 1}. Guarantees at least nominal coverage, so it is the
-safe choice for small samples or extreme prevalence, at the cost of
-being conservative. Continuous \eqn{x_{eff}} replaces an integer count so
-the clustering and FPC adjustments carry through.
+\eqn{\hat{p} = 1}. For a simple random sample it guarantees at least
+nominal coverage, so it is the safe choice for small samples or extreme
+prevalence, at the cost of being conservative. Continuous \eqn{x_{eff}}
+replaces an integer count so the clustering and FPC adjustments carry
+through; with those adjustments the guarantee is approximate rather than
+exact.
 
 \emph{\code{"agresti-coull"}} -- add \eqn{z^2} pseudo-observations, then
 take a Wald interval on the adjusted proportion,
@@ -222,10 +235,10 @@ prevalence,
 
 This affine map is applied identically to \eqn{\hat{p}} and to both CI
 endpoints, each result then clamped to [0, 1]. When \eqn{Se = Sp = 1}
-it is the identity. The denominator \eqn{Se + Sp - 1} must be positive (a
-test better than chance); as it approaches 0 the correction inflates the
-estimate and its interval without bound, and the function warns below
-0.1.
+it is the identity. The denominator \eqn{Se + Sp - 1} must be positive
+(the correction divides by it); as it approaches 0 the correction
+inflates the estimate and its interval without bound, and the function
+warns below 0.1.
 
 \strong{Margin of error.} From the corrected point estimate and
 endpoints,
@@ -259,7 +272,8 @@ no Rogan-Gladen correction.
 it from the data; \code{0} forces the simple-random-sample case; a
 value in [0, 1] fixes it.
 \item \code{fpc_N} -- total population size for the finite-population
-correction. \code{NULL} (default) applies none.
+correction: a whole number larger than \code{sum(n)}. \code{NULL}
+(default) applies none.
 \item \code{method} -- CI method: \code{"wald"} (default),
 \code{"clopper-pearson"}, or \code{"agresti-coull"}.
 }
@@ -272,8 +286,8 @@ true-prevalence scale (Rogan-Gladen corrected).
 \code{moe_upper}: interval half-width and the two one-sided distances
 (all equal for \code{"wald"}).
 \item \emph{Design quantities} -- \code{n_total}, \code{n_eff},
-\code{deff}, \code{icc_used}: what the clustering and FPC adjustments
-resolved to.
+\code{n_eff_adj}, \code{deff}, \code{icc_used}: what the clustering
+and FPC adjustments resolved to.
 \item \emph{Echoed inputs} -- \code{method}, \code{conf_level},
 \code{sensitivity}, \code{specificity}, \code{fpc_N}: returned
 unchanged so a result is self-describing.
@@ -307,11 +321,11 @@ band -- sites outside \eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}} --
 is a diagnostic this function does not compute; it estimates
 \eqn{D_{eff}} directly from \eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}}.)
 \item \emph{Rogan-Gladen correction}
-\eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)} and its
-delta-method variance, \emph{Clopper-Pearson} and \emph{Agresti-Coull}
-intervals, and the \emph{finite-population correction} -- \strong{not}
-in the workshop; see the references below and Cochran (1977) for the
-FPC.
+\eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)}, applied
+to the estimate and to both interval endpoints, the
+\emph{Clopper-Pearson} and \emph{Agresti-Coull} intervals, and the
+\emph{finite-population correction} -- \strong{not} in the workshop;
+see the references below and Cochran (1977) for the FPC.
 }
 }
 

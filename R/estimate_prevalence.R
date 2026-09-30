@@ -9,8 +9,8 @@
 #'     Fast and familiar; can extend below 0 or above 1 near the boundaries
 #'     (clamped to \[0, 1\]).}
 #'   \item{`"clopper-pearson"`}{Exact binomial interval via the beta distribution.
-#'     Asymmetric; conservative (guaranteed coverage). Preferred for small
-#'     samples or extreme prevalences.}
+#'     Asymmetric; conservative (guaranteed coverage for a simple random
+#'     sample). Preferred for small samples or extreme prevalences.}
 #'   \item{`"agresti-coull"`}{Adjusted-proportion interval. Asymmetric; better
 #'     coverage than Wald for moderate n, less conservative than
 #'     Clopper-Pearson.}
@@ -30,16 +30,21 @@
 #' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (perfect
 #'   test). Set below 1 to activate the Rogan-Gladen correction.
 #' @param specificity Diagnostic specificity in (0, 1]; default 1.
-#' @param conf_level Confidence level; default 0.95.
-#' @param icc Optional. Intra-cluster correlation. If `NULL` (default), ICC
-#'   is estimated from the data. Set to `0` to force the SRS (no-clustering)
-#'   case. Only relevant when `x` and `n` have more than one element.
-#' @param fpc_N Optional. Total population size for a finite-population
-#'   correction. `NULL` (default) = no FPC applied.
+#' @param conf_level Confidence level, in (0, 1); default 0.95.
+#' @param icc Optional. Intra-cluster correlation, in \[0, 1\]. If `NULL`
+#'   (default), ICC is estimated from the data. Set to `0` to force the SRS
+#'   (no-clustering) case. Only relevant when `x` and `n` have more than one
+#'   element. A supplied `icc` below `sqrt(.Machine$double.eps)` (about
+#'   1.5e-8) is treated as 0, so a negligible upstream estimate does not
+#'   trigger the clustered code path.
+#' @param fpc_N Optional positive integer. Total population size for a
+#'   finite-population correction; must be larger than `sum(n)`. `NULL`
+#'   (default) = no FPC applied.
 #' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
 #'   `"agresti-coull"`. See Description. Clopper-Pearson and Agresti-Coull
-#'   produce asymmetric intervals; a `message()` is emitted when they differ
-#'   noticeably from the symmetric summary `moe`.
+#'   produce asymmetric intervals, and a Wald interval cut at 0 or 1 becomes
+#'   asymmetric too; a `message()` is emitted whenever the two sides differ
+#'   by more than a tenth of `moe` (see Details).
 #'
 #' @section Inputs and outputs:
 #' \strong{Inputs} (function arguments):
@@ -56,7 +61,8 @@
 #'     it from the data; \code{0} forces the simple-random-sample case; a
 #'     value in \[0, 1\] fixes it.
 #'   \item \code{fpc_N} -- total population size for the finite-population
-#'     correction. \code{NULL} (default) applies none.
+#'     correction: a whole number larger than \code{sum(n)}. \code{NULL}
+#'     (default) applies none.
 #'   \item \code{method} -- CI method: \code{"wald"} (default),
 #'     \code{"clopper-pearson"}, or \code{"agresti-coull"}.
 #' }
@@ -69,8 +75,8 @@
 #'     \code{moe_upper}: interval half-width and the two one-sided distances
 #'     (all equal for \code{"wald"}).
 #'   \item \emph{Design quantities} -- \code{n_total}, \code{n_eff},
-#'     \code{deff}, \code{icc_used}: what the clustering and FPC adjustments
-#'     resolved to.
+#'     \code{n_eff_adj}, \code{deff}, \code{icc_used}: what the clustering
+#'     and FPC adjustments resolved to.
 #'   \item \emph{Echoed inputs} -- \code{method}, \code{conf_level},
 #'     \code{sensitivity}, \code{specificity}, \code{fpc_N}: returned
 #'     unchanged so a result is self-describing.
@@ -106,7 +112,11 @@
 #' intra-cluster correlation (ICC). Taking \eqn{\rho = 0} would understate
 #' uncertainty for any genuinely clustered survey.
 #'
-#' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly.
+#' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
+#' value below \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as
+#' 0. With a single cluster, or clusters all of size 1, there is no cluster
+#' structure for it to act on, so it is ignored (with a warning) and
+#' \eqn{D_{eff} = 1}.
 #'
 #' \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
 #' clusters of size > 1, the design effect is estimated as the ratio of the
@@ -179,10 +189,12 @@
 #' \deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
 #'
 #' with \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
-#' \eqn{\hat{p} = 1}. Guarantees at least nominal coverage, so it is the
-#' safe choice for small samples or extreme prevalence, at the cost of
-#' being conservative. Continuous \eqn{x_{eff}} replaces an integer count so
-#' the clustering and FPC adjustments carry through.
+#' \eqn{\hat{p} = 1}. For a simple random sample it guarantees at least
+#' nominal coverage, so it is the safe choice for small samples or extreme
+#' prevalence, at the cost of being conservative. Continuous \eqn{x_{eff}}
+#' replaces an integer count so the clustering and FPC adjustments carry
+#' through; with those adjustments the guarantee is approximate rather than
+#' exact.
 #'
 #' \emph{\code{"agresti-coull"}} -- add \eqn{z^2} pseudo-observations, then
 #' take a Wald interval on the adjusted proportion,
@@ -203,10 +215,10 @@
 #'
 #' This affine map is applied identically to \eqn{\hat{p}} and to both CI
 #' endpoints, each result then clamped to \[0, 1\]. When \eqn{Se = Sp = 1}
-#' it is the identity. The denominator \eqn{Se + Sp - 1} must be positive (a
-#' test better than chance); as it approaches 0 the correction inflates the
-#' estimate and its interval without bound, and the function warns below
-#' 0.1.
+#' it is the identity. The denominator \eqn{Se + Sp - 1} must be positive
+#' (the correction divides by it); as it approaches 0 the correction
+#' inflates the estimate and its interval without bound, and the function
+#' warns below 0.1.
 #'
 #' \strong{Margin of error.} From the corrected point estimate and
 #' endpoints,
@@ -249,11 +261,11 @@
 #'     is a diagnostic this function does not compute; it estimates
 #'     \eqn{D_{eff}} directly from \eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}}.)
 #'   \item \emph{Rogan-Gladen correction}
-#'     \eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)} and its
-#'     delta-method variance, \emph{Clopper-Pearson} and \emph{Agresti-Coull}
-#'     intervals, and the \emph{finite-population correction} -- \strong{not}
-#'     in the workshop; see the references below and Cochran (1977) for the
-#'     FPC.
+#'     \eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)}, applied
+#'     to the estimate and to both interval endpoints, the
+#'     \emph{Clopper-Pearson} and \emph{Agresti-Coull} intervals, and the
+#'     \emph{finite-population correction} -- \strong{not} in the workshop;
+#'     see the references below and Cochran (1977) for the FPC.
 #' }
 #'
 #' @references
@@ -304,7 +316,9 @@
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
 #'   \item{icc_used}{ICC applied: estimated from data if \code{icc = NULL},
-#'     else as supplied}
+#'     else as supplied -- except 0 when a supplied \code{icc} was ignored
+#'     (a single cluster, or clusters all of size 1) or was below about
+#'     1.5e-8 (treated as 0)}
 #'   \item{deff}{Design effect applied (1 for SRS)}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
@@ -338,8 +352,8 @@ estimate_prevalence <- function(x,
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical (got class `",
          class(x)[1], "` for x, `", class(n)[1], "` for n). ",
-         "Note: plain `NA` is logical in R -- filter missing observations before calling, ",
-         "or use NA_real_ if you need a typed NA placeholder.")
+         "Note: a plain `NA` is logical in R -- remove missing observations ",
+         "before calling.")
   if (!is.numeric(x) || !is.numeric(n))
     stop("`x` and `n` must be numeric vectors (got class `", class(x)[1], "` for x, ",
          "`", class(n)[1], "` for n). Supply integer or double counts.")
@@ -357,51 +371,53 @@ estimate_prevalence <- function(x,
          "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
          "Each element of `x` is the positive count for one cluster and each ",
          "element of `n` is that cluster's total.")
-  if (any(x < 0))
-    stop("`x` must be non-negative ",
-         "(found x[", which(x < 0)[1], "] = ", x[which(x < 0)[1]], "). ",
+  # For each check, `i` is the position of the first bad element.
+  if (any(x < 0)) {
+    i <- which(x < 0)[1]
+    stop("`x` must be non-negative (found x[", i, "] = ", x[i], "). ",
          "Counts cannot be negative.")
-  if (any(n <= 0))
-    stop("`n` must be positive for every cluster ",
-         "(found n[", which(n <= 0)[1], "] = ", n[which(n <= 0)[1]], "). ",
+  }
+  if (any(n <= 0)) {
+    i <- which(n <= 0)[1]
+    stop("`n` must be positive for every cluster (found n[", i, "] = ", n[i], "). ",
          "A cluster with zero or negative total is undefined.")
-  if (any(x != floor(x)))
+  }
+  if (any(x != floor(x))) {
+    i <- which(x != floor(x))[1]
     stop("`x` must contain whole numbers -- counts cannot be fractional ",
-         "(found x[", which(x != floor(x))[1], "] = ", x[which(x != floor(x))[1]], ").")
-  if (any(n != floor(n)))
+         "(found x[", i, "] = ", x[i], ").")
+  }
+  if (any(n != floor(n))) {
+    i <- which(n != floor(n))[1]
     stop("`n` must contain whole numbers -- sample sizes cannot be fractional ",
-         "(found n[", which(n != floor(n))[1], "] = ", n[which(n != floor(n))[1]], ").")
-  if (any(x > n))
-    stop("`x` cannot exceed `n` ",
-         "(found x[", which(x > n)[1], "] = ", x[which(x > n)[1]],
-         " > n[", which(x > n)[1], "] = ", n[which(x > n)[1]], "). ",
+         "(found n[", i, "] = ", n[i], ").")
+  }
+  if (any(x > n)) {
+    i <- which(x > n)[1]
+    stop("`x` cannot exceed `n` (found x[", i, "] = ", x[i],
+         " > n[", i, "] = ", n[i], "). ",
          "Positive counts cannot exceed the total tested per cluster.")
+  }
 
   # ---- validate scalar parameters ----
-  if (is.null(sensitivity) || length(sensitivity) != 1 || !is.numeric(sensitivity))
-    stop("`sensitivity` must be a single number in (0, 1] (got ",
-         if (is.null(sensitivity)) "NULL"
-         else if (!is.numeric(sensitivity)) paste0("class `", class(sensitivity)[1], "`")
-         else paste0("length = ", length(sensitivity)), "). ",
+  # Every parameter must be a single number. Without this check, a vector
+  # fails later with a cryptic R error, and a logical (TRUE/FALSE) silently
+  # coerces to 1/0 instead of failing loudly.
+  if (length(sensitivity) != 1 || !is.numeric(sensitivity))
+    stop("`sensitivity` must be a single number in (0, 1] (got class `",
+         class(sensitivity)[1], "`, length ", length(sensitivity), "). ",
          "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
-  if (is.null(specificity) || length(specificity) != 1 || !is.numeric(specificity))
-    stop("`specificity` must be a single number in (0, 1] (got ",
-         if (is.null(specificity)) "NULL"
-         else if (!is.numeric(specificity)) paste0("class `", class(specificity)[1], "`")
-         else paste0("length = ", length(specificity)), "). ",
+  if (length(specificity) != 1 || !is.numeric(specificity))
+    stop("`specificity` must be a single number in (0, 1] (got class `",
+         class(specificity)[1], "`, length ", length(specificity), "). ",
          "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
   if (length(conf_level) != 1 || !is.numeric(conf_level))
-    stop("`conf_level` must be a single number (got ",
-         if (!is.numeric(conf_level)) paste0("class `", class(conf_level)[1], "`")
-         else paste0("length = ", length(conf_level)), "). Use, e.g., 0.95.")
+    stop("`conf_level` must be a single number in (0, 1) (got class `",
+         class(conf_level)[1], "`, length ", length(conf_level), ").")
   if (!is.null(icc) && (length(icc) != 1 || !is.numeric(icc)))
-    stop("`icc` must be a single number or NULL (got ",
-         if (!is.numeric(icc)) paste0("class `", class(icc)[1], "`")
-         else paste0("length = ", length(icc)), "). ",
-         "Set `icc = NULL` to estimate ICC from the data.")
-  if (!is.null(fpc_N) && length(fpc_N) != 1)
-    stop("`fpc_N` must be a single number or NULL (got length = ", length(fpc_N), "). ",
-         "Set `fpc_N = NULL` to skip the finite-population correction.")
+    stop("`icc` must be a single number in [0, 1] (got class `",
+         class(icc)[1], "`, length ", length(icc), "). ",
+         "To estimate ICC from the data, leave `icc = NULL`.")
   if (!is.character(method) || length(method) != 1)
     stop("`method` must be a single character string: ",
          "'wald', 'clopper-pearson', or 'agresti-coull' (got class `",
@@ -410,50 +426,80 @@ estimate_prevalence <- function(x,
     stop("`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' ",
          "(got '", method, "').")
 
+  # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
+  # generic "missing value where TRUE/FALSE needed" with no context.
+  if (!is.finite(sensitivity))
+    stop("`sensitivity` must be a single finite number (got ", sensitivity, ").")
+  if (!is.finite(specificity))
+    stop("`specificity` must be a single finite number (got ", specificity, ").")
   if (!is.finite(conf_level))
     stop("`conf_level` must be a single finite number (got ", conf_level, ").")
-  if (conf_level <= 0 || conf_level >= 1)
-    stop("`conf_level` must be strictly between 0 and 1 (got ", conf_level, "). ",
-         "Use, e.g., 0.95 for a 95% confidence interval.")
   if (!is.null(icc) && !is.finite(icc))
-    stop("`icc` must be a finite number (got ", icc, "). ",
+    stop("`icc` must be a single finite number (got ", icc, "). ",
          "To estimate ICC from the data, leave `icc = NULL`.")
-  if (!is.null(icc) && (icc < 0 || icc > 1))
-    stop("`icc` must be in [0, 1] (got ", icc, "). ",
-         "Values outside this range imply negative within-cluster variance, ",
-         "which is not possible. To estimate ICC from the data, leave `icc = NULL`.")
-  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || !is.finite(fpc_N) || fpc_N <= 0))
-    stop("`fpc_N` must be a finite positive number representing the total population size ",
-         "(got ", fpc_N, "). Set `fpc_N = NULL` to skip the finite-population correction.")
-  if (!is.finite(sensitivity))
-    stop("`sensitivity` must be a finite number (got ", sensitivity, ").")
-  if (sensitivity <= 0 || sensitivity > 1)
+
+  if (sensitivity < 0 || sensitivity > 1)
     stop("`sensitivity` must be in (0, 1] (got ", sensitivity, "). ",
-         "A sensitivity of 0 means the test never detects true positives.")
-  if (!is.finite(specificity))
-    stop("`specificity` must be a finite number (got ", specificity, ").")
-  if (specificity <= 0 || specificity > 1)
+         "`sensitivity` is a diagnostic probability and cannot be ",
+         if (sensitivity < 0) "negative." else "greater than 1.")
+  if (sensitivity == 0)
+    stop("`sensitivity` must be in (0, 1] (got 0). ",
+         "A sensitivity of 0 means everyone who truly has the condition ",
+         "tests negative.")
+  if (specificity < 0 || specificity > 1)
     stop("`specificity` must be in (0, 1] (got ", specificity, "). ",
-         "A specificity of 0 means the test always returns a false positive.")
+         "`specificity` is a diagnostic probability and cannot be ",
+         if (specificity < 0) "negative." else "greater than 1.")
+  if (specificity == 0)
+    stop("`specificity` must be in (0, 1] (got 0). ",
+         "A specificity of 0 means everyone who truly does not have the ",
+         "condition tests positive.")
   correction <- sensitivity + specificity - 1
   if (correction <= 0)
-    stop("sensitivity + specificity must exceed 1 for the Rogan-Gladen correction ",
+    stop("`sensitivity` + `specificity` must exceed 1 for the Rogan-Gladen correction ",
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
-         "With se + sp <= 1 the test performs at or below chance and true prevalence ",
-         "is not identifiable from apparent prevalence.")
+         "The correction divides by `sensitivity` + `specificity` - 1, so a sum ",
+         "of 1 or less cannot be corrected.")
   if (correction < 0.1)
-    warning("sensitivity + specificity = ", round(sensitivity + specificity, 4),
-            " is very close to 1 (correction = ", round(correction, 4), "). ",
-            "The Rogan-Gladen adjustment is numerically unstable -- ",
-            "prevalence estimates and CI will be unreliable.")
+    warning("`sensitivity` + `specificity` = ", round(sensitivity + specificity, 4),
+            ", which is very close to 1. Correcting for this much test error ",
+            "makes the prevalence estimate and its confidence interval very ",
+            "wide, and small changes in the assumed sensitivity or specificity ",
+            "will change them a lot.")
+  if (!is.null(icc) && (icc < 0 || icc > 1))
+    stop("`icc` must be in [0, 1] (got ", icc, "). ",
+         "`icc` is a correlation and cannot be ",
+         if (icc < 0) "negative. " else "greater than 1. ",
+         "To estimate ICC from the data, leave `icc = NULL`.")
+  if (conf_level <= 0 || conf_level >= 1)
+    stop("`conf_level` must be in (0, 1) (got ", conf_level, "). ",
+         "For example, use 0.95 for a 95% confidence interval.")
+  if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
+      fpc_N < 1 || fpc_N != floor(fpc_N)))
+    stop("`fpc_N` must be a single finite positive integer (got ",
+         if (!is.numeric(fpc_N)) paste0("class `", class(fpc_N)[1], "`")
+         else if (length(fpc_N) != 1) paste0("length = ", length(fpc_N))
+         else fpc_N,
+         "). `fpc_N` is the total population size. ",
+         "Set `fpc_N = NULL` to skip the finite-population correction.")
+
+  # Uses a fuzzy zero-threshold instead of an exact icc == 0 comparison, so
+  # a supplied value like 1e-12 (floating-point noise, not a real signal)
+  # is treated as exactly 0 -- no "ignored" warning, and deff stays exactly 1.
+  if (!is.null(icc) && icc < sqrt(.Machine$double.eps))
+    icc <- 0
 
   n_clusters <- length(n)
   n_total    <- sum(n)
 
-  if (!is.null(fpc_N) && fpc_N <= n_total)
-    stop("`fpc_N` (", fpc_N, ") must be greater than the total sample size (",
-         n_total, "). At `fpc_N = n_total` you have surveyed the whole ",
-         "population, the sampling variance is zero, and the CI is undefined. ",
+  if (!is.null(fpc_N) && fpc_N < n_total)
+    stop("`fpc_N` (", fpc_N, ") is smaller than the total sample size (",
+         n_total, "): you cannot test more people than there are in the ",
+         "population.")
+  if (!is.null(fpc_N) && fpc_N == n_total)
+    stop("`fpc_N` (", fpc_N, ") equals the total sample size: the whole ",
+         "population was tested (a census), so there is no sampling ",
+         "uncertainty and no confidence interval to compute. ",
          "Set `fpc_N = NULL` if no FPC is needed.")
 
   p_hat <- sum(x) / n_total   # apparent prevalence
@@ -480,6 +526,14 @@ estimate_prevalence <- function(x,
     } else {
       p_i     <- x / n
       var_obs <- stats::var(p_i)
+      # TODO(review): which prevalence goes into Var_SRS? We use the pooled
+      # p_hat = sum(x) / sum(n). The workshop's worked example (Module 5,
+      # "The Design Effect - worked example", Deff = 17.73) uses the
+      # unweighted mean of the site prevalences instead. On that example's
+      # data the pooled version gives Deff = 20.43; the mean-of-sites version
+      # reproduces the slide (17.73 from the slide's rounded site values,
+      # 17.94 from the exact counts). DECISION NEEDED -- do not change
+      # silently (see test EP-C-2).
       var_srs <- mean(p_hat * (1 - p_hat) / n)
 
       deff <- if (var_srs > 0) var_obs / var_srs else 1
@@ -578,11 +632,12 @@ estimate_prevalence <- function(x,
   if ((ci_hi_app - ci_lo_app) > eps &&
       (ci_upper - ci_lower) < eps &&
       (prevalence == 0 || prevalence == 1))
-    warning("Rogan-Gladen overshoot: the corrected estimate and both CI ",
-            "endpoints are pinned to ", prevalence, " (the apparent-scale ",
-            "interval maps entirely outside [0, 1] for this Se/Sp). `moe` is ",
-            "reported as 0 but the estimate is boundary-constrained, not exact ",
-            "-- use a more accurate assay or a larger sample.")
+    warning("Rogan-Gladen overshoot: after correcting for test error, the ",
+            "estimate and both ends of the confidence interval are all cut to ",
+            prevalence, ", because the corrected interval lies entirely ",
+            "outside 0 to 1 for this sensitivity and specificity. `moe` is ",
+            "reported as 0, but that is not real precision -- use a more ",
+            "accurate test or a larger sample.")
 
   # Fires for the asymmetric methods, and also for "wald" when an endpoint
   # has been clamped to [0, 1] (which breaks its usual symmetry).

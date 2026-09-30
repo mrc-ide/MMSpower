@@ -53,7 +53,7 @@ gives the full step-by-step derivation for the `estimate_prevalence()` /
 
 | Piece | Standard reference |
 |---|---|
-| Rogan-Gladen correction $\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)$ and its delta-method variance | Rogan & Gladen (1978) |
+| Rogan-Gladen correction $\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)$ and its variance (exact, since the correction is a linear rescaling) | Rogan & Gladen (1978) |
 | Clopper-Pearson interval | Clopper & Pearson (1934) |
 | Agresti-Coull interval | Agresti & Coull (1998) |
 | Finite-population correction | Cochran (1977), *Sampling Techniques* |
@@ -62,7 +62,7 @@ gives the full step-by-step derivation for the `estimate_prevalence()` /
 | Linear-trend / regression-slope sample size | Dupont & Plummer (1998) |
 | Cochran-Armitage trend test (count-based alternative to the WLS slope) | Armitage (1955); Cochran (1954) |
 | Geometric "detect $\ge 1$" sample size $n = \log(1-\text{target})/\log(1-q)$ | Cannon & Roe (1982); Cannon (2001) |
-| Closed-form solve for the fixed-`n_sites` Deff/`n` circularity | package's own algebra (see *"Methods: prevalence estimation and its precision"*) |
+| Closed-form solve for the fixed-`n_sites` Deff/`n` circularity | package's own algebra (derived in `?design_precision`, Details) |
 
 ## Per-function index
 
@@ -80,7 +80,8 @@ Agresti-Coull intervals; FPC on the collected `n`.
 MOE sample size $n = z^2 p(1-p)/m^2$ (M2); Wald / MOE definition (M1, M2);
 design effect and `N_eff` (M5).
 **Extends:** Rogan-Gladen variance inflation $/(Se+Sp-1)^2$; fixed-`n_sites`
-closed form; FPC.
+closed form, and the smallest achievable MOE when `n_sites` is too small to
+reach the target; FPC.
 
 ### `test_threshold()`
 

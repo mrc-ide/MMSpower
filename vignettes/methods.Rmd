@@ -96,7 +96,11 @@ does not: it estimates $\rho$ unless you supply one.
 
 $\rho$ is used directly in the formula above. Use this when you have an
 external estimate of the ICC (e.g. from a previous survey) or want to run a
-sensitivity analysis across plausible values.
+sensitivity analysis across plausible values. A value below about 1.5e-8
+(`sqrt(.Machine$double.eps)`) is treated as 0 — leftover rounding, not real
+clustering. With a single cluster, or clusters all of size 1, there is no
+cluster structure for the ICC to act on, so a supplied value is ignored (with
+a warning) and $D_{eff} = 1$.
 
 #### 2b. ICC estimated (`icc = NULL`, the default)
 
@@ -127,7 +131,7 @@ $\hat{\rho}$ so that the returned `deff` and `icc_used` are always mutually
 consistent (they satisfy the Kish identity exactly).
 
 When there is a single cluster, or every cluster has size 1, the Kish
-denominator $\bar{n} - 1$ is 0 and the ICC is not identifiable; the function
+denominator $\bar{n} - 1$ is 0 and the ICC cannot be estimated; the function
 falls back to $D_{eff} = 1$.
 
 > **Caveat.** The variance-ratio estimator is noisy with few clusters. With,
@@ -182,8 +186,10 @@ All three CI methods then use $n_{eff,adj}$ and nothing else changes. With no
 FPC (`fpc_N = NULL`), $f = 1$ and $n_{eff,adj} = n_{eff}$.
 
 As $n_{total} \to N$, $f \to 0$ and $n_{eff,adj} \to \infty$: the sampling
-variance vanishes. The function stops with an informative error before that
-point (you have effectively surveyed the whole population; no CI is needed).
+variance vanishes. `fpc_N` must therefore be a whole number larger than
+$n_{total}$: the function stops with an error if it is smaller (more people
+tested than exist) or equal (a census — no sampling uncertainty, so no CI to
+compute).
 
 ### 5. Confidence interval on apparent prevalence
 
@@ -216,11 +222,13 @@ U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\
 $$
 
 with $L = 0$ when $\hat{p} = 0$ and $U = 1$ when $\hat{p} = 1$, then clamped
-to $[0, 1]$. "Exact" means coverage is **guaranteed** to be at least
-nominal for every true $p$ — never below 95% for a 95% interval. The price
-is conservatism: the interval is wider than it strictly needs to be. Use it
-for small samples or extreme prevalences, where Wald's under-coverage
-matters and a guarantee is worth the width.
+to $[0, 1]$. "Exact" means that, for a simple random sample, coverage is
+**guaranteed** to be at least nominal for every true $p$ — never below 95%
+for a 95% interval. With clustering or an FPC the interval is computed on
+the non-integer $x_{eff}$ and $n_{eff,adj}$, so the guarantee becomes
+approximate. The price is conservatism: the interval is wider than it
+strictly needs to be. Use it for small samples or extreme prevalences, where
+Wald's under-coverage matters and a guarantee is worth the width.
 
 #### `"agresti-coull"`
 
@@ -247,7 +255,7 @@ Clopper-Pearson's systematic over-width — a sensible middle-ground default.
 | Situation | Method |
 |---|---|
 | Moderate/large $n$, prevalence away from 0/1, want the familiar interval | `"wald"` |
-| Need a coverage **guarantee**; small $n$ or very low/high prevalence | `"clopper-pearson"` |
+| Need a coverage **guarantee** (exact for a simple random sample); small $n$ or very low/high prevalence | `"clopper-pearson"` |
 | Small–moderate $n$, want good coverage without over-width | `"agresti-coull"` |
 
 ### 6. Rogan-Gladen correction (imperfect test)
@@ -270,16 +278,17 @@ This affine map is applied to $\hat{p}$ **and** to both CI endpoints from
 stage 5, and each result is clamped to $[0, 1]$. When $Se = Sp = 1$ it is the
 identity and nothing happens.
 
-The denominator $Se + Sp - 1$ is the Youden index; it must be positive (the
-test must do better than a coin flip) or true prevalence is not identifiable
-from apparent prevalence — the function errors. As $Se + Sp - 1 \to 0$ the
-correction divides by a vanishing number, so both the point estimate and the
-interval blow up; the function warns when it drops below 0.1, where results
-are numerically unreliable.
+The denominator $Se + Sp - 1$ is the Youden index. The correction divides by
+it, so it must be positive: the function errors if $Se + Sp \le 1$. As
+$Se + Sp - 1 \to 0$ the correction divides by a vanishing number, so both the
+point estimate and the interval blow up; the function warns when it drops
+below 0.1, where the interval becomes very wide and small changes in the
+assumed sensitivity or specificity change the result a lot.
 
 > **Note on the variance.** `estimate_prevalence()` corrects the *endpoints*
-> by the affine map, which widens the interval by the factor
-> $1/(Se + Sp - 1)$ — the correct first-order (delta-method) behaviour.
+> by the affine map, which widens the interval by exactly the factor
+> $1/(Se + Sp - 1)$ — the map is linear, so this is exact, not an
+> approximation.
 > `design_precision()` uses the same factor squared in the variance when
 > sizing a study.
 
@@ -296,12 +305,14 @@ $$
 \texttt{moe\_upper} = \texttt{ci\_upper} - p
 $$
 
-For `"wald"` the interval is symmetric about $p$ and all three are equal —
-`moe` alone describes the precision. For `"clopper-pearson"` and
-`"agresti-coull"` the interval is **asymmetric**: `moe` is only the *average*
-of the two half-widths and describes neither side, so report `moe_lower` and
-`moe_upper` together. The function emits a `message()` when they differ
-noticeably.
+For `"wald"` the interval is usually symmetric about $p$ and all three are
+equal — `moe` alone describes the precision — unless an endpoint is cut at 0
+or 1 (very low or high prevalence), which makes it asymmetric too. For
+`"clopper-pearson"` and `"agresti-coull"` the interval is **asymmetric** by
+construction: `moe` is only the *average* of the two half-widths and
+describes neither side, so report `moe_lower` and `moe_upper` together. The
+function emits a `message()` whenever the two sides differ by more than 10%
+of `moe`, whichever method produced the interval.
 
 ## Worked example
 

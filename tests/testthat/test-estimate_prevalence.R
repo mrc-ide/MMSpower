@@ -1,695 +1,808 @@
 # Hand-checked reference cases for estimate_prevalence()
 #
-# Formula: Wald CI on apparent prevalence, then Rogan-Gladen to true scale.
+# Method: Wald CI on the apparent (measured) prevalence, then the
+# Rogan-Gladen correction applied to the estimate and both CI endpoints.
 #
-#   p_hat   = sum(x) / sum(n)
+#   p_hat   = sum(x) / sum(n)                          (apparent prevalence)
 #   n_eff   = n_total / deff
-#   se      = sqrt(p_hat*(1-p_hat) / n_eff)
-#   moe_app = z * se          where z = qnorm(0.975) = 1.959964
+#   se      = sqrt(p_hat * (1 - p_hat) / n_eff)        (standard error)
+#   moe_app = z * se,  z = qnorm(0.975) = 1.959964
 #   CI_app  = [p_hat - moe_app, p_hat + moe_app]
-#   p_true  = (p_hat - (1-sp)) / (se_test + sp - 1)    [Rogan-Gladen]
-#   CI_true = Rogan-Gladen applied to CI_app endpoints
+#   p_true  = (p_hat - (1 - spec)) / (sens + spec - 1) (Rogan-Gladen;
+#             sens = sensitivity, spec = specificity)
+#   CI_true = Rogan-Gladen applied to both CI_app endpoints, clamped to [0, 1]
 #
-# Case 1  (single site, perfect test, x=30, n=100):
-#   p_hat = 0.3, deff = 1, n_eff = 100
-#   se = sqrt(0.3*0.7/100) = 0.04583
-#   moe = 1.959964 * 0.04583 = 0.08982
-#   CI = [0.2102, 0.3898]
+# EP-1  (one site, perfect test, x = 30, n = 100):
+#   se  = sqrt(0.3 * 0.7 / 100) = 0.045826
+#   moe = 1.959964 * 0.045826 = 0.089817
+#   CI  = [0.210183, 0.389817]
 #
-# Case 2  (supplied icc=0.05, 10 uniform sites of 10 each):
-#   deff = 1 + 9*0.05 = 1.45, n_eff = 100/1.45 = 68.97
-#   se = sqrt(0.3*0.7/68.97) = 0.05519
-#   moe = 1.959964 * 0.05519 = 0.10817
-#   CI = [0.1918, 0.4082]
+# EP-2  (imperfect test, sensitivity 0.9, specificity 0.95, x = 30, n = 100):
+#   correction = 0.9 + 0.95 - 1 = 0.85
+#   p_true = (0.3 - 0.05) / 0.85 = 0.294118
+#   moe    = 0.089817 / 0.85 = 0.105667
+#   CI     = [(0.210183 - 0.05) / 0.85, (0.389817 - 0.05) / 0.85]
+#          = [0.188451, 0.399785]
 #
-# Case 3  (imperfect test, se=0.9, sp=0.95, x=30, n=100):
-#   p_apparent = 0.3, correction = 0.85
-#   p_true = (0.3 - 0.05) / 0.85 = 0.2941
-#   moe_apparent = 0.08982  (same as Case 1)
-#   moe_true = 0.08982 / 0.85 = 0.10567
-#   CI_true = [(0.2102-0.05)/0.85, (0.3898-0.05)/0.85]
-#           = [0.1885, 0.3998]
+# EP-C-1  (icc = 0.05 supplied, 10 sites of 10, 3 positives each):
+#   deff  = 1 + (10 - 1) * 0.05 = 1.45, n_eff = 100 / 1.45 = 68.9655
+#   se    = sqrt(0.3 * 0.7 / 68.9655) = 0.055182
+#   moe   = 1.959964 * 0.055182 = 0.108154
+#   CI    = [0.191846, 0.408154]
+#
+# Values written to 6 decimal places are checked with tolerance = 1e-4
+# (relative), which still catches any real mistake.
 
-test_that("Case 1: single site, perfect test -- Wald CI", {
+
+# ---------------------------------------------------------------------------
+# Core scenarios (EP-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-1: one site, perfect test -- Wald CI matches the hand-check", {
   res <- estimate_prevalence(x = 30, n = 100)
-
-  expect_equal(res$prevalence,     0.3,    tolerance = 1e-6)
-  expect_equal(res$deff,           1,      tolerance = 1e-6)
-  expect_equal(res$icc_used,       0,      tolerance = 1e-6)
-  expect_equal(res$n_total,        100)
-  expect_equal(res$n_eff,          100,    tolerance = 1e-6)
-
-  # Wald 95% CI (hand-checked)
-  expect_equal(res$ci_lower,       0.2102, tolerance = 5e-4)
-  expect_equal(res$ci_upper,       0.3898, tolerance = 5e-4)
-  expect_equal(res$moe, 0.08982, tolerance = 5e-4)
+  expect_equal(res$prevalence, 0.3)
+  expect_equal(res$ci_lower,   0.210183, tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.389817, tolerance = 1e-4)
+  expect_equal(res$moe,        0.089817, tolerance = 1e-4)
+  expect_equal(res$n_total,    100)
+  expect_equal(res$n_eff,      100)
+  expect_equal(res$icc_used,   0)
+  expect_equal(res$deff,       1)
+  # Typing the default sensitivity = specificity = 1 changes nothing
+  res_explicit <- estimate_prevalence(x = 30, n = 100,
+                                      sensitivity = 1, specificity = 1)
+  expect_equal(res_explicit, res)
 })
 
-test_that("Case 2: supplied ICC widens CI via design effect", {
-  res <- estimate_prevalence(
-    x   = rep(3, 10),
-    n   = rep(10, 10),
-    icc = 0.05
-  )
-
-  expect_equal(res$prevalence, 0.3,  tolerance = 1e-6)
-  expect_equal(res$deff,       1.45, tolerance = 1e-6)
-  expect_equal(res$n_eff,      100 / 1.45, tolerance = 1e-4)
-
-  # CI should be wider than the no-clustering case
-  res_plain <- estimate_prevalence(x = 30, n = 100, icc = 0)
-  expect_gt(res$ci_upper - res$ci_lower,
-            res_plain$ci_upper - res_plain$ci_lower)
-
-  expect_equal(res$ci_lower, 0.1918, tolerance = 5e-4)
-  expect_equal(res$ci_upper, 0.4082, tolerance = 5e-4)
-})
-
-test_that("Case 3: imperfect test applies Rogan-Gladen to estimate and CI", {
+test_that("EP-2: imperfect test -- Rogan-Gladen applied to the estimate and both CI endpoints", {
   res <- estimate_prevalence(x = 30, n = 100,
                              sensitivity = 0.9, specificity = 0.95)
-
-  # p_true = (0.3 - 0.05) / 0.85
-  expect_equal(res$prevalence, 0.25 / 0.85, tolerance = 1e-6)
-
-  # MOE inflated by 1/correction
-  res_perfect <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(res$moe,
-               res_perfect$moe / 0.85,
-               tolerance = 1e-6)
-
-  expect_equal(res$ci_lower, 0.1885, tolerance = 5e-4)
-  expect_equal(res$ci_upper, 0.3998, tolerance = 5e-4)
+  expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
+  expect_equal(res$ci_lower,   0.188451, tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.399785, tolerance = 1e-4)
+  # The interval is the perfect-test interval divided by the correction (0.85)
+  expect_equal(res$moe, estimate_prevalence(x = 30, n = 100)$moe / 0.85)
 })
 
-test_that("ICC estimated from data is non-negative and finite", {
+test_that("EP-3: sensitivity 0.5 with a perfect specificity doubles the estimate", {
+  # correction = 0.5 + 1 - 1 = 0.5, so p_true = p_hat / 0.5
+  # p_hat = 15 / 100 = 0.15 -> p_true = 0.30
+  # apparent moe = 1.959964 * sqrt(0.15 * 0.85 / 100) = 0.069985 -> / 0.5 = 0.139969
+  res <- estimate_prevalence(x = 15, n = 100, sensitivity = 0.5)
+  expect_equal(res$prevalence, 0.3)
+  expect_equal(res$moe,        0.139969, tolerance = 1e-4)
+})
+
+test_that("EP-4: a higher conf_level gives a wider interval", {
+  # 99%: z = 2.575829 -> moe = 2.575829 * 0.045826 = 0.118039
+  # 90%: z = 1.644854 -> moe = 1.644854 * 0.045826 = 0.075377
+  expect_equal(estimate_prevalence(x = 30, n = 100, conf_level = 0.99)$moe,
+               0.118039, tolerance = 1e-4)
+  expect_equal(estimate_prevalence(x = 30, n = 100, conf_level = 0.90)$moe,
+               0.075377, tolerance = 1e-4)
+})
+
+test_that("EP-5: no positives, or all positive, collapses the interval to a point", {
+  # p_hat = 0 or 1 -> p_hat * (1 - p_hat) = 0 -> the Wald interval has no width
+  one_site <- estimate_prevalence(x = 0, n = 100)
+  expect_equal(c(one_site$prevalence, one_site$ci_lower, one_site$ci_upper, one_site$moe),
+               c(0, 0, 0, 0))
+
+  # Three sites, all zero: no difference between sites, so icc = 0, deff = 1
+  zeros <- estimate_prevalence(x = c(0, 0, 0), n = c(10, 10, 10))
+  expect_equal(c(zeros$prevalence, zeros$ci_lower, zeros$ci_upper, zeros$moe),
+               c(0, 0, 0, 0))
+  expect_equal(zeros$icc_used, 0)
+  expect_equal(zeros$deff,     1)
+
+  all_pos <- estimate_prevalence(x = c(10, 10, 10), n = c(10, 10, 10))
+  expect_equal(c(all_pos$prevalence, all_pos$ci_lower, all_pos$ci_upper, all_pos$moe),
+               c(1, 1, 1, 0))
+})
+
+test_that("EP-6: whole-number inputs typed as integers (100L) give the same result as doubles", {
+  # moe = 1.959964 * sqrt(0.1 * 0.9 / 1000) = 0.018594
+  r_int <- estimate_prevalence(x = 100L, n = 1000L)
+  r_dbl <- estimate_prevalence(x = 100,  n = 1000)
+  expect_equal(r_int, r_dbl)
+  expect_equal(r_int$moe, 0.018594, tolerance = 1e-4)
+})
+
+test_that("EP-7: a large single site gives a narrow interval", {
+  # moe = 1.959964 * sqrt(0.3 * 0.7 / 1000) = 0.028403
+  res <- estimate_prevalence(x = 300, n = 1000)
+  expect_equal(res$prevalence, 0.3)
+  expect_equal(res$moe,        0.028403, tolerance = 1e-4)
+})
+
+test_that("EP-8: a Wald interval that runs past 1 is cut at 1, and the message says it is lopsided", {
+  # p_hat = 0.99, moe_app = 1.959964 * sqrt(0.99 * 0.01 / 100) = 0.019501
+  # CI = [0.970499, 1.009501] -> upper end cut to 1
+  expect_message(
+    res <- estimate_prevalence(x = 99, n = 100),
+    "wald CI is asymmetric: moe_lower = 0.0195, moe_upper = 0.01. moe = 0.0148 is the average half-width; report moe_lower and moe_upper separately.",
+    fixed = TRUE
+  )
+  expect_equal(res$ci_lower,  0.970499, tolerance = 1e-4)
+  expect_equal(res$ci_upper,  1)
+  expect_equal(res$moe_lower, 0.019501, tolerance = 1e-4)
+  expect_equal(res$moe_upper, 0.01,     tolerance = 1e-4)
+  expect_equal(res$moe,       0.014751, tolerance = 1e-4)  # average of the two
+})
+
+test_that("EP-9: very low prevalence -- the lower end of the interval is cut at 0", {
+  # 1 positive out of 50 over 5 sites: p_hat = 0.02. The icc estimated from
+  # the data is small (0.0023, deff 1.02), so n_eff = 49 rather than 50.
+  res <- suppressMessages(
+    estimate_prevalence(x = c(0, 0, 0, 0, 1), n = rep(10, 5))
+  )
+  expect_equal(res$prevalence, 0.02)
+  expect_equal(res$ci_lower,   0)
+  expect_equal(res$ci_upper,   0.059199, tolerance = 1e-4)
+})
+
+test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interval already has no width", {
+  # p_hat = 0.98 with sensitivity 0.8, specificity 0.9: the whole measured
+  # interval maps above 1, so the estimate and CI are all pinned to 1.
+  # moe = 0 here is not real precision, so the function warns.
+  expect_warning(
+    res <- estimate_prevalence(x = 49, n = 50, sensitivity = 0.8, specificity = 0.9),
+    "Rogan-Gladen overshoot: after correcting for test error, the estimate and both ends of the confidence interval are all cut to 1, because the corrected interval lies entirely outside 0 to 1 for this sensitivity and specificity.",
+    fixed = TRUE
+  )
+  expect_equal(res$prevalence, 1)
+  expect_equal(res$moe,        0)
+
+  # 1 positive out of 1: the measured interval is already a single point
+  # ([1, 1]) before correcting, so there is nothing to overshoot -- no warning.
+  expect_silent(res1 <- estimate_prevalence(x = 1, n = 1,
+                                            sensitivity = 0.8, specificity = 0.9))
+  expect_equal(res1$prevalence, 1)   # (1 - 0.1) / 0.7 = 1.29, cut to 1
+
+  # A perfect test with x = 0 is the ordinary [0, 0] case -- no warning
+  expect_silent(estimate_prevalence(x = 0, n = 50))
+})
+
+
+# ---------------------------------------------------------------------------
+# Clustering: icc and design effect (EP-C-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-C-1: a supplied icc widens the interval through the design effect", {
+  res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05)
+  expect_equal(res$prevalence, 0.3)
+  expect_equal(res$deff,       1.45)
+  expect_equal(res$n_eff,      100 / 1.45)
+  expect_equal(res$ci_lower,   0.191846, tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.408154, tolerance = 1e-4)
+  # wider than the same 100 people with no clustering (EP-1: 0.089817)
+  expect_gt(res$moe, estimate_prevalence(x = 30, n = 100)$moe)
+})
+
+test_that("EP-C-2: icc estimated from the data (the workshop's 8-site example)", {
+  # Same sites as Module 5 "The Design Effect - worked example".
+  # Observed variance of the site prevalences = 0.042917.
+  # Expected variance if people were independent, using the overall
+  # prevalence 87 / 550 = 0.158182: mean(0.158182 * 0.841818 / n) = 0.002101.
+  # deff = 0.042917 / 0.002101 = 20.43; icc = (20.43 - 1) / (68.75 - 1) = 0.2867
+  # NOTE: the slide gets 17.73 because it uses the average of the site
+  # prevalences (0.186) instead of the overall prevalence -- see the
+  # TODO(review) in R/estimate_prevalence.R. This test pins the current method.
   res <- estimate_prevalence(
     x = c(0, 4, 0, 22, 25, 16, 12, 8),
     n = c(60, 80, 70, 100, 40, 60, 50, 90)
   )
-  expect_true(is.finite(res$icc_used))
-  expect_gte(res$icc_used, 0)
-  expect_lte(res$icc_used, 1)
-  expect_gte(res$deff, 1)
-  expect_equal(res$n_total, 550)
+  expect_equal(res$n_total,    550)
+  expect_equal(res$prevalence, 0.158182, tolerance = 1e-4)
+  expect_equal(res$deff,       20.425830, tolerance = 1e-4)
+  expect_equal(res$icc_used,   0.286728,  tolerance = 1e-4)
+  expect_equal(res$n_eff,      26.926691, tolerance = 1e-4)
+  expect_equal(res$ci_lower,   0.020352,  tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.296012,  tolerance = 1e-4)
 })
 
-test_that("icc = 0 forces no clustering adjustment", {
-  res_null <- estimate_prevalence(x = 30, n = 100, icc = 0)
-  res_no   <- estimate_prevalence(x = 30, n = 100, icc = NULL)  # single site
-
-  expect_equal(res_null$deff, 1, tolerance = 1e-6)
-  # Both single-site paths should agree
-  expect_equal(res_null$ci_lower, res_no$ci_lower, tolerance = 1e-10)
+test_that("EP-C-3: icc = 0, or icc = NULL with one site, gives the no-clustering result", {
+  # With one site there is nothing to estimate icc from, so NULL falls back to 0
+  srs <- estimate_prevalence(x = 30, n = 100)
+  for (res in list(estimate_prevalence(x = 30, n = 100, icc = 0),
+                   estimate_prevalence(x = 30, n = 100, icc = NULL))) {
+    expect_equal(res$icc_used, 0)
+    expect_equal(res$deff,     1)
+    expect_equal(res$moe,      srs$moe)   # 0.089817, as in EP-1
+  }
 })
 
-test_that("perfect test is identity: se=sp=1 changes nothing", {
-  res_default <- estimate_prevalence(x = 30, n = 100)
-  res_explicit <- estimate_prevalence(x = 30, n = 100,
-                                      sensitivity = 1, specificity = 1)
-  expect_equal(res_default$prevalence, res_explicit$prevalence)
-  expect_equal(res_default$ci_lower,   res_explicit$ci_lower)
-  expect_equal(res_default$ci_upper,   res_explicit$ci_upper)
-})
-
-test_that("input validation catches bad arguments", {
-  expect_error(estimate_prevalence(x = c(3, 5), n = c(10)),
-               "length")
-  expect_error(estimate_prevalence(x = 60, n = 50),
-               "cannot exceed")
-  expect_error(estimate_prevalence(x = 10, n = 50,
-                                   sensitivity = 0.3, specificity = 0.3),
-               "must exceed 1")
-  # negative counts
-  expect_error(estimate_prevalence(x = -1, n = 100),
-               "non-negative")
-  # conf_level out of range
-  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = 0), "`conf_level`")
-  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = 1), "`conf_level`")
-  # icc out of range when supplied
-  expect_error(estimate_prevalence(x = 30, n = 100, icc =  2),  "`icc`")
-  expect_error(estimate_prevalence(x = 30, n = 100, icc = -0.1), "`icc`")
-  # fpc_N must be positive
-  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N =   0), "`fpc_N`")
-  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = -10), "`fpc_N`")
-  # fpc_N smaller than sample
-  expect_error(estimate_prevalence(x = c(3,3), n = c(10,10), fpc_N = 5),
-               "greater than the total sample size")
-})
-
-test_that("n_bar=1 (clusters of 1) does not produce Inf/NaN ICC", {
-  # Kish formula has (n_bar-1) in denominator; n_bar=1 means division by zero.
-  # Should fall back to icc=0, deff=1, not crash or return NaN.
-  res <- estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1))
-  expect_equal(res$icc_used, 0)
-  expect_equal(res$deff,     1)
-  expect_true(is.finite(res$prevalence))
-  expect_true(is.finite(res$moe))
-})
-
-test_that("deff and icc_used are mutually consistent after clamping", {
-  # Extreme clustering: all variation between sites, none within.
-  # Raw deff could imply icc > 1; after clamping, deff must be recomputed.
-  res <- estimate_prevalence(
-    x = c(0, 0, 10, 10),
-    n = c(10, 10, 10, 10)
+test_that("EP-C-4: sites of 1 person each (or a single person) give icc = 0, deff = 1", {
+  # icc = (deff - 1) / (n_bar - 1) would divide by 0 when every site has
+  # 1 person, so the function falls back to no clustering.
+  res <- suppressMessages(
+    estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1))
   )
-  expect_equal(res$deff, 1 + (10 - 1) * res$icc_used, tolerance = 1e-10)
-  expect_lte(res$icc_used, 1)
-  expect_gte(res$icc_used, 0)
+  expect_equal(res$icc_used,   0)
+  expect_equal(res$deff,       1)
+  expect_equal(res$prevalence, 0.6)
+  expect_equal(res$ci_lower,   0.170593, tolerance = 1e-4)
+  expect_equal(res$ci_upper,   1)
+
+  one <- estimate_prevalence(x = 1, n = 1)
+  expect_equal(one$icc_used,   0)
+  expect_equal(one$deff,       1)
+  expect_equal(one$prevalence, 1)
+  expect_equal(one$moe,        0)
 })
 
-test_that("round-trip: estimate_prevalence recovers design_precision MOE (SRS)", {
-  # design_precision(0.3, 0.05) -> n = 323
-  # observe exactly 30% -> x = round(0.3 * 323) = 97
-  res <- estimate_prevalence(x = 97, n = 323)
-  expect_equal(res$moe, 0.05, tolerance = 5e-3)
+test_that("EP-C-5: extreme site differences cap icc at 1, and deff is recomputed to match", {
+  # Two sites all negative, two all positive: the raw icc would be above 1,
+  # so it is capped at 1 and deff = 1 + (10 - 1) * 1 = 10.
+  res <- estimate_prevalence(x = c(0, 0, 10, 10), n = rep(10, 4))
+  expect_equal(res$icc_used, 1)
+  expect_equal(res$deff,     10)
+  expect_equal(res$n_eff,    4)
+  expect_equal(res$ci_lower, 0.010009, tolerance = 1e-4)
+  expect_equal(res$ci_upper, 0.989991, tolerance = 1e-4)
+
+  # Two sites, one all negative, one all positive: same cap
+  res2 <- estimate_prevalence(x = c(0, 10), n = c(10, 10))
+  expect_equal(res2$icc_used,   1)
+  expect_equal(res2$deff,       10)
+  expect_equal(res2$prevalence, 0.5)
+  expect_equal(c(res2$ci_lower, res2$ci_upper), c(0, 1))
 })
 
-test_that("round-trip: estimate_prevalence recovers design_precision MOE (clustered, icc supplied)", {
-  # design_precision(0.3, 0.05, n_per_site=10, icc=0.05) -> 47 sites of 10
-  # observe 30% per site -> x = 3 per site
-  # icc MUST be supplied explicitly: identical clusters give estimated icc=0 (no between-cluster
-  # variance to estimate from), which would return moe ~= 0.041, not 0.05.
-  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
-  expect_equal(res$moe, 0.05, tolerance = 5e-3)
-})
-
-test_that("round-trip caveat: without icc supplied, identical clusters estimate icc=0 and round-trip fails", {
-  # This test documents the limitation: the clustered round-trip only holds when icc is supplied.
-  # Identical cluster prevalences -> var_obs = 0 -> estimated icc = 0 -> deff = 1 -> moe ~= SRS moe.
-  # design_precision assumed icc=0.05 and returned n=468 (47 sites x 10); EP without icc gives
-  # moe ~= 0.041 (SRS-like), not the 0.05 that design_precision targeted.
-  res_no_icc  <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
-  res_with_icc <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
-
-  expect_equal(res_no_icc$icc_used, 0, tolerance = 1e-10)   # estimated from identical clusters
-  expect_equal(res_no_icc$deff,     1, tolerance = 1e-10)
-  expect_lt(res_no_icc$moe, 0.05)                # narrower than intended
-  expect_equal(res_with_icc$moe, 0.05, tolerance = 5e-3)  # correct only with icc
-})
-
-# ---- Round 4: 15 new edge cases ----
-
-test_that("EP-1: all-zero prevalence collapses CI to [0, 0]; var_obs=0 -> icc=0, deff=1", {
-  # p=0 -> se=0 -> Wald CI=[0,0], moe=0. No between-cluster variation:
-  # var_obs=0 -> estimated icc=0 -> deff=1. All outputs finite.
-  res <- estimate_prevalence(x = c(0, 0, 0), n = c(10, 10, 10))
-  expect_equal(res$prevalence, 0)
-  expect_equal(res$ci_lower,   0)
-  expect_equal(res$ci_upper,   0)
-  expect_equal(res$moe,        0)
-  expect_equal(res$icc_used,   0, tolerance = 1e-10)
-  expect_equal(res$deff,       1, tolerance = 1e-10)
-})
-
-test_that("EP-2: all-100% prevalence collapses CI to [1, 1]", {
-  res <- estimate_prevalence(x = c(10, 10, 10), n = c(10, 10, 10))
-  expect_equal(res$prevalence,      1)
-  expect_equal(res$ci_lower,        1)
-  expect_equal(res$ci_upper,        1)
-  expect_equal(res$moe, 0)
-})
-
-test_that("EP-3: single site x=0 returns finite output, moe=0", {
-  res <- estimate_prevalence(x = 0, n = 100)
-  expect_equal(res$prevalence, 0)
-  expect_equal(res$moe, 0)
-  expect_true(is.finite(res$n_eff))
-})
-
-test_that("EP-4: conf_level=0.99 produces wider CI than 0.95", {
-  r99 <- estimate_prevalence(x = 30, n = 100, conf_level = 0.99)
-  r95 <- estimate_prevalence(x = 30, n = 100)
-  width99 <- r99$ci_upper - r99$ci_lower
-  width95 <- r95$ci_upper - r95$ci_lower
-  expect_gt(width99, width95)
-  # z_0.99=2.576 vs z_0.95=1.960: ratio should be ~1.315
-  expect_equal(width99 / width95, 2.576 / 1.960, tolerance = 0.01)
-})
-
-test_that("EP-5: supplied icc=1 (maximum) -> deff=n_bar, n_eff=n_clusters", {
-  # deff = 1 + (n_bar - 1)*1 = n_bar = 10
-  # n_eff = 100 / 10 = 10 = n_clusters
+test_that("EP-C-6: a supplied icc = 1 makes deff equal to the site size", {
+  # deff = 1 + (10 - 1) * 1 = 10; n_eff = 100 / 10 = 10 (one per site)
+  # moe = 1.959964 * sqrt(0.3 * 0.7 / 10) = 0.284026
   res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1)
-  expect_equal(res$deff,  10,  tolerance = 1e-10)
-  expect_equal(res$n_eff, 10,  tolerance = 1e-10)
+  expect_equal(res$deff,  10)
+  expect_equal(res$n_eff, 10)
+  expect_equal(res$moe,   0.284026, tolerance = 1e-4)
 })
 
-test_that("EP-6: identical cluster prevalences -> estimated ICC=0, deff=1", {
-  # No between-cluster variation: var_obs=0, so deff=max(0,1)=1, icc=0
+test_that("EP-C-7: sites with identical prevalence give an estimated icc of 0", {
+  # No difference between sites -> observed variance 0 -> deff = 1
+  # moe = 1.959964 * sqrt(0.3 * 0.7 / 80) = 0.100418
   res <- estimate_prevalence(x = rep(3, 8), n = rep(10, 8))
-  expect_equal(res$icc_used, 0, tolerance = 1e-10)
-  expect_equal(res$deff,     1, tolerance = 1e-10)
-})
-
-test_that("EP-7: character x gives informative type error (not NA/NaN/Inf message)", {
-  expect_error(
-    estimate_prevalence(x = "30", n = 100),
-    "numeric vectors"
-  )
-})
-
-test_that("EP-8: fpc_N = n_total (whole population surveyed) -> error", {
-  # fpc_N == n_total => FPC factor (fpc_N - n_total)/(fpc_N - 1) = 0 =>
-  # sampling variance is zero and the CI is undefined. The FPC now acts on
-  # the collected n_total (not n_eff), so this holds for clustered data too.
-  expect_error(
-    estimate_prevalence(x = 30, n = 100, fpc_N = 100),
-    "greater than the total sample size"
-  )
-  expect_error(
-    estimate_prevalence(x = c(10, 10, 10), n = c(40, 40, 40), fpc_N = 120),
-    "greater than the total sample size"
-  )
-})
-
-test_that("EP-9: sensitivity=0.5, specificity=1 doubles the prevalence estimate", {
-  # correction = 0.5; p_true = p_apparent / 0.5 = 2 * p_apparent
-  # x=15, n=100 -> p_apparent=0.15 -> p_true=0.30
-  res <- estimate_prevalence(x = 15, n = 100, sensitivity = 0.5, specificity = 1)
-  expect_equal(res$prevalence, 0.30, tolerance = 1e-6)
-})
-
-test_that("EP-10: integer inputs 100L, 1000L work identically to double", {
-  r_int <- estimate_prevalence(x = 100L, n = 1000L)
-  r_dbl <- estimate_prevalence(x = 100,  n = 1000)
-  expect_equal(r_int$prevalence,      r_dbl$prevalence)
-  expect_equal(r_int$moe, r_dbl$moe)
-})
-
-test_that("EP-11: maximum between-cluster heterogeneity -> icc=1, deff=n_bar", {
-  # Two clusters: one all-negative, one all-positive -> ICC clamped to 1
-  res <- estimate_prevalence(x = c(0, 10), n = c(10, 10))
-  expect_equal(res$icc_used, 1,  tolerance = 1e-10)
-  expect_equal(res$deff,     10, tolerance = 1e-10)
-  expect_equal(res$prevalence, 0.5, tolerance = 1e-6)
-})
-
-test_that("EP-12: fpc_N=Inf is rejected", {
-  expect_error(
-    estimate_prevalence(x = 30, n = 100, fpc_N = Inf),
-    "`fpc_N`"
-  )
-})
-
-test_that("EP-13: very large fpc_N has negligible effect on moe", {
-  r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 1e8)
-  r_no  <- estimate_prevalence(x = 30, n = 100)
-  # FPC factor ~= sqrt((1e8 - 100) / (1e8 - 1)) ~= 1 - 5e-7
-  expect_equal(r_fpc$moe, r_no$moe, tolerance = 1e-5)
-})
-
-test_that("EP-15: single observation (x=1, n=1): n_bar=1 guard, icc=0, deff=1", {
-  res <- estimate_prevalence(x = 1, n = 1)
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
-  expect_equal(res$prevalence, 1)
-  expect_true(is.finite(res$moe))
+  expect_equal(res$moe,      0.100418, tolerance = 1e-4)
 })
 
-# ---- Round 5: 8 new edge cases ----
+test_that("EP-C-8: two sites are enough to estimate icc", {
+  # Site prevalences 0.2 and 0.4: observed variance 0.02 is below the
+  # 0.021 expected for independent people, so deff is set to 1, icc to 0.
+  # moe = 1.959964 * sqrt(0.3 * 0.7 / 20) = 0.200837
+  res <- estimate_prevalence(x = c(2, 4), n = c(10, 10))
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff,     1)
+  expect_equal(res$moe,      0.200837, tolerance = 1e-4)
+})
 
-test_that("EP-R5-1: n as character gives informative type error", {
-  expect_error(
-    estimate_prevalence(x = 30, n = "100"),
-    "numeric vectors"
+test_that("EP-C-9: sites of different sizes are handled", {
+  # Sizes 5, 10, 15, 20: p_hat = 10 / 50 = 0.2
+  res <- estimate_prevalence(x = c(1, 2, 3, 4), n = c(5, 10, 15, 20))
+  expect_equal(res$n_total,    50)
+  expect_equal(res$prevalence, 0.2)
+  expect_equal(res$moe,        0.110872, tolerance = 1e-4)
+
+  # Very different sizes (1 and 1000)
+  res2 <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
+  expect_equal(res2$n_total,    1001)
+  expect_equal(res2$prevalence, 300 / 1001)
+  expect_equal(res2$moe,        0.028380, tolerance = 1e-4)
+})
+
+test_that("EP-C-10: 100 sites (simulated, fixed seed) give the expected icc and deff", {
+  set.seed(42)
+  x100 <- rbinom(100, 20, 0.2)          # 414 positives in total
+  res  <- estimate_prevalence(x = x100, n = rep(20, 100))
+  expect_equal(res$n_total,    2000)
+  expect_equal(res$prevalence, 0.207)
+  expect_equal(res$icc_used,   0.008910, tolerance = 1e-4)
+  expect_equal(res$deff,       1.169286, tolerance = 1e-4)
+  expect_equal(res$moe,        0.019201, tolerance = 1e-4)
+})
+
+test_that("EP-C-11: a supplied icc with one site is ignored (with a warning); a tiny icc counts as 0", {
+  srs <- estimate_prevalence(x = 8, n = 50)
+
+  # One site: there is no cluster structure, so icc = 0.05 cannot be used
+  expect_warning(
+    res <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
+    "`icc` = 0.05 was ignored: the design effect needs a cluster structure (>= 2 clusters, mean size > 1). `icc_used` is reported as 0.",
+    fixed = TRUE
   )
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff,     1)
+  expect_equal(res$moe,      srs$moe)
+
+  # icc = 0 is just "no clustering" -- nothing to warn about
+  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 0))
+
+  # Any icc below about 0.000000015 counts as 0. A value like 1e-12 is
+  # almost always leftover rounding from another calculation, not real
+  # clustering: no warning with one site, and deff stays exactly 1 with ten.
+  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 1e-12))
+  tiny <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1e-12)
+  expect_equal(tiny$icc_used, 0)
+  expect_equal(tiny$deff,     1)
 })
 
-test_that("EP-R5-2: length mismatch x=length 3, n=length 2 -> informative error", {
-  expect_error(
-    estimate_prevalence(x = c(1, 2, 3), n = c(10, 10)),
-    "same length"
-  )
+
+# ---------------------------------------------------------------------------
+# Finite population correction (EP-F-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-F-1: a very large population makes the FPC negligible", {
+  # FPC factor = (1e8 - 100) / (1e8 - 1) = 0.99999901 -> n_eff_adj = 100.000099
+  # (checked against the exact formula: 100.000099 is too close to 100 for a
+  # rounded value to tell "FPC applied" from "FPC not applied")
+  res <- estimate_prevalence(x = 30, n = 100, fpc_N = 1e8)
+  expect_equal(res$n_eff_adj, 100 / ((1e8 - 100) / (1e8 - 1)))
+  expect_gt(res$n_eff_adj, 100)
+  expect_equal(res$moe,       0.089817, tolerance = 1e-4)   # same as EP-1
 })
 
-test_that("EP-R5-3: single large cluster (icc=NULL) gives correct narrow CI", {
-  # n=1000: moe = 1.96 * sqrt(0.3*0.7/1000) = 0.02837
-  res <- estimate_prevalence(x = 300, n = 1000)
-  expect_equal(res$prevalence, 0.3, tolerance = 1e-6)
-  expect_equal(res$deff, 1, tolerance = 1e-6)
-  expect_equal(res$moe, 0.02840, tolerance = 5e-4)
+test_that("EP-F-2: testing almost the whole population makes the interval very narrow", {
+  # 100 of 101 people tested: FPC factor = (101 - 100) / (101 - 1) = 0.01
+  # n_eff_adj = 100 / 0.01 = 10000, so moe = 0.089817 * sqrt(0.01) = 0.008982
+  res <- estimate_prevalence(x = 30, n = 100, fpc_N = 101)
+  expect_equal(res$n_eff_adj, 10000)
+  expect_equal(res$moe,       0.008982, tolerance = 1e-4)
 })
 
-test_that("EP-R5-4: fpc_N = n_total+1 (near-census) dramatically reduces moe", {
-  # sampling fraction = 100/101 = 99.0%; FPC = sqrt(1/100) = 0.1
-  r_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 101)
-  r_no  <- estimate_prevalence(x = 30, n = 100)
-  expect_lt(r_fpc$moe, r_no$moe / 5)
-  expect_equal(r_fpc$moe, r_no$moe * sqrt(1/100),
-               tolerance = 1e-5)
-})
-
-test_that("EP-R5-4b: the FPC acts on the collected n_total, not n_eff", {
-  # clustered design: n_total = 300, deff > 1 so n_eff << 300.
-  # An FPC on n_total sees a 300/310 sampling fraction (strong); an FPC on
-  # n_eff would see a ~44/310 fraction (weak). The strong one is correct.
-  x  <- c(5, 30, 10, 40, 15); n <- rep(60, 5)          # overdispersed
+test_that("EP-F-3: the FPC uses the number of people actually tested, not n_eff", {
+  # 5 sites of 60 (300 people), icc 0.1: deff = 1 + (60 - 1) * 0.1 = 6.9,
+  # n_eff = 300 / 6.9 = 43.48. Population 310, so 300 / 310 were tested --
+  # nearly a census. FPC factor = (310 - 300) / (310 - 1) = 0.03236.
+  # n_eff_adj = 43.48 / 0.03236 = 1343.48; moe falls from 0.140122 to 0.025207.
+  x <- c(5, 30, 10, 40, 15)
+  n <- rep(60, 5)
   r_no  <- estimate_prevalence(x, n, icc = 0.1)
   r_fpc <- estimate_prevalence(x, n, icc = 0.1, fpc_N = 310)
-
-  f2 <- (310 - sum(n)) / (310 - 1)                     # element-level FPC factor
-  expect_equal(r_fpc$n_eff_adj, r_no$n_eff / f2, tolerance = 1e-6)
-  expect_lt(r_fpc$moe, r_no$moe / 4)                   # near-census -> tiny CI
-  expect_equal(r_fpc$n_eff, r_no$n_eff)               # n_eff itself unchanged
+  expect_equal(r_fpc$n_eff,     r_no$n_eff)          # n_eff itself unchanged
+  expect_equal(r_fpc$n_eff_adj, 1343.478261, tolerance = 1e-6)
+  expect_equal(r_no$moe,        0.140122, tolerance = 1e-4)
+  expect_equal(r_fpc$moe,       0.025207, tolerance = 1e-4)
 })
 
-test_that("EP-R5-5: specificity=0 is rejected (boundary, not in (0,1])", {
-  expect_error(estimate_prevalence(x = 30, n = 100, specificity = 0), "`specificity`")
+test_that("EP-F-4: clustering and FPC together -- both are applied", {
+  # deff = 1.45 (as EP-C-1), n_eff = 68.9655; population 500:
+  # FPC factor = (500 - 100) / (500 - 1) = 0.8016 -> n_eff_adj = 86.0345
+  # moe = 1.959964 * sqrt(0.3 * 0.7 / 86.0345) = 0.096833 (vs 0.108154 without FPC)
+  res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05, fpc_N = 500)
+  expect_equal(res$deff,      1.45)
+  expect_equal(res$n_eff_adj, 86.034483, tolerance = 1e-6)
+  expect_equal(res$moe,       0.096833,  tolerance = 1e-4)
 })
 
-test_that("EP-R5-6: conf_level as vector is rejected with length error", {
-  expect_error(
-    estimate_prevalence(x = 30, n = 100, conf_level = c(0.9, 0.95)),
-    "single number"
-  )
-})
 
-test_that("EP-R5-7: unequal cluster sizes return finite, correct n_total", {
-  res <- estimate_prevalence(x = c(1, 2, 3, 4), n = c(5, 10, 15, 20))
-  expect_equal(res$n_total, 50)
-  expect_equal(res$prevalence, 10/50, tolerance = 1e-6)
-  expect_true(is.finite(res$moe))
-  expect_true(is.finite(res$icc_used))
-})
+# ---------------------------------------------------------------------------
+# CI methods (EP-M-)
+# ---------------------------------------------------------------------------
 
-test_that("EP-R5-8: RG-corrected p > 1 is clamped to 1 without error", {
-  # p_apparent=1, se=0.8, sp=0.9 -> p_true = (1-0.1)/0.7 = 1.286 -> clamped to 1
-  res <- estimate_prevalence(x = 1, n = 1, sensitivity = 0.8, specificity = 0.9)
-  expect_equal(res$prevalence, 1)
-  expect_true(is.finite(res$moe))
-})
-
-# ---- Round 6: 15 + 1 new edge cases ----
-
-test_that("EP-R6-1: x=NA (logical NA) gives informative class error mentioning NA", {
-  expect_error(
-    estimate_prevalence(x = NA, n = 100),
-    "logical"
-  )
-  expect_error(
-    estimate_prevalence(x = NA, n = 100),
-    "NA"
-  )
-})
-
-test_that("EP-R6-2: n vector with NA gives is.finite error at position", {
-  expect_error(
-    estimate_prevalence(x = c(1, 2, 3), n = c(10, NA, 10)),
-    "NA, NaN, or infinite"
-  )
-})
-
-test_that("EP-R6-3: x negative at position 2 gives position-aware error", {
-  expect_error(
-    estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
-    "non-negative"
-  )
-  # a value that is BOTH negative and fractional reports the negativity
-  # (the more informative failure), not "not a whole number"
-  expect_error(estimate_prevalence(x = -0.5, n = 10), "non-negative")
-})
-
-test_that("EP-R6-4: n=0 at position 2 gives position-aware error", {
-  expect_error(
-    estimate_prevalence(x = c(1, 0, 2), n = c(10, 0, 10)),
-    "positive for every cluster"
-  )
-})
-
-test_that("EP-R6-5: x=99, n=100 -> CI upper clamped to 1", {
-  res <- estimate_prevalence(x = 99, n = 100)
-  expect_equal(res$prevalence, 0.99, tolerance = 1e-6)
-  expect_equal(res$ci_upper,   1.0,  tolerance = 1e-10)
-})
-
-test_that("EP-R6-6: clustering + FPC together: deff and FPC both applied", {
-  r_both <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                icc = 0.05, fpc_N = 500)
-  r_noFPC <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05)
-  # FPC reduces moe when sampling fraction is non-negligible
-  expect_lt(r_both$moe, r_noFPC$moe)
-  expect_equal(r_both$deff, 1.45, tolerance = 1e-6)
-})
-
-test_that("EP-R6-7: fractional x at position 1 gives position-aware error", {
-  expect_error(
-    estimate_prevalence(x = c(1.5, 2, 3), n = c(10, 10, 10)),
-    "whole numbers"
-  )
-})
-
-test_that("EP-R6-8: exactly 2 clusters allows ICC estimation without error", {
-  res <- estimate_prevalence(x = c(2, 4), n = c(10, 10))
-  expect_true(is.finite(res$icc_used))
-  expect_true(is.finite(res$moe))
-})
-
-test_that("EP-R6-9: sensitivity=1.1 is rejected", {
-  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 1.1), "`sensitivity`")
-})
-
-test_that("EP-R6-10: very low prevalence (1 positive / 50) returns valid output", {
-  res <- estimate_prevalence(x = c(0, 0, 0, 0, 1), n = rep(10, 5))
-  expect_equal(res$prevalence, 0.02, tolerance = 1e-6)
-  expect_true(is.finite(res$moe))
-  expect_gte(res$ci_lower, 0)
-})
-
-test_that("EP-R6-11: 100 clusters returns finite icc, deff, moe", {
-  set.seed(42)
-  x100 <- rbinom(100, 20, 0.2)
-  res  <- estimate_prevalence(x = x100, n = rep(20, 100))
-  expect_equal(res$n_total, 2000)
-  expect_true(is.finite(res$icc_used))
-  expect_true(is.finite(res$moe))
-  expect_gte(res$icc_used, 0)
-  expect_lte(res$icc_used, 1)
-})
-
-test_that("EP-R6-12: fractional n at position 2 gives position-aware error", {
-  expect_error(
-    estimate_prevalence(x = c(1, 2, 3), n = c(10, 10.5, 10)),
-    "whole numbers"
-  )
-})
-
-test_that("EP-R6-13: non-integer fpc_N (e.g. 100.5) is accepted", {
-  # No integer requirement on fpc_N; population size can be approximated
-  expect_no_error(
-    suppressWarnings(estimate_prevalence(x = 30, n = 100, fpc_N = 100.5))
-  )
-})
-
-test_that("EP-R6-14: icc=NULL with single cluster falls back to icc=0, deff=1", {
-  res <- estimate_prevalence(x = 30, n = 100, icc = NULL)
-  expect_equal(res$icc_used, 0, tolerance = 1e-10)
-  expect_equal(res$deff,     1, tolerance = 1e-10)
-})
-
-test_that("EP-R6-15: very unequal clusters (1 vs 1000) return finite output", {
-  res <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
-  expect_equal(res$n_total, 1001)
-  expect_equal(res$prevalence, 300/1001, tolerance = 1e-6)
-  expect_true(is.finite(res$moe))
-})
-
-# ---- CI methods: return list structure, validation, and method behaviour ----
-
-test_that("return list contains all expected fields (wald default)", {
+test_that("EP-M-1: wald (the default) gives a symmetric interval", {
   res <- estimate_prevalence(x = 30, n = 100)
-  expect_named(res, c("prevalence", "ci_lower", "ci_upper", "moe",
-                       "moe_lower", "moe_upper", "method",
-                       "n_total", "n_eff", "n_eff_adj", "conf_level",
-                       "sensitivity", "specificity", "icc_used", "deff", "fpc_N"),
-               ignore.order = FALSE)
+  expect_equal(res$method,    "wald")
+  expect_equal(res$moe_lower, res$moe)
+  expect_equal(res$moe_upper, res$moe)
 })
 
-test_that("wald: moe_lower = moe_upper = moe (symmetric interval)", {
-  res <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(res$method, "wald")
-  expect_equal(res$moe_lower, res$moe, tolerance = 1e-10)
-  expect_equal(res$moe_upper, res$moe, tolerance = 1e-10)
+test_that("EP-M-2: clopper-pearson matches R's own binom.test, and is lopsided", {
+  res <- suppressMessages(
+    estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
+  )
+  ref <- binom.test(30, 100)$conf.int                 # 0.212406, 0.399815
+  expect_equal(res$method,   "clopper-pearson")
+  expect_equal(c(res$ci_lower, res$ci_upper), c(ref[1], ref[2]))
+  # moe is the average half-width; moe_lower / moe_upper are the two sides
+  expect_equal(res$moe,       0.093704, tolerance = 1e-4)
+  expect_equal(res$moe_lower, 0.087594, tolerance = 1e-4)
+  expect_equal(res$moe_upper, 0.099815, tolerance = 1e-4)
 })
 
-test_that("clopper-pearson: method field set, interval valid and finite", {
-  res <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
-  expect_equal(res$method, "clopper-pearson")
-  expect_true(is.finite(res$ci_lower))
-  expect_true(is.finite(res$ci_upper))
-  expect_gte(res$ci_lower, 0)
-  expect_lte(res$ci_upper, 1)
-  expect_lte(res$ci_lower, res$prevalence)
-  expect_gte(res$ci_upper, res$prevalence)
-  # moe is average half-width
-  expect_equal(res$moe, (res$ci_upper - res$ci_lower) / 2, tolerance = 1e-10)
+test_that("EP-M-3: agresti-coull matches the hand-check, and is lopsided", {
+  # n~ = 100 + 1.959964^2 = 103.84; p~ = (30 + 1.959964^2 / 2) / 103.84 = 0.30740
+  # moe = 1.959964 * sqrt(0.30740 * 0.69260 / 103.84) = 0.088747
+  # CI  = [0.218651, 0.396146] (centred on p~, not on 0.3)
+  res <- suppressMessages(
+    estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
+  )
+  expect_equal(res$method,    "agresti-coull")
+  expect_equal(res$ci_lower,  0.218651, tolerance = 1e-4)
+  expect_equal(res$ci_upper,  0.396146, tolerance = 1e-4)
+  expect_equal(res$moe_lower, 0.081349, tolerance = 1e-4)
+  expect_equal(res$moe_upper, 0.096146, tolerance = 1e-4)
 })
 
-test_that("clopper-pearson: moe_lower and moe_upper are one-sided distances", {
-  res <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
-  expect_equal(res$moe_lower, res$prevalence - res$ci_lower, tolerance = 1e-10)
-  expect_equal(res$moe_upper, res$ci_upper  - res$prevalence, tolerance = 1e-10)
-  # CP is asymmetric for interior p_hat
-  expect_false(isTRUE(all.equal(res$moe_lower, res$moe_upper, tolerance = 1e-6)))
-})
-
-test_that("agresti-coull: method field set, interval valid and finite", {
-  res <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
-  expect_equal(res$method, "agresti-coull")
-  expect_true(is.finite(res$ci_lower))
-  expect_true(is.finite(res$ci_upper))
-  expect_gte(res$ci_lower, 0)
-  expect_lte(res$ci_upper, 1)
-  expect_equal(res$moe, (res$ci_upper - res$ci_lower) / 2, tolerance = 1e-10)
-})
-
-test_that("agresti-coull: moe_lower and moe_upper are one-sided distances", {
-  res <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
-  expect_equal(res$moe_lower, res$prevalence - res$ci_lower, tolerance = 1e-10)
-  expect_equal(res$moe_upper, res$ci_upper  - res$prevalence, tolerance = 1e-10)
-  # AC centres on p_tilde != p_hat, so moe_lower != moe_upper
-  expect_false(isTRUE(all.equal(res$moe_lower, res$moe_upper, tolerance = 1e-6)))
-})
-
-test_that("all three methods agree on point estimate (prevalence unchanged)", {
-  # CI method changes the interval, not the point estimate
+test_that("EP-M-4: the method changes the interval, not the estimate", {
+  # 15 / 80 = 0.1875 for all three
   wald <- estimate_prevalence(x = 15, n = 80)
-  cp   <- estimate_prevalence(x = 15, n = 80, method = "clopper-pearson")
-  ac   <- estimate_prevalence(x = 15, n = 80, method = "agresti-coull")
-  expect_equal(wald$prevalence, cp$prevalence,  tolerance = 1e-10)
-  expect_equal(wald$prevalence, ac$prevalence,  tolerance = 1e-10)
+  cp   <- suppressMessages(estimate_prevalence(x = 15, n = 80, method = "clopper-pearson"))
+  ac   <- suppressMessages(estimate_prevalence(x = 15, n = 80, method = "agresti-coull"))
+  expect_equal(c(wald$prevalence, cp$prevalence, ac$prevalence), rep(0.1875, 3))
+  expect_equal(c(wald$ci_lower, wald$ci_upper), c(0.101971, 0.273029), tolerance = 1e-4)
+  expect_equal(c(cp$ci_lower,   cp$ci_upper),   c(0.108914, 0.290328), tolerance = 1e-4)
+  expect_equal(c(ac$ci_lower,   ac$ci_upper),   c(0.115907, 0.287729), tolerance = 1e-4)
 })
 
-test_that("clopper-pearson: x=0 gives ci_lower=0 without error", {
-  res <- estimate_prevalence(x = 0, n = 50, method = "clopper-pearson")
-  expect_equal(res$ci_lower, 0)
-  expect_gt(res$ci_upper,    0)
-  expect_true(is.finite(res$ci_upper))
+test_that("EP-M-5: clopper-pearson and agresti-coull at 0 and at all-positive", {
+  cp0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, method = "clopper-pearson"))
+  expect_equal(c(cp0$ci_lower, cp0$ci_upper), c(0, 0.071122), tolerance = 1e-4)
+
+  cpn <- suppressMessages(estimate_prevalence(x = 50, n = 50, method = "clopper-pearson"))
+  expect_equal(c(cpn$ci_lower, cpn$ci_upper), c(0.928878, 1), tolerance = 1e-4)
+
+  ac0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, method = "agresti-coull"))
+  expect_equal(c(ac0$ci_lower, ac0$ci_upper), c(0, 0.085216), tolerance = 1e-4)
 })
 
-test_that("clopper-pearson: x=n gives ci_upper=1 without error", {
-  res <- estimate_prevalence(x = 50, n = 50, method = "clopper-pearson")
-  expect_equal(res$ci_upper, 1)
-  expect_lt(res$ci_lower,    1)
-  expect_true(is.finite(res$ci_lower))
-})
-
-test_that("agresti-coull: x=0 gives ci_lower >= 0 without error", {
-  res <- estimate_prevalence(x = 0, n = 50, method = "agresti-coull")
-  expect_gte(res$ci_lower, 0)
-  expect_true(is.finite(res$ci_upper))
-})
-
-test_that("clopper-pearson with imperfect test applies Rogan-Gladen to CI endpoints", {
-  res_perfect  <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
-  res_imperfect <- estimate_prevalence(x = 30, n = 100,
-                                        sensitivity = 0.9, specificity = 0.95,
-                                        method = "clopper-pearson")
-  # Imperfect test: correction = 0.85 < 1 -> wider CI (moe inflated by 1/correction)
-  expect_gt(res_imperfect$moe, res_perfect$moe)
-  # Point estimate shifted by RG
-  expect_false(isTRUE(all.equal(res_imperfect$prevalence, res_perfect$prevalence)))
-})
-
-test_that("clopper-pearson with clustering widens CI via deff", {
-  res_srs      <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                       icc = 0,    method = "clopper-pearson")
-  res_clustered <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                        icc = 0.05, method = "clopper-pearson")
-  # Clustering inflates n_eff (deff > 1) -> wider interval
-  expect_gt(res_clustered$ci_upper - res_clustered$ci_lower,
-            res_srs$ci_upper       - res_srs$ci_lower)
-})
-
-test_that("invalid method gives informative error", {
-  expect_error(
-    estimate_prevalence(x = 30, n = 100, method = "exact"),
-    "'wald', 'clopper-pearson', or 'agresti-coull'"
+test_that("EP-M-6: clopper-pearson with an imperfect test corrects both endpoints", {
+  # (0.212406 - 0.05) / 0.85 = 0.191066; (0.399815 - 0.05) / 0.85 = 0.411547
+  res <- suppressMessages(
+    estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95,
+                        method = "clopper-pearson")
   )
+  expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
+  expect_equal(res$ci_lower,   0.191066, tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.411547, tolerance = 1e-4)
 })
 
-test_that("method as vector is rejected with informative error", {
-  expect_error(
-    estimate_prevalence(x = 30, n = 100, method = c("wald", "clopper-pearson")),
-    "single character string"
-  )
+test_that("EP-M-7: clopper-pearson with clustering gives a wider interval", {
+  # icc 0.05 -> deff 1.45 -> CP computed on n_eff = 68.97 instead of 100
+  srs <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                              icc = 0,    method = "clopper-pearson"))
+  cl  <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                              icc = 0.05, method = "clopper-pearson"))
+  expect_equal(c(srs$ci_lower, srs$ci_upper), c(0.212406, 0.399815), tolerance = 1e-4)
+  expect_equal(c(cl$ci_lower,  cl$ci_upper),  c(0.195497, 0.422331), tolerance = 1e-4)
 })
 
-test_that("asymmetric method emits a message when moe_lower != moe_upper", {
+test_that("EP-M-8: the lopsided-interval message appears only when the two sides differ by > 10% of moe", {
   expect_message(
     estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"),
-    "asymmetric"
+    "clopper-pearson CI is asymmetric: moe_lower = 0.0876, moe_upper = 0.0998. moe = 0.0937 is the average half-width; report moe_lower and moe_upper separately.",
+    fixed = TRUE
   )
   expect_message(
     estimate_prevalence(x = 30, n = 100, method = "agresti-coull"),
-    "asymmetric"
+    "agresti-coull CI is asymmetric: moe_lower = 0.0813, moe_upper = 0.0961. moe = 0.0887 is the average half-width; report moe_lower and moe_upper separately.",
+    fixed = TRUE
   )
-})
-
-test_that("wald emits no message about asymmetry", {
-  expect_no_message(
-    estimate_prevalence(x = 30, n = 100, method = "wald")
-  )
-})
-
-test_that("EP-R7-1: logical sensitivity/specificity are rejected, not coerced", {
-  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = TRUE), "`sensitivity`")
-  expect_error(estimate_prevalence(x = 30, n = 100, specificity = FALSE), "`specificity`")
-})
-
-test_that("EP-R7-2: logical icc is rejected with a class error, not returned as icc_used", {
-  expect_error(
-    estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = FALSE),
-    "`icc`"
-  )
-})
-
-test_that("EP-R7-3: list-valued scalar params give a friendly class error, not a raw R error", {
-  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = list(0.9)), "`sensitivity`")
-  expect_error(estimate_prevalence(x = 30, n = 100, conf_level  = list(0.95)), "`conf_level`")
-})
-
-test_that("EP-R7-4: near-symmetric clopper-pearson interval emits no asymmetry message", {
-  # p_hat = 0.5, large n: the two half-widths differ by < 10% of moe
+  # No message: a wald interval away from 0 and 1, and a clopper-pearson
+  # interval at p = 0.5 with n = 1000 (sides 0.031451 each)
+  expect_no_message(estimate_prevalence(x = 30,  n = 100))
   expect_no_message(estimate_prevalence(x = 500, n = 1000, method = "clopper-pearson"))
 })
 
-test_that("EP-R7-5: a supplied icc has no effect with a single cluster (and warns)", {
-  a <- estimate_prevalence(x = 8, n = 50)
-  expect_warning(
-    b <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
-    "was ignored"
-  )
-  expect_equal(b$deff, 1)
-  expect_equal(b$icc_used, 0)
-  expect_equal(a$moe, b$moe)
-  # icc = 0 (explicit SRS) is silent
-  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 0))
+
+# ---------------------------------------------------------------------------
+# Validation (EP-V-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-V-1: TRUE/FALSE or a bare NA in x or n is rejected", {
+  # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
+  # A bare NA is logical in R, so it is caught here, and the message says so
+  expect_error(estimate_prevalence(x = NA, n = 100),
+               "`x` and `n` must be numeric, not logical (got class `logical` for x, `numeric` for n). Note: a plain `NA` is logical in R -- remove missing observations before calling.",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = TRUE),
+               "`x` and `n` must be numeric, not logical (got class `numeric` for x, `logical` for n).",
+               fixed = TRUE)
 })
 
-test_that("EP-R7-5b: Rogan-Gladen overshoot warns and does not report moe = 0 silently", {
-  # p_hat = 0.98 with Se=0.8, Sp=0.9: apparent Wald CI ~ [0.94, 1] maps
-  # entirely above 1 -> corrected estimate and CI collapse to 1.
-  expect_warning(
-    res <- estimate_prevalence(x = 49, n = 50, sensitivity = 0.8, specificity = 0.9),
-    "Rogan-Gladen overshoot"
-  )
-  expect_equal(res$prevalence, 1)
-  expect_equal(res$moe, 0)
-  # a perfect-test x = 0 case is the ordinary Wald [0, 0] degeneracy, NOT
-  # an overshoot -- no warning
-  expect_silent(estimate_prevalence(x = 0, n = 50))
+test_that("EP-V-2: text in x or n is rejected, naming the class", {
+  # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
+  expect_error(estimate_prevalence(x = "30", n = 100),
+               "`x` and `n` must be numeric vectors (got class `character` for x, `numeric` for n).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = "100"),
+               "`x` and `n` must be numeric vectors (got class `numeric` for x, `character` for n).",
+               fixed = TRUE)
 })
 
-test_that("EP-R7-6: n_eff_adj equals n_eff without FPC, exceeds it with FPC", {
+test_that("EP-V-3: empty x and n are rejected", {
+  # The smallest valid input is one site: x = 1, n = 1 (EP-C-4).
+  expect_error(estimate_prevalence(x = numeric(0), n = numeric(0)),
+               "`x` and `n` must be non-empty vectors.", fixed = TRUE)
+})
+
+test_that("EP-V-4: NA, NaN or Inf inside x or n is rejected", {
+  # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
+  expect_error(estimate_prevalence(x = c(1, NA_real_), n = c(10, 10)),
+               "`x` contains NA, NaN, or infinite values.", fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, NA, 10)),
+               "`n` contains NA, NaN, or infinite values.", fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, Inf, 10)),
+               "`n` contains NA, NaN, or infinite values.", fixed = TRUE)
+})
+
+test_that("EP-V-5: x and n of different lengths are rejected", {
+  # Equal lengths are valid: e.g. 10 sites in EP-C-1.
+  expect_error(estimate_prevalence(x = c(3, 5), n = 10),
+               "`x` and `n` must have the same length (got length(x) = 2, length(n) = 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10)),
+               "`x` and `n` must have the same length (got length(x) = 3, length(n) = 2).",
+               fixed = TRUE)
+})
+
+test_that("EP-V-6: a negative count in x is rejected, naming its position", {
+  # x = 0 is allowed (no positives): see EP-5.
+  expect_error(estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
+               "`x` must be non-negative (found x[2] = -1).", fixed = TRUE)
+  # -0.5 is both negative and not whole: the negative check comes first
+  expect_error(estimate_prevalence(x = -0.5, n = 10),
+               "`x` must be non-negative (found x[1] = -0.5).", fixed = TRUE)
+})
+
+test_that("EP-V-7: a zero or negative n is rejected, naming its position", {
+  # n = 1 is allowed (a site of one person): see EP-C-4.
+  expect_error(estimate_prevalence(x = c(1, 0, 2), n = c(10, 0, 10)),
+               "`n` must be positive for every cluster (found n[2] = 0).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 1, n = -5),
+               "`n` must be positive for every cluster (found n[1] = -5).", fixed = TRUE)
+})
+
+test_that("EP-V-8: a fraction in x or n is rejected, naming its position", {
+  # Whole numbers stored as decimals (100) or integers (100L) both work: see EP-6.
+  expect_error(estimate_prevalence(x = c(1.5, 2, 3), n = c(10, 10, 10)),
+               "`x` must contain whole numbers -- counts cannot be fractional (found x[1] = 1.5).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10.5, 10)),
+               "`n` must contain whole numbers -- sample sizes cannot be fractional (found n[2] = 10.5).",
+               fixed = TRUE)
+})
+
+test_that("EP-V-9: more positives than people tested is rejected, naming the position", {
+  expect_error(estimate_prevalence(x = 60, n = 50),
+               "`x` cannot exceed `n` (found x[1] = 60 > n[1] = 50).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(3, 12), n = c(10, 10)),
+               "`x` cannot exceed `n` (found x[2] = 12 > n[2] = 10).", fixed = TRUE)
+  # x = n is allowed (everyone positive): see EP-5
+})
+
+test_that("EP-V-10: a vector in a single-number argument is rejected, giving its length", {
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = c(0.9, 0.8)),
+               "`sensitivity` must be a single number in (0, 1] (got class `numeric`, length 2).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = c(0.9, 0.95)),
+               "`conf_level` must be a single number in (0, 1) (got class `numeric`, length 2).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = c(0.1, 0.2)),
+               "`icc` must be a single number in [0, 1] (got class `numeric`, length 2). To estimate ICC from the data, leave `icc = NULL`.",
+               fixed = TRUE)
+})
+
+test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, naming the class", {
+  # None of these is a number, so each is stopped by the type check and the
+  # message says what was passed. A bare NA counts as TRUE/FALSE-type
+  # (logical) in R, so it gets the same "class `logical`" message.
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = "0.9"),
+               "`sensitivity` must be a single number in (0, 1] (got class `character`, length 1).",
+               fixed = TRUE)
+  # TRUE must not be quietly read as a perfect test (1); the message says so.
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = TRUE),
+               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = NULL),
+               "`sensitivity` must be a single number in (0, 1] (got class `NULL`, length 0).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = list(0.9)),
+               "`sensitivity` must be a single number in (0, 1] (got class `list`, length 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = FALSE),
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = NA),
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = FALSE),
+               "`icc` must be a single number in [0, 1] (got class `logical`, length 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = NA),
+               "`conf_level` must be a single number in (0, 1) (got class `logical`, length 1).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = list(0.95)),
+               "`conf_level` must be a single number in (0, 1) (got class `list`, length 1).",
+               fixed = TRUE)
+})
+
+test_that("EP-V-12: NaN or Inf in a single-number argument gives the finite-value error", {
+  # NaN and Inf are numbers, so they get through the type check and reach this one
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = NaN),
+               "`sensitivity` must be a single finite number (got NaN).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = Inf),
+               "`specificity` must be a single finite number (got Inf).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, conf_level = NaN),
+               "`conf_level` must be a single finite number (got NaN).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = Inf),
+               "`icc` must be a single finite number (got Inf). To estimate ICC from the data, leave `icc = NULL`.",
+               fixed = TRUE)
+})
+
+test_that("EP-V-13: sensitivity's own range check (0, 1] gives the right message for each bad value", {
+  # Valid values: 1 (EP-1), 0.9 (EP-2), 0.5 (EP-3).
+  # sensitivity = 0 with the default specificity = 1 is the "0 + 1 = 1"
+  # case: it is stopped here, by sensitivity's own check, before the
+  # combined check runs.
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 0),
+               "A sensitivity of 0 means", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 1.1),
+               "`sensitivity` is a diagnostic probability and cannot be greater than 1",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = -0.5),
+               "`sensitivity` is a diagnostic probability and cannot be negative",
+               fixed = TRUE)
+})
+
+test_that("EP-V-14: specificity's own range check (0, 1] gives the right message for each bad value", {
+  # Valid values: 1 (EP-1), 0.95 (EP-2).
+  # Mirror of the sensitivity test above.
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = 0),
+               "A specificity of 0 means", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = 1.1),
+               "`specificity` is a diagnostic probability and cannot be greater than 1",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, specificity = -0.5),
+               "`specificity` is a diagnostic probability and cannot be negative",
+               fixed = TRUE)
+})
+
+test_that("EP-V-15: sensitivity + specificity <= 1 is rejected (Rogan-Gladen correction)", {
+  # A sum just above 1 is accepted, with a warning: see EP-V-16.
+  # The correction divides by (sensitivity + specificity - 1), so that
+  # value must be above 0.
+  # Sum below 1 (0.3 + 0.3 = 0.6): it would divide by a negative number.
+  expect_error(estimate_prevalence(x = 10, n = 50, sensitivity = 0.3, specificity = 0.3),
+               "(got 0.3 + 0.3 = 0.6). The correction divides by `sensitivity` + `specificity` - 1, so a sum of 1 or less cannot be corrected.",
+               fixed = TRUE)
+  # Sum exactly 1 (0.5 + 0.5): it would divide by 0.
+  expect_error(estimate_prevalence(x = 10, n = 50, sensitivity = 0.5, specificity = 0.5),
+               "(got 0.5 + 0.5 = 1).", fixed = TRUE)
+})
+
+test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 and above does not", {
+  # A sum just above 1 can be corrected, but the correction divides by a
+  # very small number, so the interval becomes very wide: 55 / 100 positive
+  # with sensitivity 0.59, specificity 0.5 gives a CI of [0, 1].
+  expect_warning(
+    res <- suppressMessages(
+      estimate_prevalence(x = 55, n = 100, sensitivity = 0.59, specificity = 0.5)
+    ),
+    "`sensitivity` + `specificity` = 1.09, which is very close to 1. Correcting for this much test error makes the prevalence estimate and its confidence interval very wide",
+    fixed = TRUE
+  )
+  expect_equal(c(res$ci_lower, res$ci_upper), c(0, 1))
+  # 1.10 does not warn: 0.6 + 0.5 - 1 comes out as 0.10000000000000009 in
+  # computer arithmetic, just above the 0.1 cut-off. 1.11 does not warn.
+  expect_no_warning(suppressMessages(
+    estimate_prevalence(x = 55, n = 100, sensitivity = 0.60, specificity = 0.5)))
+  expect_no_warning(suppressMessages(
+    estimate_prevalence(x = 55, n = 100, sensitivity = 0.61, specificity = 0.5)))
+})
+
+test_that("EP-V-17: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1 works", {
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = -0.1),
+               "`icc` must be in [0, 1] (got -0.1). `icc` is a correlation and cannot be negative. To estimate ICC from the data, leave `icc = NULL`.",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = 2),
+               "`icc` must be in [0, 1] (got 2). `icc` is a correlation and cannot be greater than 1. To estimate ICC from the data, leave `icc = NULL`.",
+               fixed = TRUE)
+  # icc = 1 itself is allowed: see EP-C-6 (deff = 10, moe = 0.284026)
+  expect_equal(estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1)$deff, 10)
+})
+
+test_that("EP-V-18: conf_level must be in (0, 1) -- boundaries and outside values rejected, inside works", {
+  for (bad in c(0, 1, -0.05, 1.05)) {
+    expect_error(estimate_prevalence(x = 30, n = 100, conf_level = bad),
+                 paste0("`conf_level` must be in (0, 1) (got ", bad, "). For example, use 0.95 for a 95% confidence interval."),
+                 fixed = TRUE)
+  }
+  # A valid value gives the hand-checked moe (see EP-4): 0.075377
+  expect_equal(estimate_prevalence(x = 30, n = 100, conf_level = 0.90)$moe,
+               0.075377, tolerance = 1e-4)
+})
+
+test_that("EP-V-19: fpc_N must be a single positive whole number", {
+  for (bad in list(0, -10, 100.5, Inf)) {
+    expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = bad),
+                 paste0("`fpc_N` must be a single finite positive integer (got ", bad, ")."),
+                 fixed = TRUE)
+  }
+  # A string or TRUE is reported by its class; a vector by its length.
+  # TRUE must not be quietly read as fpc_N = 1.
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = "500"),
+               "`fpc_N` must be a single finite positive integer (got class `character`).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = TRUE),
+               "`fpc_N` must be a single finite positive integer (got class `logical`).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = c(500, 600)),
+               "`fpc_N` must be a single finite positive integer (got length = 2).",
+               fixed = TRUE)
+  # A valid value: FPC factor = (400 - 100) / (400 - 1) -> n_eff_adj = 133
+  expect_equal(estimate_prevalence(x = 30, n = 100, fpc_N = 400)$n_eff_adj, 133)
+})
+
+test_that("EP-V-20: fpc_N smaller than, or equal to, the number tested is rejected", {
+  # Smaller: more people tested than exist
+  expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), fpc_N = 5),
+               "`fpc_N` (5) is smaller than the total sample size (20): you cannot test more people than there are in the population.",
+               fixed = TRUE)
+  # Equal: everyone was tested (a census), so there is no interval to compute.
+  # Holds for one site and for several (the FPC uses the total tested).
+  census_msg <- "equals the total sample size: the whole population was tested (a census), so there is no sampling uncertainty and no confidence interval to compute."
+  expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = 100),
+               paste("`fpc_N` (100)", census_msg), fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(10, 10, 10), n = c(40, 40, 40), fpc_N = 120),
+               paste("`fpc_N` (120)", census_msg), fixed = TRUE)
+  # One more than the number tested works: see EP-F-2
+})
+
+test_that("EP-V-21: method must be one of the three names", {
+  expect_error(estimate_prevalence(x = 30, n = 100, method = "exact"),
+               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got 'exact').",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, method = c("wald", "clopper-pearson")),
+               "`method` must be a single character string: 'wald', 'clopper-pearson', or 'agresti-coull' (got class `character`, length 2).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, method = 1),
+               "`method` must be a single character string: 'wald', 'clopper-pearson', or 'agresti-coull' (got class `numeric`, length 1).",
+               fixed = TRUE)
+})
+
+
+# ---------------------------------------------------------------------------
+# Return value (EP-R-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-R-1: return list contains all expected fields, in order", {
+  res <- estimate_prevalence(x = 30, n = 100)
+  expect_named(res, c("prevalence", "ci_lower", "ci_upper", "moe",
+                      "moe_lower", "moe_upper", "method",
+                      "n_total", "n_eff", "n_eff_adj", "conf_level",
+                      "sensitivity", "specificity", "icc_used", "deff", "fpc_N"),
+               ignore.order = FALSE)
+})
+
+test_that("EP-R-2: n_eff_adj equals n_eff without an FPC, and is larger with one", {
+  # n_eff is the equivalent simple-random-sample size before the FPC;
+  # n_eff_adj is the size the interval actually uses after it.
   no_fpc <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(no_fpc$n_eff_adj, no_fpc$n_eff)
+  expect_equal(no_fpc$n_eff_adj, no_fpc$n_eff)          # both 100
 
+  # Population 400: FPC factor = (400 - 100) / (400 - 1) = 0.7519
+  # n_eff_adj = 100 / 0.7519 = 133; moe = 1.959964 * sqrt(0.21 / 133) = 0.077881
   with_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 400)
-  expect_gt(with_fpc$n_eff_adj, with_fpc$n_eff)
+  expect_equal(with_fpc$n_eff,     100)
+  expect_equal(with_fpc$n_eff_adj, 133)
+  expect_equal(with_fpc$moe,       0.077881, tolerance = 1e-4)
 })
 
-test_that("EP-R7-7: Wald interval clamped at a boundary emits the asymmetry message", {
-  expect_message(estimate_prevalence(x = 99, n = 100, method = "wald"), "asymmetric")
+
+# ---------------------------------------------------------------------------
+# Round trips with design_precision() (EP-T-)
+# ---------------------------------------------------------------------------
+
+test_that("EP-T-1: the n from design_precision gives back the target moe (no clustering)", {
+  # design_precision(0.3, 0.05) -> n = 323; observing 30% -> x = round(0.3 * 323) = 97
+  res <- estimate_prevalence(x = 97, n = 323)
+  expect_equal(res$moe, 0.049990, tolerance = 1e-4)   # target 0.05
+})
+
+test_that("EP-T-2: the clustered design from design_precision gives back the target moe when icc is supplied", {
+  # design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05) -> 47 sites of 10;
+  # 3 positives per site
+  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+  expect_equal(res$moe, 0.049888, tolerance = 1e-4)   # target 0.05
+})
+
+test_that("EP-T-3: without icc supplied, identical sites estimate icc = 0 and the round trip misses", {
+  # Identical site prevalences -> observed variance 0 -> estimated icc = 0,
+  # deff = 1 -> the interval is narrower than design_precision planned for.
+  # The clustered round trip only holds when icc is supplied (EP-T-2).
+  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
+  expect_equal(res$icc_used, 0)
+  expect_equal(res$deff,     1)
+  expect_equal(res$moe,      0.041429, tolerance = 1e-4)   # not 0.05
 })
