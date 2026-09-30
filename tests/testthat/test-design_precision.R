@@ -124,6 +124,8 @@ test_that("DP-R-1: return list contains all expected fields", {
                        "apparent_prev", "moe", "conf_level", "sensitivity",
                        "specificity", "icc", "deff", "fpc_N"),
                ignore.order = FALSE)
+  # prevalence is passed back exactly as given
+  expect_equal(res$prevalence, 0.2)
 })
 
 test_that("DP-V-1: prevalence = 0 and prevalence = 1 are rejected as degenerate", {
@@ -589,50 +591,60 @@ test_that("DP-R-2: n_eff is the equivalent simple-random-sample size (323), even
   expect_gt(clus$n, clus$n_eff)
 })
 
+test_that("DP-C-12: the reported deff matches the reported people per site", {
+  # With n_sites fixed, the function rounds people per site up to a whole
+  # number, then works deff out again from that rounded number, so that
+  # deff = 1 + (n_per_site - 1) * icc describes the design you would
+  # actually carry out.
 
-# ---------------------------------------------------------------------------
-# Round 8 -- fresh code-review fixes (2026-09-02)
-# ---------------------------------------------------------------------------
-
-test_that("DP-C-12: reported deff is consistent with the returned n_per_site", {
-  # fixed n_sites, no FPC
+  # 50 sites: the function needs n = 452.6 -> 453 people in total.
+  # 453 / 50 = 9.06 per site, rounded up to 10, so deff is worked out
+  # again from 10: 1 + (10 - 1) * 0.05 = 1.45.
+  # (The plan then collects 50 * 10 = 500, more than n = 453 -- see the
+  # note on n in ?design_precision.)
   a <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
-  expect_equal(a$deff, 1 + (a$n_per_site - 1) * 0.05, tolerance = 1e-9)
+  expect_equal(a$n, 453)
+  expect_equal(a$n_per_site, 10)
+  expect_equal(a$deff, 1.45)
 
-  # fixed n_sites + FPC: deff must still match the (smaller) fielded design
-  b <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
-  expect_equal(b$deff, 1 + (b$n_per_site - 1) * 0.05, tolerance = 1e-9)
-  expect_lt(b$n_per_site, a$n_per_site)   # FPC shrank the per-site sample
-  expect_lt(b$deff, a$deff)               # ... and hence the design effect
+  # 50 sites in a population of 1000: the FPC lowers n to 312.
+  # 312 / 50 = 6.24 per site, rounded up to 7: deff = 1 + (7 - 1) * 0.05 = 1.3
+  # (collects 50 * 7 = 350)
+  b <-design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
+  expect_equal(b$n, 312)
+  expect_equal(b$n_per_site, 7)
+  expect_equal(b$deff, 1.3)
 })
 
-test_that("DP-R-3: `prevalence` is returned and documented", {
-  res <- design_precision(0.3, 0.05)
-  expect_equal(res$prevalence, 0.3)
-})
-
-
-# ---------------------------------------------------------------------------
-# Round 9 -- final-review fixes (2026-09-03)
-# ---------------------------------------------------------------------------
-
-test_that("DP-V-22: a cluster structure larger than the population is rejected", {
+test_that("DP-V-22: more sites, or more people per site, than the whole population is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
-               "more clusters than individuals")
+               "`n_sites` (100) exceeds `fpc_N` (50): you cannot have more clusters than individuals in the population.",
+               fixed = TRUE)
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
-               "cannot be larger than the whole population")
-  # a feasible combination still works
-  expect_silent(design_precision(0.3, 0.05, n_sites = 20, fpc_N = 5000, icc = 0.05))
+               "`n_per_site` (100) exceeds `fpc_N` (50): a cluster cannot be larger than the whole population.",
+               fixed = TRUE)
+  # 20 sites in a population of 5000 is fine: n = 1205, 61 per site,
+  # deff = 1 + (61 - 1) * 0.05 = 4
+  res <- design_precision(0.3, 0.05, n_sites = 20, fpc_N = 5000, icc = 0.05)
+  expect_equal(res$n, 1205)
+  expect_equal(res$n_per_site, 61)
+  expect_equal(res$deff, 4)
 })
 
-test_that("DP-C-13: a hair-above-zero icc without a cluster structure is treated as SRS", {
+test_that("DP-C-13: a tiny icc (1e-12) is treated as exactly 0, with or without sites", {
+  # Any icc below about 0.000000015 counts as 0. A value like 1e-12 is
+  # almost always leftover rounding from another calculation, not real
+  # clustering. Without this rule, icc = 1e-12 with no sites would be
+  # rejected like icc = 0.05 with no sites is (DP-V-6).
+
+  # No sites: accepted, and gives the same n as no clustering (323)
   res <- design_precision(0.3, 0.05, icc = 1e-12)
+  expect_equal(res$n, 323)
   expect_equal(res$deff, 1)
-  expect_equal(res$n, design_precision(0.3, 0.05)$n)
-})
 
-test_that("DP-C-14: a hair-above-zero icc WITH n_sites is still treated as SRS (deff stays exactly 1)", {
+  # 50 sites: n = 323 split over 50 sites (7 each), deff exactly 1
   res <- design_precision(0.3, 0.05, n_sites = 50, icc = 1e-12)
+  expect_equal(res$n, 323)
+  expect_equal(res$n_per_site, 7)
   expect_equal(res$deff, 1)
-  expect_equal(res$n, design_precision(0.3, 0.05, n_sites = 50, icc = 0)$n)
 })
