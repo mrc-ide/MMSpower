@@ -47,9 +47,13 @@ without a cluster structure, Deff is not computable. An \code{icc} below
 \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as 0 (SRS), so a
 negligible upstream estimate does not force the clustered code path.}
 
-\item{fpc_N}{Optional positive integer. Total population size, for a
-finite-population correction. Reduces the required \code{n} when the sample
-is a non-trivial fraction of the population. \code{NULL} (default) = no FPC.}
+\item{fpc_N}{Optional positive integer. Total population size (number of
+individuals), for a finite-population correction. Reduces the required
+\code{n} when the sample is a non-trivial fraction of the population. \code{NULL}
+(default) = no FPC. The correction is applied at the individual level
+only: for clustered designs it does not know what fraction of the
+\emph{clusters} is sampled, so it is conservative (over-sizes), and
+increasingly so when most or all clusters are visited -- see Details.}
 }
 \value{
 A named list with the following fields, in the order returned:
@@ -142,6 +146,23 @@ at:
 The function stops and reports this minimum achievable MOE for that site
 count.
 
+When \code{fpc_N} is also supplied, the finite-population factor
+\eqn{(N-n)/(N-1)} is part of the same equation rather than being applied
+afterwards (applying it afterwards would use a Deff computed at a larger
+\eqn{n} than the one finally returned, and would report the target as
+unachievable when it is not). Substituting \eqn{Deff = 1 + (n/n_{sites} -
+1) \cdot ICC} and the FPC into the variance and solving gives the
+quadratic
+
+\deqn{A n^2 + B n + C = 0, \quad A = \frac{n_0 \cdot ICC}{n_{sites}}, \quad
+B = n_0 (1 - ICC) - A N + N - 1, \quad C = -n_0 (1 - ICC) N}
+
+which has exactly one positive root, and that root is always below
+\eqn{N}: the finite-population variance vanishes as \eqn{n \to N}, so
+with an FPC the target MOE is always achievable and the minimum-MOE stop
+above does not apply. As \eqn{N \to \infty} the root converges to the
+closed form above.
+
 When \code{n_per_site} is fixed instead, Deff is non-circular (cluster size is
 known directly) and the number of sites follows from
 \code{ceiling(n / n_per_site)}.
@@ -159,51 +180,21 @@ FPC) and solving for \eqn{n} gives Cochran's (1977) adjustment:
 applied with \eqn{N} = \code{fpc_N}. As \eqn{N \to \infty} this converges to
 \eqn{n_{pre}} (no correction); as \eqn{N} shrinks toward \eqn{n_{pre}},
 it pulls the required sample down toward \eqn{N} -- you cannot sample
-more people than exist in the population.
-}
-\section{Equations and sources}{
+more people than exist in the population. This post-hoc form is used for
+SRS and fixed-\code{n_per_site} designs; for fixed-\code{n_sites} designs the FPC
+enters the circularity solve directly (see above), because Deff itself
+depends on \eqn{n}.
 
-Mostly direct workshop material (MMS-SD Study Design Workshop,
-\url{https://mrc-ide.github.io/MMS-SD_workshop/}):
-\itemize{
-\item \emph{MOE sample size} \eqn{n = z_{1-\alpha/2}^2\,p(1-p)/m^2} --
-Module 2 "Sample size calculation based on margin of error", slides
-"Deriving the sample size formula" (steps 1-3) and "Worked example"
-(lecture slides pp. 9-10).
-\item \emph{Margin of error / Wald interval}
-\eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/n}} -- Module 1
-"Sampling from a population" (p. 11), Module 2 "Precision and sample
-size" (p. 9).
-\item \emph{Design effect and effective sample size}
-\eqn{D_{eff} = 1 + (\bar n - 1)\,r}, \eqn{N_{eff} = N/D_{eff}}, and
-the clustered Wald interval
-\eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
-    D_{eff}}} -- Module 5 "Dealing with over-dispersion", slides "The
-effective sample size", "Why is the ICC useful?" and "How can we
-design multi-cluster studies?" (pp. 4-5).
-\item \emph{Rogan-Gladen variance inflation} (the
-\eqn{/(Se + Sp - 1)^2} factor) -- \strong{not} in the workshop;
-Rogan & Gladen (1978).
-\item \emph{Fixed-\code{n_sites} closed-form circularity solve} and the
-\emph{finite-population correction} -- not in the workshop
-(package's own algebra; Cochran (1977) for the FPC).
+The correction treats the sample as \eqn{n} individuals drawn from
+\eqn{N}. In a two-stage cluster sample the between-cluster component of
+the variance actually shrinks with the fraction of \emph{clusters}
+sampled, which this function has no input for. The individual-level
+factor therefore over-states the variance for clustered designs and the
+returned \code{n} is conservative -- markedly so when most or all of the
+clusters in the population are visited (with every cluster sampled, the
+between-cluster component is zero and the true requirement can be a
+fraction of what is returned).
 }
-}
-
-\section{Known limitation -- n_sites and n_per_site cannot both be fixed}{
-
-\strong{This is a scope limitation, flagged for a team decision, not a
-bug.} This function only solves forward for the required sample size
-\code{n}, so supplying both a fixed number of clusters and a fixed
-cluster size is rejected -- with both fixed, the total sample size is
-already determined and there is nothing left to solve for. Someone who
-already has both numbers fixed (e.g. "I'm running 50 sites of 20 people
-each -- what MOE do I actually get?") needs the reverse calculation
-instead: achieved MOE from a given \code{n_sites * n_per_site}. That mode
-does not exist yet -- it would need to be added, not just unlocked by
-relaxing this guard.
-}
-
 \examples{
 # Simple random sample, perfect test
 design_precision(prevalence = 0.3, moe = 0.05)
@@ -218,12 +209,12 @@ design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05)
 design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
 }
 \references{
-MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
-margin of error) and 5 (ICC / design effect).
-\url{https://mrc-ide.github.io/MMS-SD_workshop/}
-
 Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
 screening test. American Journal of Epidemiology 107(1):71-76.
 
 Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+
+MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
+margin of error) and 5 (ICC / design effect).
+\url{https://mrc-ide.github.io/MMS-SD_workshop/}
 }

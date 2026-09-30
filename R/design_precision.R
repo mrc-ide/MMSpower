@@ -40,9 +40,13 @@
 #'   without a cluster structure, Deff is not computable. An `icc` below
 #'   `sqrt(.Machine$double.eps)` (about 1.5e-8) is treated as 0 (SRS), so a
 #'   negligible upstream estimate does not force the clustered code path.
-#' @param fpc_N Optional positive integer. Total population size, for a
-#'   finite-population correction. Reduces the required `n` when the sample
-#'   is a non-trivial fraction of the population. `NULL` (default) = no FPC.
+#' @param fpc_N Optional positive integer. Total population size (number of
+#'   individuals), for a finite-population correction. Reduces the required
+#'   `n` when the sample is a non-trivial fraction of the population. `NULL`
+#'   (default) = no FPC. The correction is applied at the individual level
+#'   only: for clustered designs it does not know what fraction of the
+#'   \emph{clusters} is sampled, so it is conservative (over-sizes), and
+#'   increasingly so when most or all clusters are visited -- see Details.
 #'
 #' @details
 #' **Rogan-Gladen variance adjustment**: the Rogan-Gladen transform is
@@ -73,6 +77,23 @@
 #' The function stops and reports this minimum achievable MOE for that site
 #' count.
 #'
+#' When `fpc_N` is also supplied, the finite-population factor
+#' \eqn{(N-n)/(N-1)} is part of the same equation rather than being applied
+#' afterwards (applying it afterwards would use a Deff computed at a larger
+#' \eqn{n} than the one finally returned, and would report the target as
+#' unachievable when it is not). Substituting \eqn{Deff = 1 + (n/n_{sites} -
+#' 1) \cdot ICC} and the FPC into the variance and solving gives the
+#' quadratic
+#'
+#' \deqn{A n^2 + B n + C = 0, \quad A = \frac{n_0 \cdot ICC}{n_{sites}}, \quad
+#' B = n_0 (1 - ICC) - A N + N - 1, \quad C = -n_0 (1 - ICC) N}
+#'
+#' which has exactly one positive root, and that root is always below
+#' \eqn{N}: the finite-population variance vanishes as \eqn{n \to N}, so
+#' with an FPC the target MOE is always achievable and the minimum-MOE stop
+#' above does not apply. As \eqn{N \to \infty} the root converges to the
+#' closed form above.
+#'
 #' When `n_per_site` is fixed instead, Deff is non-circular (cluster size is
 #' known directly) and the number of sites follows from
 #' \code{ceiling(n / n_per_site)}.
@@ -90,46 +111,20 @@
 #' applied with \eqn{N} = `fpc_N`. As \eqn{N \to \infty} this converges to
 #' \eqn{n_{pre}} (no correction); as \eqn{N} shrinks toward \eqn{n_{pre}},
 #' it pulls the required sample down toward \eqn{N} -- you cannot sample
-#' more people than exist in the population.
+#' more people than exist in the population. This post-hoc form is used for
+#' SRS and fixed-`n_per_site` designs; for fixed-`n_sites` designs the FPC
+#' enters the circularity solve directly (see above), because Deff itself
+#' depends on \eqn{n}.
 #'
-#' @section Equations and sources:
-#' Mostly direct workshop material (MMS-SD Study Design Workshop,
-#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}):
-#' \itemize{
-#'   \item \emph{MOE sample size} \eqn{n = z_{1-\alpha/2}^2\,p(1-p)/m^2} --
-#'     Module 2 "Sample size calculation based on margin of error", slides
-#'     "Deriving the sample size formula" (steps 1-3) and "Worked example"
-#'     (lecture slides pp. 9-10).
-#'   \item \emph{Margin of error / Wald interval}
-#'     \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/n}} -- Module 1
-#'     "Sampling from a population" (p. 11), Module 2 "Precision and sample
-#'     size" (p. 9).
-#'   \item \emph{Design effect and effective sample size}
-#'     \eqn{D_{eff} = 1 + (\bar n - 1)\,r}, \eqn{N_{eff} = N/D_{eff}}, and
-#'     the clustered Wald interval
-#'     \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
-#'     D_{eff}}} -- Module 5 "Dealing with over-dispersion", slides "The
-#'     effective sample size", "Why is the ICC useful?" and "How can we
-#'     design multi-cluster studies?" (pp. 4-5).
-#'   \item \emph{Rogan-Gladen variance inflation} (the
-#'     \eqn{/(Se + Sp - 1)^2} factor) -- \strong{not} in the workshop;
-#'     Rogan & Gladen (1978).
-#'   \item \emph{Fixed-\code{n_sites} closed-form circularity solve} and the
-#'     \emph{finite-population correction} -- not in the workshop
-#'     (package's own algebra; Cochran (1977) for the FPC).
-#' }
-#'
-#' @section Known limitation -- n_sites and n_per_site cannot both be fixed:
-#' \strong{This is a scope limitation, flagged for a team decision, not a
-#' bug.} This function only solves forward for the required sample size
-#' \code{n}, so supplying both a fixed number of clusters and a fixed
-#' cluster size is rejected -- with both fixed, the total sample size is
-#' already determined and there is nothing left to solve for. Someone who
-#' already has both numbers fixed (e.g. "I'm running 50 sites of 20 people
-#' each -- what MOE do I actually get?") needs the reverse calculation
-#' instead: achieved MOE from a given \code{n_sites * n_per_site}. That mode
-#' does not exist yet -- it would need to be added, not just unlocked by
-#' relaxing this guard.
+#' The correction treats the sample as \eqn{n} individuals drawn from
+#' \eqn{N}. In a two-stage cluster sample the between-cluster component of
+#' the variance actually shrinks with the fraction of \emph{clusters}
+#' sampled, which this function has no input for. The individual-level
+#' factor therefore over-states the variance for clustered designs and the
+#' returned \code{n} is conservative -- markedly so when most or all of the
+#' clusters in the population are visited (with every cluster sampled, the
+#' between-cluster component is zero and the true requirement can be a
+#' fraction of what is returned).
 #'
 #' @return A named list with the following fields, in the order returned:
 #'   \item{n}{Total sample size required (ceiling of the continuous solution).
@@ -175,14 +170,14 @@
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #' @references
-#' MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
-#' margin of error) and 5 (ICC / design effect).
-#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
-#'
 #' Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
 #' screening test. American Journal of Epidemiology 107(1):71-76.
 #'
 #' Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+#'
+#' MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
+#' margin of error) and 5 (ICC / design effect).
+#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 #'
 #' @export
 #'
@@ -199,14 +194,14 @@
 #' # Fixed number of sites: what is the target per-site sample?
 #' design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
 design_precision <- function(prevalence,
-                              moe,
-                              sensitivity = 1,
-                              specificity = 1,
-                              conf_level  = 0.95,
-                              n_sites     = NULL,
-                              n_per_site  = NULL,
-                              icc         = 0,
-                              fpc_N       = NULL) {
+                             moe,
+                             sensitivity = 1,
+                             specificity = 1,
+                             conf_level  = 0.95,
+                             n_sites     = NULL,
+                             n_per_site  = NULL,
+                             icc         = 0,
+                             fpc_N       = NULL) {
 
   # ---- validation ----
   # Every parameter must be a single number. Without this check, a vector
@@ -325,7 +320,7 @@ design_precision <- function(prevalence,
          else n_per_site, "). ",
          "`n_per_site` is the fixed number of individuals sampled per cluster.")
   if (!is.null(fpc_N) && (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
-      fpc_N < 1 || fpc_N != floor(fpc_N)))
+                          fpc_N < 1 || fpc_N != floor(fpc_N)))
     stop("`fpc_N` must be a single finite positive integer (got ",
          if (!is.numeric(fpc_N)) paste0("class `", class(fpc_N)[1], "`")
          else if (length(fpc_N) != 1) paste0("length = ", length(fpc_N))
@@ -362,6 +357,10 @@ design_precision <- function(prevalence,
   # This branch handles n_sites and n_per_site both NULL. If icc > 0 with no
   # cluster structure, the earlier guard would already have rejected it --
   # so reaching here with both NULL guarantees icc_is_zero.
+  # The fixed-n_sites branch folds the FPC into its own solve (see below);
+  # every other branch has it applied afterwards.
+  fpc_applied <- FALSE
+
   if (icc_is_zero) {
     # SRS: no clustering adjustment needed
     deff   <- 1
@@ -374,43 +373,66 @@ design_precision <- function(prevalence,
 
   } else {
     # Number of sites fixed -- circular: Deff depends on n, n depends on Deff.
-    #
-    # Substituting Deff = 1 + (n/n_sites - 1)*icc into n = n_base*Deff and
-    # solving for n gives the closed-form:
-    #   n = n_base * n_sites * (1 - icc) / (n_sites - n_base * icc)
-    #
-    # A solution exists only when n_sites > n_base * icc. If not, adding
-    # more samples per site increases Deff proportionally, so MOE never
-    # reaches the target -- it floors at:
-    #   min_moe = z * sqrt(p_app*(1-p_app)*icc / (n_sites * correction^2))
-    denom <- n_sites - n_base_cont * icc
-    if (denom <= 0) {
-      min_moe <- z * sqrt(p_app * (1 - p_app) * icc /
-                            (n_sites * correction^2))
-      stop(sprintf(paste0(
-        "Target MOE of %.1f%% is unachievable with %d sites and ICC = %.3f.\n",
-        "Minimum achievable MOE with these settings: %.1f%%.\n",
-        "Increase `n_sites`, lower the ICC assumption, or relax the MOE target."
-      ), 100 * moe, n_sites, icc, 100 * min_moe))
+    if (is.null(fpc_N)) {
+      # Substituting Deff = 1 + (n/n_sites - 1)*icc into n = n_base*Deff and
+      # solving for n gives the closed-form:
+      #   n = n_base * n_sites * (1 - icc) / (n_sites - n_base * icc)
+      #
+      # A solution exists only when n_sites > n_base * icc. If not, adding
+      # more samples per site increases Deff proportionally, so MOE never
+      # reaches the target -- it floors at:
+      #   min_moe = z * sqrt(p_app*(1-p_app)*icc / (n_sites * correction^2))
+      denom <- n_sites - n_base_cont * icc
+      if (denom <= 0) {
+        min_moe <- z * sqrt(p_app * (1 - p_app) * icc /
+                              (n_sites * correction^2))
+        stop(sprintf(paste0(
+          "Target MOE of %.1f%% is unachievable with %d sites and ICC = %.3f.\n",
+          "Minimum achievable MOE with these settings: %.1f%%.\n",
+          "Increase `n_sites`, lower the ICC assumption, or relax the MOE target."
+        ), 100 * moe, n_sites, icc, 100 * min_moe))
+      }
+      n_cont <- n_base_cont * n_sites * (1 - icc) / denom
+
+    } else {
+      # With an FPC the target variance equation is
+      #   n_base * (1 + (n/n_sites - 1)*icc) * (N - n)/(N - 1) = n
+      # and the FPC must be solved jointly with Deff: applying it after the
+      # closed form above would evaluate Deff at a larger n than the one
+      # returned, and would call the target unachievable when it is not
+      # (the finite-population variance goes to 0 as n -> N, so a solution
+      # with n < N always exists). Rearranged, this is the quadratic
+      #   A*n^2 + B*n + C = 0
+      # with A > 0 and C < 0, so it has exactly one positive root. The root
+      # is taken in the cancellation-free form so that very large N (where
+      # B^2 >> 4AC) does not lose precision.
+      A <- n_base_cont * icc / n_sites
+      B <- n_base_cont * (1 - icc) - A * fpc_N + fpc_N - 1
+      C <- -n_base_cont * (1 - icc) * fpc_N
+      q <- -(B + (if (B < 0) -1 else 1) * sqrt(B^2 - 4 * A * C)) / 2
+      n_cont <- max(q / A, C / q)
+      fpc_applied <- TRUE
     }
-    n_cont <- n_base_cont * n_sites * (1 - icc) / denom
-    deff   <- n_cont / n_base_cont
+    deff <- 1 + (n_cont / n_sites - 1) * icc
 
     # deff must be > 1 when icc > 0 and we have multiple sites. deff <= 1
     # means n_cont <= n_sites, i.e., average cluster size <= 1 -- a
-    # physically impossible design. This happens when n_sites >= n_base,
-    # meaning you have more sites than you'd need people under SRS.
+    # physically impossible design. This happens when n_sites >= the SRS
+    # sample size (after the FPC, if there is one), meaning you have more
+    # sites than you'd need people under SRS.
     if (deff <= 1) {
+      n_srs <- if (is.null(fpc_N)) n_base_cont
+      else (n_base_cont * fpc_N) / (n_base_cont + fpc_N - 1)
       stop("n_sites = ", n_sites, " is >= the SRS sample size (n_base ~= ",
-           ceiling(n_base_cont), "), so each site would receive < 1 person on ",
+           ceiling(n_srs), "), so each site would receive < 1 person on ",
            "average -- not a valid cluster design. ",
-           "Use n_sites < ", ceiling(n_base_cont), ", or supply `n_per_site` ",
+           "Use n_sites < ", ceiling(n_srs), ", or supply `n_per_site` ",
            "to fix the cluster size and solve for the number of sites instead.")
     }
   }
 
   # ---- finite-population correction ----
-  if (!is.null(fpc_N)) {
+  if (!is.null(fpc_N) && !fpc_applied) {
     n_cont <- (n_cont * fpc_N) / (n_cont + fpc_N - 1)
   }
 
@@ -443,6 +465,16 @@ design_precision <- function(prevalence,
     n_per_site_out <- NULL
   }
 
+  # Rounding the site count (or per-site count) up can push the fielded
+  # total past the population. That only happens when the required n is
+  # already close to N, i.e. the study is close to a census.
+  if (!is.null(fpc_N) && !is.null(n_sites_out) &&
+      n_sites_out * n_per_site_out > fpc_N)
+    warning("The rounded design (", n_sites_out, " sites x ", n_per_site_out,
+            " = ", n_sites_out * n_per_site_out, ") exceeds `fpc_N` = ", fpc_N,
+            ": the required n of ", n_total, " is close to a census of the ",
+            "population. Consider surveying the whole population instead.")
+
   list(
     n             = n_total,
     n_eff         = n_eff,
@@ -459,3 +491,4 @@ design_precision <- function(prevalence,
     fpc_N         = fpc_N
   )
 }
+
