@@ -470,12 +470,6 @@ test_that("DP-V-19: moe must be < 0.5 -- 0.5 and 0.6 are rejected, 0.499 works",
   expect_equal(design_precision(0.3, 0.499)$n, 4)
 })
 
-test_that("DP-V-20: prevalence vector is rejected with length error", {
-  expect_error(design_precision(c(0.2, 0.3), 0.05),
-               "`prevalence` must be a single number in (0, 1) (got class `numeric`, length 2)",
-               fixed = TRUE)
-})
-
 test_that("DP-C-9: n_per_site given but icc=0 -> deff=1, same n as SRS", {
   # deff = 1 + (n_per_site - 1)*0 = 1 regardless of cluster size
   res <- design_precision(0.3, 0.05, n_per_site = 50, icc = 0)
@@ -483,89 +477,113 @@ test_that("DP-C-9: n_per_site given but icc=0 -> deff=1, same n as SRS", {
   expect_equal(res$n, design_precision(0.3, 0.05)$n)
 })
 
-# ---- Round 6: 15 new edge cases ----
+test_that("DP-V-20: a vector in a single-number argument is rejected, giving its length", {
+  expect_error(design_precision(c(0.2, 0.3), 0.05),
+               "`prevalence` must be a single number in (0, 1) (got class `numeric`, length 2)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
+               "`icc` must be a single number in [0, 1] (got class `numeric`, length 2)",
+               fixed = TRUE)
+})
 
-test_that("DP-V-21: specificity=NA is rejected by is.finite check", {
-  expect_error(design_precision(0.3, 0.05, specificity = NA), "`specificity`")
+test_that("DP-V-21: text, TRUE/FALSE, a bare NA or a list is rejected, naming the class", {
+  # None of these is a number, so each is stopped by the type check and the
+  # message says what was passed. A bare NA counts as TRUE/FALSE-type
+  # (logical) in R, so it gets the same "class `logical`" message.
+  expect_error(design_precision("0.3", 0.05),
+               "`prevalence` must be a single number in (0, 1) (got class `character`, length 1)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, "0.05"),
+               "`moe` must be a single number in (0, 0.5) (got class `character`, length 1)",
+               fixed = TRUE)
+  # TRUE must not be quietly read as a perfect test (1); the message says so.
+  expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),
+               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, specificity = FALSE),
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, specificity = NA),
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, icc = FALSE),
+               "`icc` must be a single number in [0, 1] (got class `logical`, length 1)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, conf_level = NA),
+               "`conf_level` must be a single number in (0, 1) (got class `logical`, length 1)",
+               fixed = TRUE)
+  expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)),
+               "`conf_level` must be a single number in (0, 1) (got class `list`, length 1)",
+               fixed = TRUE)
 })
 
 test_that("DP-C-10: large n_per_site with high icc -> very large n", {
-  # deff = 1 + (10000-1)*0.3 = 3000.7; n ~= 323 * 3000.7 ~= 969k
+  # deff = 1 + (10000 - 1) * 0.3 = 3000.7
+  # n = ceiling(322.68 * 3000.7) = ceiling(968273.5) = 968274
   res <- design_precision(0.3, 0.05, n_per_site = 10000, icc = 0.3)
-  expect_equal(res$deff, 3000.7, tolerance = 0.1)
-  expect_gt(res$n, 900000)
+  expect_equal(res$deff, 3000.7)
+  expect_equal(res$n, 968274)
 })
 
-test_that("DP-V-22: icc as vector is rejected with length error", {
-  expect_error(
-    design_precision(0.3, 0.05, n_per_site = 10, icc = c(0.05, 0.1)),
-    "`icc`"
-  )
-})
-
-test_that("DP-F-4: fpc_N=1 (population of 1) -> n=1 regardless of SRS n", {
-  # n_adj = n_cont * 1 / (n_cont + 1 - 1) = 1.0 exactly
-  res <- design_precision(0.3, 0.05, fpc_N = 1)
-  expect_equal(res$n, 1)
-})
-
-test_that("DP-F-5: fpc_N=2 -> n=2 (census of a 2-person population)", {
-  res <- design_precision(0.3, 0.05, fpc_N = 2)
-  expect_equal(res$n, 2)
+test_that("DP-F-4: a population of 1 or 2 -> n is the whole population", {
+  # FPC: n = n0 * N / (n0 + N - 1), with n0 = 322.68 (the SRS n before rounding)
+  # N = 1: n = 322.68 / 322.68 = 1
+  # N = 2: n = 645.36 / 323.68 = 1.99 -> rounds up to 2
+  expect_equal(design_precision(0.3, 0.05, fpc_N = 1)$n, 1)
+  expect_equal(design_precision(0.3, 0.05, fpc_N = 2)$n, 2)
 })
 
 test_that("DP-9: wide moe=0.3 gives very small n", {
-  # n = ceil(1.96^2 * 0.3*0.7 / 0.3^2) = ceil(3.84*0.21/0.09) = ceil(8.96) = 9
+  # n = ceiling(1.959964^2 * 0.3 * 0.7 / 0.3^2) = ceiling(8.96) = 9
   res <- design_precision(0.3, 0.3)
   expect_equal(res$n, 9)
 })
 
-test_that("DP-C-11: n_sites=323 (= ceiling n_base) triggers deff<=1 error", {
-  # n_base_cont ~= 322.68; n_sites=323 >= n_base -> deff < 1 -> impossible design
-  expect_error(
-    design_precision(0.3, 0.05, n_sites = 323, icc = 0.05),
-    "SRS sample size"
-  )
+test_that("DP-C-11: more sites than the study needs people is rejected; the same sites work for a bigger study", {
+  # Whether a number of sites is too many depends on how many people the
+  # study needs. Every site must get at least 1 person.
+  #
+  # prevalence 0.3, moe 0.05: the study needs only 322.68 people (before
+  # clustering). Spread over 323 sites, that is 322.68 / 323 = 0.999 people
+  # per site -- less than 1 -- so it is rejected.
+  expect_error(design_precision(0.3, 0.05, n_sites = 323, icc = 0.05),
+               "n_sites = 323 is >= the SRS sample size (n_base ~= 323)",
+               fixed = TRUE)
+  # prevalence 0.3, moe 0.02: the study needs 2016.77 people (before
+  # clustering), so 323 sites is fine. With clustering: n = 2786,
+  # 9 people per site, deff = 1 + (9 - 1) * 0.05 = 1.4.
+  res <- design_precision(0.3, 0.02, n_sites = 323, icc = 0.05)
+  expect_equal(res$n, 2786)
+  expect_equal(res$n_per_site, 9)
+  expect_equal(res$deff, 1.4)
 })
 
-test_that("DP-V-23: conf_level=NA is rejected by is.finite check", {
-  expect_error(design_precision(0.3, 0.05, conf_level = NA), "`conf_level`")
-})
-
-test_that("DP-10: prevalence=0.9999 (near-boundary) returns finite n", {
-  # p_app ~= 0.9999; p*(1-p) ~= 0.0001 -> tiny variance -> very small n
+test_that("DP-10: prevalence=0.9999 (near 1) gives the smallest possible n", {
+  # n = ceiling(1.959964^2 * 0.9999 * 0.0001 / 0.05^2) = ceiling(0.15) = 1
   res <- design_precision(0.9999, 0.05)
-  expect_true(is.finite(res$n))
-  expect_gte(res$n, 1)
+  expect_equal(res$n, 1)
+  # sensitivity and specificity are 1 (the defaults): the test never misses
+  # a case and never gives a false positive, so the prevalence it would
+  # measure (apparent_prev) is the same as the true prevalence.
   expect_equal(res$apparent_prev, 0.9999, tolerance = 1e-6)
 })
 
-test_that("DP-V-24: character prevalence/moe give a friendly class error", {
-  expect_error(design_precision(prevalence = "0.3", moe = 0.05), "`prevalence`")
-  expect_error(design_precision(prevalence = 0.3, moe = "0.05"), "`moe`")
-})
+test_that("DP-R-2: n_eff is the equivalent simple-random-sample size (323), even with FPC or clustering", {
+  # n_eff answers: "how many people picked completely at random would give
+  # this precision?" Here that is always 323. Only n, the number you
+  # actually collect, changes with the design.
 
-test_that("DP-V-25: logical params are rejected, not coerced", {
-  expect_error(design_precision(0.3, 0.05, sensitivity = TRUE),  "`sensitivity`")
-  expect_error(design_precision(0.3, 0.05, specificity = FALSE), "`specificity`")
-  expect_error(design_precision(0.3, 0.05, icc = FALSE),         "`icc`")
-})
-
-test_that("DP-V-26: list-valued conf_level gives a friendly class error", {
-  expect_error(design_precision(0.3, 0.05, conf_level = list(0.95)), "`conf_level`")
-})
-
-test_that("DP-R-2: n_eff is the SRS-equivalent size, not the post-FPC n / deff", {
-  # SRS, no FPC: n_eff == n
+  # No FPC, no clustering: collect 323, worth 323
   srs <- design_precision(0.3, 0.05)
   expect_equal(srs$n_eff, srs$n)
 
-  # FPC shrinks the collected n but not the SRS-equivalent n_eff
+  # Population of 500: collect only 197, still worth 323
   fpc <- design_precision(0.3, 0.05, fpc_N = 500)
-  expect_lt(fpc$n, srs$n)          # collected sample is smaller
-  expect_equal(fpc$n_eff, srs$n_eff)  # information content is unchanged
+  expect_lt(fpc$n, srs$n)
+  expect_equal(fpc$n_eff, srs$n_eff)
 
-  # clustered: n_eff stays the SRS-equivalent, collected n is inflated
+  # 20 people per site, icc 0.05 (deff 1.95): people in a site are alike,
+  # so collect 630 to be worth 323
   clus <- design_precision(0.3, 0.05, n_per_site = 20, icc = 0.05)
   expect_equal(clus$n_eff, srs$n_eff)
   expect_gt(clus$n, clus$n_eff)
@@ -598,7 +616,7 @@ test_that("DP-R-3: `prevalence` is returned and documented", {
 # Round 9 -- final-review fixes (2026-09-03)
 # ---------------------------------------------------------------------------
 
-test_that("DP-V-27: a cluster structure larger than the population is rejected", {
+test_that("DP-V-22: a cluster structure larger than the population is rejected", {
   expect_error(design_precision(0.3, 0.05, n_sites = 100, fpc_N = 50, icc = 0.05),
                "more clusters than individuals")
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
