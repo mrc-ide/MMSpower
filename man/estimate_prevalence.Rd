@@ -113,11 +113,11 @@ independent; if people at the same site tend to be similar, this gives an
 interval that is too narrow.
 }
 \details{
-The interval is built in six stages: apparent prevalence, a design
+The interval is built in six steps: apparent prevalence, a design
 effect for clustering, an effective sample size, an optional
 finite-population correction, a confidence interval by the chosen
 method, and finally the Rogan-Gladen correction for an imperfect test.
-Every equation used, and the reason it is used, follows.
+Each step's equation follows, with when and why it is used.
 
 \strong{1. Apparent prevalence.} The pooled proportion of test
 positives across all clusters,
@@ -125,40 +125,39 @@ positives across all clusters,
 \deqn{\hat{p} = \frac{\sum_i x_i}{\sum_i n_i}}
 
 Every CI method below operates on \eqn{\hat{p}}. It is corrected for
-test imperfection only at stage 6, so the correction applies identically
+test imperfection only at step 6, so the correction applies identically
 to the point estimate and to both interval endpoints.
 
 \strong{2. Design effect (Kish).} Observations within a cluster are
 positively correlated, so a clustered sample carries less information
-than its nominal size. The Kish (1965) design effect scales the
-variance by
+than the same number of independent people. The Kish (1965) design
+effect scales the variance by
 
 \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
 
 where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
-intra-cluster correlation (ICC). Assuming \eqn{\rho = 0} when the data
-are clustered would make the interval too narrow.
+intra-cluster correlation (ICC).
 
 \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
-value below \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as
-0. With a single cluster, or clusters all of size 1, there is no cluster
-structure for it to act on, so it is ignored (with a warning) and
-\eqn{D_{eff} = 1}.
+value below about 1.5e-8 is treated as 0. The ICC is ignored (with a
+warning) and \eqn{D_{eff} = 1} when there is a single cluster, or when
+every cluster has only one person, so no two people share a site.
 
 \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
-clusters of size > 1, the design effect is estimated as the ratio of the
-observed between-cluster variance of the site proportions to the
-variance expected under simple random sampling,
+clusters and an average cluster size above 1, the design effect is
+estimated as the ratio of the observed between-cluster variance of the
+site proportions to the variance expected under simple random sampling,
 
 \deqn{\widehat{D_{eff}} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
 
-floored at 1. The implied ICC is recovered by inverting the Kish
-formula, \eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
+floored at 1. The implied ICC is recovered by inverting the Kish formula,
+\eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
 clamped to [0, 1]; \eqn{D_{eff}} is then recomputed from the clamped
 \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
-mutually consistent. With a single cluster, or clusters all of size 1,
-the Kish denominator is undefined and no clustering is assumed
-(\eqn{D_{eff} = 1}).
+mutually consistent. If nobody tests positive, or everybody does, the
+expected variance is 0 and \eqn{D_{eff} = 1}. \eqn{D_{eff} = 1} also
+when there is a single cluster (no variation between sites to measure)
+or every cluster has only one person (no two people share a site).
 
 \strong{3. Effective sample size.}
 
@@ -167,34 +166,25 @@ the Kish denominator is undefined and no clustering is assumed
 the number of independent observations carrying the same information as
 the clustered sample. Returned as \code{n_eff}.
 
-\strong{4. Finite-population correction.} When the sample is a
-non-trivial fraction of a population of known size \eqn{N}
-(\code{fpc_N}), sampling without replacement reduces the sampling
-variance by the factor
+\strong{4. Finite-population correction.} Used only when \code{fpc_N}
+(the population size \eqn{N}) is given. Testing a large share of the
+population reduces the variance by the factor
 
 \deqn{f = \frac{N - n_{total}}{N - 1}}
 
-The FPC uses the \emph{collected} count \eqn{n_{total}} -- the actual
-sampling fraction \eqn{n_{total}/N} -- not the design-effect-adjusted
-\eqn{n_{eff}}. The design effect and the FPC are independent
-adjustments: \eqn{D_{eff}} measures the inefficiency of the design, the
-FPC measures how much of the population was observed. This matches
-\code{design_precision()} / \code{design_threshold()}. (\code{fpc_N} is
-a headcount, so the population is treated as finite in individuals; a
-study that sampled nearly all \emph{sites} would also shrink the
-between-cluster variance, which this single-FPC shortcut does not
-separately model.)
-
-Rather than multiply each method's variance by \eqn{f}, the correction
-is folded into a single adjusted sample size
+where \eqn{n_{total}} is the total number of people tested. Reducing the
+variance by \eqn{f} is the same as dividing the sample size by \eqn{f},
+so the function applies it to the effective sample size,
 
 \deqn{n_{eff,adj} = \frac{n_{eff}}{f}}
 
-shared by all three CI methods (with no FPC, \eqn{f = 1} and
-\eqn{n_{eff,adj} = n_{eff}}). This makes the methods agree in the
-large-sample limit while each keeps its own boundary behaviour.
-\eqn{n_{eff,adj} \to \infty} as \eqn{n_{total} \to N}; the function
-stops before that point, where the sampling variance would be zero.
+which all three CI methods then use. Without \code{fpc_N},
+\eqn{n_{eff,adj} = n_{eff}}. If everyone in the population was tested
+(\code{fpc_N} equal to \code{sum(n)}), there is no sampling uncertainty
+left, so the function stops with an error. \code{fpc_N} counts people,
+not sites. If a study tested at nearly all of the sites in the
+population, the interval will be wider than necessary, because the
+correction does not remove the variation between sites.
 
 \strong{5. Confidence interval on apparent prevalence.} Let
 \eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},
@@ -263,46 +253,6 @@ and \code{moe_upper} should be reported together. For \code{"wald"}, a
 \code{message()} is emitted when an endpoint is clamped and the two
 half-widths differ.
 }
-\section{Inputs and outputs}{
-
-\strong{Inputs} (function arguments):
-\itemize{
-\item \code{x}, \code{n} -- \emph{required}. Equal-length vectors of
-whole numbers: per-cluster positive counts and per-cluster totals. One
-element each is a simple random sample; several elements is a
-clustered design.
-\item \code{sensitivity}, \code{specificity} -- diagnostic test
-characteristics. Both \code{1} (the default) means the test never
-misses a case and never gives a false positive, so no Rogan-Gladen
-correction is applied.
-\item \code{conf_level} -- confidence level (default \code{0.95}).
-\item \code{icc} -- clustering strength. \code{NULL} (default) estimates
-it from the data; \code{0} forces the simple-random-sample case; a
-value in [0, 1] fixes it.
-\item \code{fpc_N} -- total population size for the finite-population
-correction: a whole number larger than \code{sum(n)}. \code{NULL}
-(default) applies none.
-\item \code{method} -- CI method: \code{"wald"} (default),
-\code{"clopper-pearson"}, or \code{"agresti-coull"}.
-}
-\strong{Outputs} (named elements of the returned list):
-\itemize{
-\item \emph{Estimate} -- \code{prevalence}, \code{ci_lower},
-\code{ci_upper}: point estimate and confidence limits, all on the
-true-prevalence scale (Rogan-Gladen corrected).
-\item \emph{Precision} -- \code{moe}, \code{moe_lower},
-\code{moe_upper}: interval half-width and the two one-sided distances
-(all equal for \code{"wald"}).
-\item \emph{Design quantities} -- \code{n_total}, \code{n_eff},
-\code{n_eff_adj}, \code{deff}, \code{icc_used}: what the clustering
-and FPC adjustments resolved to.
-\item \emph{Echoed inputs} -- \code{method}, \code{conf_level},
-\code{sensitivity}, \code{specificity}, \code{fpc_N}: returned
-unchanged so a result is self-describing.
-}
-Field-by-field definitions are under \strong{Value}, below.
-}
-
 \section{Equations and sources}{
 
 Mostly direct workshop material (MMS-SD Study Design Workshop,
