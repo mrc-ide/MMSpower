@@ -12,7 +12,7 @@
 #             sens = sensitivity, spec = specificity)
 #   CI_true = Rogan-Gladen applied to both CI_app endpoints, clamped to [0, 1]
 #
-# EP-1  (one site, perfect test, x = 30, n = 100):
+# EP-1  (one site, sensitivity = specificity = 1, x = 30, n = 100):
 #   se  = sqrt(0.3 * 0.7 / 100) = 0.045826
 #   moe = 1.959964 * 0.045826 = 0.089817
 #   CI  = [0.210183, 0.389817]
@@ -38,7 +38,7 @@
 # Core scenarios (EP-)
 # ---------------------------------------------------------------------------
 
-test_that("EP-1: one site, perfect test -- Wald CI matches the hand-check", {
+test_that("EP-1: one site, sensitivity = specificity = 1 -- Wald CI matches the hand-check", {
   res <- estimate_prevalence(x = 30, n = 100)
   expect_equal(res$prevalence, 0.3)
   expect_equal(res$ci_lower,   0.210183, tolerance = 1e-4)
@@ -60,11 +60,12 @@ test_that("EP-2: imperfect test -- Rogan-Gladen applied to the estimate and both
   expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
   expect_equal(res$ci_lower,   0.188451, tolerance = 1e-4)
   expect_equal(res$ci_upper,   0.399785, tolerance = 1e-4)
-  # The interval is the perfect-test interval divided by the correction (0.85)
+  # The interval is the sensitivity = specificity = 1 interval (EP-1)
+  # divided by the correction (0.85)
   expect_equal(res$moe, estimate_prevalence(x = 30, n = 100)$moe / 0.85)
 })
 
-test_that("EP-3: sensitivity 0.5 with a perfect specificity doubles the estimate", {
+test_that("EP-3: sensitivity 0.5 with specificity 1 doubles the estimate", {
   # correction = 0.5 + 1 - 1 = 0.5, so p_true = p_hat / 0.5
   # p_hat = 15 / 100 = 0.15 -> p_true = 0.30
   # apparent moe = 1.959964 * sqrt(0.15 * 0.85 / 100) = 0.069985 -> / 0.5 = 0.139969
@@ -159,7 +160,8 @@ test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interva
                                             sensitivity = 0.8, specificity = 0.9))
   expect_equal(res1$prevalence, 1)   # (1 - 0.1) / 0.7 = 1.29, cut to 1
 
-  # A perfect test with x = 0 is the ordinary [0, 0] case -- no warning
+  # With sensitivity = specificity = 1 and x = 0, the interval is the
+  # ordinary [0, 0] case -- no warning
   expect_silent(estimate_prevalence(x = 0, n = 50))
 })
 
@@ -457,21 +459,21 @@ test_that("EP-M-7: clopper-pearson with clustering gives a wider interval", {
   expect_equal(c(cl$ci_lower,  cl$ci_upper),  c(0.195497, 0.422331), tolerance = 1e-4)
 })
 
-test_that("EP-M-8: the lopsided-interval message appears only when the two sides differ by > 10% of moe", {
+test_that("EP-M-8: the lopsided-interval message is for wald only", {
+  # wald cut at 0 (x = 2 of 40): message. Cut at 1 is EP-8.
   expect_message(
-    estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"),
-    "clopper-pearson CI is asymmetric: moe_lower = 0.0876, moe_upper = 0.0998. moe = 0.0937 is the average half-width; report moe_lower and moe_upper separately.",
+    estimate_prevalence(x = 2, n = 40),
+    "wald CI is asymmetric: moe_lower = 0.05, moe_upper = 0.0675. moe = 0.0588 is the average half-width; report moe_lower and moe_upper separately.",
     fixed = TRUE
   )
-  expect_message(
-    estimate_prevalence(x = 30, n = 100, method = "agresti-coull"),
-    "agresti-coull CI is asymmetric: moe_lower = 0.0813, moe_upper = 0.0961. moe = 0.0887 is the average half-width; report moe_lower and moe_upper separately.",
-    fixed = TRUE
-  )
-  # No message: a wald interval away from 0 and 1, and a clopper-pearson
-  # interval at p = 0.5 with n = 1000 (sides 0.031451 each)
-  expect_no_message(estimate_prevalence(x = 30,  n = 100))
-  expect_no_message(estimate_prevalence(x = 500, n = 1000, method = "clopper-pearson"))
+  # No message: wald away from 0 and 1 (symmetric), and clopper-pearson /
+  # agresti-coull, which are lopsided by design (sides checked so the test
+  # cannot pass on a symmetric interval)
+  expect_no_message(estimate_prevalence(x = 30, n = 100))
+  expect_no_message(cp <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"))
+  expect_no_message(ac <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull"))
+  expect_equal(c(cp$moe_lower, cp$moe_upper), c(0.087594, 0.099815), tolerance = 1e-5)
+  expect_equal(c(ac$moe_lower, ac$moe_upper), c(0.081349, 0.096146), tolerance = 1e-5)
 })
 
 
@@ -580,9 +582,9 @@ test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, nam
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = "0.9"),
                "`sensitivity` must be a single number in (0, 1] (got class `character`, length 1).",
                fixed = TRUE)
-  # TRUE must not be quietly read as a perfect test (1); the message says so.
+  # TRUE must not be quietly read as 1; the message says what to pass instead.
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = TRUE),
-               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.",
+               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test never misses a case.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = NULL),
                "`sensitivity` must be a single number in (0, 1] (got class `NULL`, length 0).",
@@ -591,7 +593,7 @@ test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, nam
                "`sensitivity` must be a single number in (0, 1] (got class `list`, length 1).",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = FALSE),
-               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1).",
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test never gives a false positive.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = NA),
                "`specificity` must be a single number in (0, 1] (got class `logical`, length 1).",

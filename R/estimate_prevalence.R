@@ -5,57 +5,67 @@
 #' estimate and confidence interval. Three CI methods are available:
 #'
 #' \describe{
-#'   \item{`"wald"` (default)}{Symmetric interval: \eqn{\hat{p} \pm z \cdot SE}.
-#'     Fast and familiar; can extend below 0 or above 1 near the boundaries
-#'     (clamped to \[0, 1\]).}
-#'   \item{`"clopper-pearson"`}{Exact binomial interval via the beta distribution.
-#'     Asymmetric; conservative (guaranteed coverage for a simple random
-#'     sample). Preferred for small samples or extreme prevalences.}
-#'   \item{`"agresti-coull"`}{Adjusted-proportion interval. Asymmetric; better
-#'     coverage than Wald for moderate n, less conservative than
-#'     Clopper-Pearson.}
+#'   \item{`"wald"` (default)}{Symmetric unless cut at 0 or 1.
+#'     \eqn{\hat{p} \pm z \cdot SE}. Can be too narrow for small samples or
+#'     prevalence near 0 or 1.}
+#'   \item{`"clopper-pearson"`}{Asymmetric. Exact binomial interval, via
+#'     the beta distribution. For a simple random sample, its coverage is
+#'     at least the stated confidence level, so it is usually wider than
+#'     the Wald interval.}
+#'   \item{`"agresti-coull"`}{Asymmetric. A Wald interval calculated after
+#'     adding extra positive and negative cases to the data, the same number
+#'     of each. The number depends on the confidence level: about 1.35 of
+#'     each for 90 percent, 1.92 for 95 percent, and 3.32 for 99 percent.
+#'     This moves the interval towards 0.5; the reported prevalence is
+#'     unchanged.}
 #' }
 #'
 #' All methods account for imperfect diagnostic tests (Rogan-Gladen
 #' correction), clustered sampling (Kish design effect), and
 #' finite-population corrections.
 #'
-#' If `icc` is not supplied, it is estimated from the data as the ratio
-#' of observed-to-expected variance across clusters, rather than assumed
-#' to be 0 -- assuming independence would understate uncertainty for any
-#' genuinely clustered survey.
+#' If `icc` is not supplied, it is estimated from the data (the observed
+#' variance between clusters compared with the variance expected if every
+#' person were independent). Setting `icc = 0` treats every person as
+#' independent; if people at the same site tend to be similar, this gives an
+#' interval that is too narrow.
 #'
-#' @param x Integer vector of positive counts per cluster/site.
-#' @param n Integer vector of total samples per cluster/site (same length as x).
-#' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (perfect
-#'   test). Set below 1 to activate the Rogan-Gladen correction.
-#' @param specificity Diagnostic specificity in (0, 1]; default 1.
+#' @param x Vector of whole-number positive counts, one per cluster/site.
+#' @param n Vector of whole-number totals tested, one per cluster/site (same
+#'   length as `x`).
+#' @param sensitivity Diagnostic sensitivity in (0, 1]: the share of people
+#'   who truly have the condition that the test detects as positive.
+#'   Default 1 (the test never misses a case). Set below 1 to correct for
+#'   missed cases (Rogan-Gladen correction).
+#' @param specificity Diagnostic specificity in (0, 1]: the share of people
+#'   who truly do not have the condition that the test correctly reads as
+#'   negative. Default 1 (the test never gives a false positive). Set below
+#'   1 to correct for false positives (Rogan-Gladen correction).
 #' @param conf_level Confidence level, in (0, 1); default 0.95.
 #' @param icc Optional. Intra-cluster correlation, in \[0, 1\]. If `NULL`
-#'   (default), ICC is estimated from the data. Set to `0` to force the SRS
-#'   (no-clustering) case. Only relevant when `x` and `n` have more than one
-#'   element. A supplied `icc` below `sqrt(.Machine$double.eps)` (about
-#'   1.5e-8) is treated as 0, so a negligible upstream estimate does not
-#'   trigger the clustered code path.
-#' @param fpc_N Optional positive integer. Total population size for a
+#'   (default), ICC is estimated from the data. Set to `0` for no
+#'   clustering. Only relevant when `x` and `n` have more than one
+#'   element. Values below about 1.5e-8 are treated as 0.
+#' @param fpc_N Optional whole number. Total population size for a
 #'   finite-population correction; must be larger than `sum(n)`. `NULL`
 #'   (default) = no FPC applied.
 #' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
 #'   `"agresti-coull"`. See Description. Clopper-Pearson and Agresti-Coull
 #'   produce asymmetric intervals, and a Wald interval cut at 0 or 1 becomes
-#'   asymmetric too; a `message()` is emitted whenever the two sides differ
-#'   by more than a tenth of `moe` (see Details).
+#'   asymmetric too. Wald emits a `message()` when that happens (see
+#'   Details).
 #'
 #' @section Inputs and outputs:
 #' \strong{Inputs} (function arguments):
 #' \itemize{
-#'   \item \code{x}, \code{n} -- \emph{required}. Equal-length integer
-#'     vectors: per-cluster positive counts and per-cluster totals. One
+#'   \item \code{x}, \code{n} -- \emph{required}. Equal-length vectors of
+#'     whole numbers: per-cluster positive counts and per-cluster totals. One
 #'     element each is a simple random sample; several elements is a
 #'     clustered design.
 #'   \item \code{sensitivity}, \code{specificity} -- diagnostic test
-#'     characteristics. Both \code{1} (the default) means a perfect test and
-#'     no Rogan-Gladen correction.
+#'     characteristics. Both \code{1} (the default) means the test never
+#'     misses a case and never gives a false positive, so no Rogan-Gladen
+#'     correction is applied.
 #'   \item \code{conf_level} -- confidence level (default \code{0.95}).
 #'   \item \code{icc} -- clustering strength. \code{NULL} (default) estimates
 #'     it from the data; \code{0} forces the simple-random-sample case; a
@@ -88,9 +98,7 @@
 #' effect for clustering, an effective sample size, an optional
 #' finite-population correction, a confidence interval by the chosen
 #' method, and finally the Rogan-Gladen correction for an imperfect test.
-#' Every equation used, and the reason it is used, follows. The
-#' \code{methods} vignette (\code{vignette("methods", "MMSpower")}) gives
-#' the same material with derivations and a worked example.
+#' Every equation used, and the reason it is used, follows.
 #'
 #' \strong{1. Apparent prevalence.} The pooled proportion of test
 #' positives across all clusters,
@@ -109,8 +117,8 @@
 #' \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
 #'
 #' where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
-#' intra-cluster correlation (ICC). Taking \eqn{\rho = 0} would understate
-#' uncertainty for any genuinely clustered survey.
+#' intra-cluster correlation (ICC). Assuming \eqn{\rho = 0} when the data
+#' are clustered would make the interval too narrow.
 #'
 #' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
 #' value below \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as
@@ -129,10 +137,9 @@
 #' formula, \eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
 #' clamped to \[0, 1\]; \eqn{D_{eff}} is then recomputed from the clamped
 #' \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
-#' mutually consistent. Estimating \eqn{\rho} rather than assuming it avoids
-#' silently analysing a clustered design as if it were independent. With a
-#' single cluster, or clusters all of size 1, the Kish denominator is
-#' undefined and the SRS case (\eqn{D_{eff} = 1}) is used.
+#' mutually consistent. With a single cluster, or clusters all of size 1,
+#' the Kish denominator is undefined and no clustering is assumed
+#' (\eqn{D_{eff} = 1}).
 #'
 #' \strong{3. Effective sample size.}
 #'
@@ -178,9 +185,10 @@
 #'
 #' \deqn{\hat{p} \;\pm\; z \sqrt{\frac{\hat{p}(1 - \hat{p})}{n_{eff,adj}}}}
 #'
-#' clamped to \[0, 1\]. Fast and familiar, but under-covers for small
-#' \eqn{n} or prevalence near 0 or 1, and gives a zero-width interval when
-#' \eqn{\hat{p} = 0} or \eqn{1}.
+#' clamped to \[0, 1\]. For small \eqn{n} or prevalence near 0 or 1 it
+#' can be too narrow (it covers the true prevalence less often than the
+#' stated confidence level), and it has zero width when \eqn{\hat{p} = 0}
+#' or \eqn{1}.
 #'
 #' \emph{\code{"clopper-pearson"}} -- the exact binomial interval, via the
 #' beta-quantile identity,
@@ -189,11 +197,11 @@
 #' \deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
 #'
 #' with \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
-#' \eqn{\hat{p} = 1}. For a simple random sample it guarantees at least
-#' nominal coverage, so it is the safe choice for small samples or extreme
-#' prevalence, at the cost of being conservative. Continuous \eqn{x_{eff}}
-#' replaces an integer count so the clustering and FPC adjustments carry
-#' through; with those adjustments the guarantee is approximate rather than
+#' \eqn{\hat{p} = 1}. For a simple random sample, it covers the true
+#' prevalence at least as often as the stated confidence level, so it is
+#' usually wider than the Wald interval. Continuous \eqn{x_{eff}} replaces
+#' an integer count so the clustering and FPC adjustments carry through;
+#' with those adjustments the coverage guarantee is approximate rather than
 #' exact.
 #'
 #' \emph{\code{"agresti-coull"}} -- add \eqn{z^2} pseudo-observations, then
@@ -202,9 +210,9 @@
 #' \deqn{\tilde{n} = n_{eff,adj} + z^2, \qquad \tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}}
 #' \deqn{\tilde{p} \;\pm\; z \sqrt{\frac{\tilde{p}(1 - \tilde{p})}{\tilde{n}}}}
 #'
-#' clamped to \[0, 1\]. Recovers most of Clopper-Pearson's coverage gain
-#' over Wald without the full conservatism; a reasonable default for
-#' moderate \eqn{n}.
+#' clamped to \[0, 1\]. The added pseudo-observations pull the interval
+#' towards 0.5, so unlike the Wald interval it does not have zero width at
+#' \eqn{\hat{p} = 0} or \eqn{1}.
 #'
 #' \strong{6. Rogan-Gladen correction.} An imperfect test inflates apparent
 #' prevalence through false positives and deflates it through false
@@ -232,9 +240,9 @@
 #' prevalence), which makes it asymmetric too. For \code{"clopper-pearson"}
 #' and \code{"agresti-coull"} the interval is asymmetric by construction:
 #' \code{moe} is only the average of the two half-widths, so \code{moe_lower}
-#' and \code{moe_upper} should be reported together. A \code{message()} is
-#' emitted whenever the two half-widths differ by more than 10\% of
-#' \code{moe}, whichever method produced it.
+#' and \code{moe_upper} should be reported together. For \code{"wald"}, a
+#' \code{message()} is emitted when an endpoint is clamped and the two
+#' half-widths differ.
 #'
 #' @section Equations and sources:
 #' Mostly direct workshop material (MMS-SD Study Design Workshop,
@@ -319,7 +327,7 @@
 #'     else as supplied -- except 0 when a supplied \code{icc} was ignored
 #'     (a single cluster, or clusters all of size 1) or was below about
 #'     1.5e-8 (treated as 0)}
-#'   \item{deff}{Design effect applied (1 for SRS)}
+#'   \item{deff}{Design effect applied (1 when there is no clustering)}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
 #' @export
@@ -406,11 +414,13 @@ estimate_prevalence <- function(x,
   if (length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got class `",
          class(sensitivity)[1], "`, length ", length(sensitivity), "). ",
-         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test ",
+         "never misses a case.")
   if (length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got class `",
          class(specificity)[1], "`, length ", length(specificity), "). ",
-         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 for a perfect test.")
+         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test ",
+         "never gives a false positive.")
   if (length(conf_level) != 1 || !is.numeric(conf_level))
     stop("`conf_level` must be a single number in (0, 1) (got class `",
          class(conf_level)[1], "`, length ", length(conf_level), ").")
@@ -627,7 +637,8 @@ estimate_prevalence <- function(x,
   # clamp to the same boundary, so the corrected interval collapses and
   # `moe` reads as 0 -- false precision, not a genuinely exact estimate.
   # (Distinct from the Wald interval legitimately being [0, 0] at x = 0
-  # with a perfect test, where the apparent CI is already degenerate.)
+  # with sensitivity = specificity = 1, where the apparent CI is already
+  # degenerate.)
   eps <- .Machine$double.eps^0.5
   if ((ci_hi_app - ci_lo_app) > eps &&
       (ci_upper - ci_lower) < eps &&
@@ -639,9 +650,10 @@ estimate_prevalence <- function(x,
             "reported as 0, but that is not real precision -- use a more ",
             "accurate test or a larger sample.")
 
-  # Fires for the asymmetric methods, and also for "wald" when an endpoint
-  # has been clamped to [0, 1] (which breaks its usual symmetry).
-  if (moe > 0 && abs(moe_lower - moe_upper) > 0.1 * moe)
+  # Only for "wald": its interval is normally symmetric, so one with an
+  # endpoint cut at 0 or 1 is lopsided unexpectedly. Clopper-Pearson and
+  # Agresti-Coull are asymmetric by design, and the help page says so.
+  if (method == "wald" && moe > 0 && abs(moe_lower - moe_upper) > eps)
     message(method, " CI is asymmetric: moe_lower = ", round(moe_lower, 4),
             ", moe_upper = ", round(moe_upper, 4),
             ". moe = ", round(moe, 4), " is the average half-width; ",

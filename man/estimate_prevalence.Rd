@@ -16,33 +16,37 @@ estimate_prevalence(
 )
 }
 \arguments{
-\item{x}{Integer vector of positive counts per cluster/site.}
+\item{x}{Vector of whole-number positive counts, one per cluster/site.}
 
-\item{n}{Integer vector of total samples per cluster/site (same length as x).}
+\item{n}{Vector of whole-number totals tested, one per cluster/site (same
+length as \code{x}).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (perfect
-test). Set below 1 to activate the Rogan-Gladen correction.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
+who truly have the condition that the test detects as positive.
+Default 1 (the test never misses a case). Set below 1 to correct for
+missed cases (Rogan-Gladen correction).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]; default 1.}
+\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
+who truly do not have the condition that the test correctly reads as
+negative. Default 1 (the test never gives a false positive). Set below
+1 to correct for false positives (Rogan-Gladen correction).}
 
 \item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
 \item{icc}{Optional. Intra-cluster correlation, in [0, 1]. If \code{NULL}
-(default), ICC is estimated from the data. Set to \code{0} to force the SRS
-(no-clustering) case. Only relevant when \code{x} and \code{n} have more than one
-element. A supplied \code{icc} below \code{sqrt(.Machine$double.eps)} (about
-1.5e-8) is treated as 0, so a negligible upstream estimate does not
-trigger the clustered code path.}
+(default), ICC is estimated from the data. Set to \code{0} for no
+clustering. Only relevant when \code{x} and \code{n} have more than one
+element. Values below about 1.5e-8 are treated as 0.}
 
-\item{fpc_N}{Optional positive integer. Total population size for a
+\item{fpc_N}{Optional whole number. Total population size for a
 finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
 (default) = no FPC applied.}
 
 \item{method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
 \code{"agresti-coull"}. See Description. Clopper-Pearson and Agresti-Coull
 produce asymmetric intervals, and a Wald interval cut at 0 or 1 becomes
-asymmetric too; a \code{message()} is emitted whenever the two sides differ
-by more than a tenth of \code{moe} (see Details).}
+asymmetric too. Wald emits a \code{message()} when that happens (see
+Details).}
 }
 \value{
 A named list. The following fields are always present:
@@ -75,7 +79,7 @@ when \code{fpc_N} is \code{NULL})}
 else as supplied -- except 0 when a supplied \code{icc} was ignored
 (a single cluster, or clusters all of size 1) or was below about
 1.5e-8 (treated as 0)}
-\item{deff}{Design effect applied (1 for SRS)}
+\item{deff}{Design effect applied (1 when there is no clustering)}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 }
 \description{
@@ -83,34 +87,37 @@ Analysis function: given observed counts, returns a prevalence point
 estimate and confidence interval. Three CI methods are available:
 
 \describe{
-\item{\code{"wald"} (default)}{Symmetric interval: \eqn{\hat{p} \pm z \cdot SE}.
-Fast and familiar; can extend below 0 or above 1 near the boundaries
-(clamped to [0, 1]).}
-\item{\code{"clopper-pearson"}}{Exact binomial interval via the beta distribution.
-Asymmetric; conservative (guaranteed coverage for a simple random
-sample). Preferred for small samples or extreme prevalences.}
-\item{\code{"agresti-coull"}}{Adjusted-proportion interval. Asymmetric; better
-coverage than Wald for moderate n, less conservative than
-Clopper-Pearson.}
+\item{\code{"wald"} (default)}{Symmetric unless cut at 0 or 1.
+\eqn{\hat{p} \pm z \cdot SE}. Can be too narrow for small samples or
+prevalence near 0 or 1.}
+\item{\code{"clopper-pearson"}}{Asymmetric. Exact binomial interval, via
+the beta distribution. For a simple random sample, its coverage is
+at least the stated confidence level, so it is usually wider than
+the Wald interval.}
+\item{\code{"agresti-coull"}}{Asymmetric. A Wald interval calculated after
+adding extra positive and negative cases to the data, the same number
+of each. The number depends on the confidence level: about 1.35 of
+each for 90 percent, 1.92 for 95 percent, and 3.32 for 99 percent.
+This moves the interval towards 0.5; the reported prevalence is
+unchanged.}
 }
 
 All methods account for imperfect diagnostic tests (Rogan-Gladen
 correction), clustered sampling (Kish design effect), and
 finite-population corrections.
 
-If \code{icc} is not supplied, it is estimated from the data as the ratio
-of observed-to-expected variance across clusters, rather than assumed
-to be 0 -- assuming independence would understate uncertainty for any
-genuinely clustered survey.
+If \code{icc} is not supplied, it is estimated from the data (the observed
+variance between clusters compared with the variance expected if every
+person were independent). Setting \code{icc = 0} treats every person as
+independent; if people at the same site tend to be similar, this gives an
+interval that is too narrow.
 }
 \details{
 The interval is built in six stages: apparent prevalence, a design
 effect for clustering, an effective sample size, an optional
 finite-population correction, a confidence interval by the chosen
 method, and finally the Rogan-Gladen correction for an imperfect test.
-Every equation used, and the reason it is used, follows. The
-\code{methods} vignette (\code{vignette("methods", "MMSpower")}) gives
-the same material with derivations and a worked example.
+Every equation used, and the reason it is used, follows.
 
 \strong{1. Apparent prevalence.} The pooled proportion of test
 positives across all clusters,
@@ -129,8 +136,8 @@ variance by
 \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
 
 where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
-intra-cluster correlation (ICC). Taking \eqn{\rho = 0} would understate
-uncertainty for any genuinely clustered survey.
+intra-cluster correlation (ICC). Assuming \eqn{\rho = 0} when the data
+are clustered would make the interval too narrow.
 
 \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
 value below \code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as
@@ -149,10 +156,9 @@ floored at 1. The implied ICC is recovered by inverting the Kish
 formula, \eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
 clamped to [0, 1]; \eqn{D_{eff}} is then recomputed from the clamped
 \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
-mutually consistent. Estimating \eqn{\rho} rather than assuming it avoids
-silently analysing a clustered design as if it were independent. With a
-single cluster, or clusters all of size 1, the Kish denominator is
-undefined and the SRS case (\eqn{D_{eff} = 1}) is used.
+mutually consistent. With a single cluster, or clusters all of size 1,
+the Kish denominator is undefined and no clustering is assumed
+(\eqn{D_{eff} = 1}).
 
 \strong{3. Effective sample size.}
 
@@ -198,9 +204,10 @@ and \eqn{x_{eff} = \hat{p}\,n_{eff,adj}}.
 
 \deqn{\hat{p} \;\pm\; z \sqrt{\frac{\hat{p}(1 - \hat{p})}{n_{eff,adj}}}}
 
-clamped to [0, 1]. Fast and familiar, but under-covers for small
-\eqn{n} or prevalence near 0 or 1, and gives a zero-width interval when
-\eqn{\hat{p} = 0} or \eqn{1}.
+clamped to [0, 1]. For small \eqn{n} or prevalence near 0 or 1 it
+can be too narrow (it covers the true prevalence less often than the
+stated confidence level), and it has zero width when \eqn{\hat{p} = 0}
+or \eqn{1}.
 
 \emph{\code{"clopper-pearson"}} -- the exact binomial interval, via the
 beta-quantile identity,
@@ -209,11 +216,11 @@ beta-quantile identity,
 \deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
 
 with \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
-\eqn{\hat{p} = 1}. For a simple random sample it guarantees at least
-nominal coverage, so it is the safe choice for small samples or extreme
-prevalence, at the cost of being conservative. Continuous \eqn{x_{eff}}
-replaces an integer count so the clustering and FPC adjustments carry
-through; with those adjustments the guarantee is approximate rather than
+\eqn{\hat{p} = 1}. For a simple random sample, it covers the true
+prevalence at least as often as the stated confidence level, so it is
+usually wider than the Wald interval. Continuous \eqn{x_{eff}} replaces
+an integer count so the clustering and FPC adjustments carry through;
+with those adjustments the coverage guarantee is approximate rather than
 exact.
 
 \emph{\code{"agresti-coull"}} -- add \eqn{z^2} pseudo-observations, then
@@ -222,9 +229,9 @@ take a Wald interval on the adjusted proportion,
 \deqn{\tilde{n} = n_{eff,adj} + z^2, \qquad \tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}}
 \deqn{\tilde{p} \;\pm\; z \sqrt{\frac{\tilde{p}(1 - \tilde{p})}{\tilde{n}}}}
 
-clamped to [0, 1]. Recovers most of Clopper-Pearson's coverage gain
-over Wald without the full conservatism; a reasonable default for
-moderate \eqn{n}.
+clamped to [0, 1]. The added pseudo-observations pull the interval
+towards 0.5, so unlike the Wald interval it does not have zero width at
+\eqn{\hat{p} = 0} or \eqn{1}.
 
 \strong{6. Rogan-Gladen correction.} An imperfect test inflates apparent
 prevalence through false positives and deflates it through false
@@ -252,21 +259,22 @@ coincide -- unless an endpoint is clamped to [0, 1] (very low or high
 prevalence), which makes it asymmetric too. For \code{"clopper-pearson"}
 and \code{"agresti-coull"} the interval is asymmetric by construction:
 \code{moe} is only the average of the two half-widths, so \code{moe_lower}
-and \code{moe_upper} should be reported together. A \code{message()} is
-emitted whenever the two half-widths differ by more than 10\\% of
-\code{moe}, whichever method produced it.
+and \code{moe_upper} should be reported together. For \code{"wald"}, a
+\code{message()} is emitted when an endpoint is clamped and the two
+half-widths differ.
 }
 \section{Inputs and outputs}{
 
 \strong{Inputs} (function arguments):
 \itemize{
-\item \code{x}, \code{n} -- \emph{required}. Equal-length integer
-vectors: per-cluster positive counts and per-cluster totals. One
+\item \code{x}, \code{n} -- \emph{required}. Equal-length vectors of
+whole numbers: per-cluster positive counts and per-cluster totals. One
 element each is a simple random sample; several elements is a
 clustered design.
 \item \code{sensitivity}, \code{specificity} -- diagnostic test
-characteristics. Both \code{1} (the default) means a perfect test and
-no Rogan-Gladen correction.
+characteristics. Both \code{1} (the default) means the test never
+misses a case and never gives a false positive, so no Rogan-Gladen
+correction is applied.
 \item \code{conf_level} -- confidence level (default \code{0.95}).
 \item \code{icc} -- clustering strength. \code{NULL} (default) estimates
 it from the data; \code{0} forces the simple-random-sample case; a
