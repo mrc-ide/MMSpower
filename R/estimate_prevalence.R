@@ -48,7 +48,7 @@
 #'   element. Values below about 1.5e-8 are treated as 0.
 #' @param fpc_N Optional whole number. Total population size for a
 #'   finite-population correction; must be larger than `sum(n)`. `NULL`
-#'   (default) = no FPC applied.
+#'   (default) = no finite-population correction applied.
 #' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
 #'   `"agresti-coull"`. See Description. Clopper-Pearson and Agresti-Coull
 #'   produce asymmetric intervals. A Wald interval becomes asymmetric when an
@@ -224,36 +224,35 @@
 #' of a screening test. \emph{American Journal of Epidemiology}
 #' \strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
 #'
-#' @return A named list. The following fields are always present:
-#'   \item{prevalence}{Point estimate of true prevalence (Rogan-Gladen corrected)}
+#' @return A named list with the following fields, in the order returned:
+#'   \item{prevalence}{Point estimate of true prevalence (Rogan-Gladen
+#'     corrected)}
 #'   \item{ci_lower}{Lower confidence limit on the true-prevalence scale}
 #'   \item{ci_upper}{Upper confidence limit on the true-prevalence scale}
-#'   \item{moe}{Half-width of the interval: \code{(ci_upper - ci_lower) / 2}.
-#'     For \code{"wald"} it equals both \code{moe_lower} and \code{moe_upper}
-#'     and fully describes the precision -- unless an end was moved to 0 or
-#'     1, which makes even the Wald interval asymmetric. For
-#'     \code{"clopper-pearson"} and \code{"agresti-coull"} the interval is
-#'     asymmetric by design: \code{moe} is only the average of the two
-#'     half-widths and does not describe either side. Whenever the interval is
-#'     asymmetric, report \code{moe_lower} and \code{moe_upper} together.}
+#'   \item{moe}{Half-width of the interval, \code{(ci_upper - ci_lower) / 2},
+#'     the average of \code{moe_lower} and \code{moe_upper}. The two are
+#'     equal only when the interval is symmetric; otherwise report them both
+#'     (see Details).}
 #'   \item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
 #'     to lower limit}
 #'   \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
 #'     to upper limit}
 #'   \item{method}{CI method used (as supplied)}
-#'   \item{n_total}{Total samples across all clusters}
-#'   \item{n_eff}{Effective independent sample size before the FPC:
-#'     \code{n_total / deff}}
+#'   \item{n_total}{Total number of people tested, \code{sum(n)}}
+#'   \item{n_eff}{Effective independent sample size before the
+#'     finite-population correction: \code{n_total / deff}}
 #'   \item{n_eff_adj}{Effective sample size the CI is actually built from:
-#'     \code{n_eff} divided by the squared FPC factor (equals \code{n_eff}
-#'     when \code{fpc_N} is \code{NULL})}
+#'     \code{n_eff} divided by \eqn{f}, the finite-population correction
+#'     factor (see Details, step 4). Equals \code{n_eff} when \code{fpc_N}
+#'     is \code{NULL}.}
 #'   \item{conf_level}{Confidence level (as supplied)}
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
-#'   \item{icc_used}{ICC applied: estimated from data if \code{icc = NULL},
-#'     else as supplied -- except 0 when a supplied \code{icc} was ignored
-#'     (a single cluster, or clusters all of size 1) or was below about
-#'     1.5e-8 (treated as 0)}
+#'   \item{icc_used}{ICC used in the calculation. If \code{icc = NULL}, it is
+#'     the value estimated from the data. If \code{icc} was supplied, it is
+#'     that value, unless the supplied value was below about 1.5e-8 or was
+#'     ignored (a single cluster, or every cluster has only one person), then
+#'     it is 0.}
 #'   \item{deff}{Design effect applied (1 when there is no clustering)}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 #'
@@ -269,11 +268,15 @@
 #'   n = c(60, 80, 70, 100, 40, 60, 50, 90)
 #' )
 #'
-#' # Exact binomial interval (better for small samples)
+#' # Clopper-Pearson interval
 #' estimate_prevalence(x = 3, n = 30, method = "clopper-pearson")
 #'
 #' # Imperfect diagnostic test
 #' estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
+#'
+#' # Known ICC and population size
+#' estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05,
+#'                     fpc_N = 2000)
 estimate_prevalence <- function(x,
                                 n,
                                 sensitivity = 1,
