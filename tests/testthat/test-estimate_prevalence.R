@@ -121,7 +121,7 @@ test_that("EP-8: a Wald interval that runs past 1 is cut at 1, and the message s
   # CI = [0.970499, 1.009501] -> upper end cut to 1
   expect_message(
     res <- estimate_prevalence(x = 99, n = 100),
-    "wald CI is asymmetric: moe_lower = 0.0195, moe_upper = 0.01. moe = 0.0148 is the average half-width; report moe_lower and moe_upper separately.",
+    "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.0195, moe_upper = 0.01. moe = 0.0148 is the average of the two; report moe_lower and moe_upper separately.",
     fixed = TRUE
   )
   expect_equal(res$ci_lower,  0.970499, tolerance = 1e-4)
@@ -148,11 +148,22 @@ test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interva
   # moe = 0 here is not real precision, so the function warns.
   expect_warning(
     res <- estimate_prevalence(x = 49, n = 50, sensitivity = 0.8, specificity = 0.9),
-    "Rogan-Gladen overshoot: after correcting for test error, the estimate and both ends of the confidence interval are all cut to 1, because the corrected interval lies entirely outside 0 to 1 for this sensitivity and specificity.",
+    "After correcting for test error, the estimate and both ends of the confidence interval are all set to 1, because the corrected interval lies entirely above 1 for this sensitivity and specificity. `moe` is reported as 0, but that is not real precision. Check the assumed sensitivity and specificity.",
     fixed = TRUE
   )
   expect_equal(res$prevalence, 1)
   expect_equal(res$moe,        0)
+
+  # The same at the bottom end: 2 of 100 positive with specificity 0.9 is
+  # fewer than false positives alone would give (about 10), so the whole
+  # corrected interval lies below 0.
+  expect_warning(
+    res0 <- estimate_prevalence(x = 2, n = 100, sensitivity = 0.9, specificity = 0.9),
+    "are all set to 0, because the corrected interval lies entirely below 0",
+    fixed = TRUE
+  )
+  expect_equal(res0$prevalence, 0)
+  expect_equal(res0$moe,        0)
 
   # 1 positive out of 1: the measured interval is already a single point
   # ([1, 1]) before correcting, so there is nothing to overshoot -- no warning.
@@ -459,7 +470,7 @@ test_that("EP-M-8: the lopsided-interval message is for wald only", {
   # wald cut at 0 (x = 2 of 40): message. Cut at 1 is EP-8.
   expect_message(
     estimate_prevalence(x = 2, n = 40),
-    "wald CI is asymmetric: moe_lower = 0.05, moe_upper = 0.0675. moe = 0.0588 is the average half-width; report moe_lower and moe_upper separately.",
+    "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.05, moe_upper = 0.0675. moe = 0.0588 is the average of the two; report moe_lower and moe_upper separately.",
     fixed = TRUE
   )
   # No message: wald away from 0 and 1 (symmetric), and clopper-pearson /

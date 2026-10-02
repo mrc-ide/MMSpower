@@ -546,31 +546,32 @@ estimate_prevalence <- function(x,
   moe_lower <- prevalence - ci_lower
   moe_upper <- ci_upper - prevalence
 
-  # Rogan-Gladen overshoot: the apparent-scale CI has real width, but after
-  # correcting for an imperfect test both endpoints map outside [0, 1] and
-  # clamp to the same boundary, so the corrected interval collapses and
-  # `moe` reads as 0 -- false precision, not a genuinely exact estimate.
-  # (Distinct from the Wald interval legitimately being [0, 0] at x = 0
-  # with sensitivity = specificity = 1, where the apparent CI is already
-  # degenerate.)
+  # If the data do not fit the assumed test accuracy (e.g. fewer positives
+  # than false positives alone would give), both corrected ends of the
+  # interval fall below 0 (or both above 1). Both are then set to 0 (or 1),
+  # so the interval shrinks to a single point and moe is 0. That 0 is not
+  # real precision, so warn. (No warning when the measured interval is
+  # already a single point, e.g. x = 0 with sensitivity = specificity = 1.)
   eps <- .Machine$double.eps^0.5
   if ((ci_hi_app - ci_lo_app) > eps &&
       (ci_upper - ci_lower) < eps &&
       (prevalence == 0 || prevalence == 1))
-    warning("Rogan-Gladen overshoot: after correcting for test error, the ",
-            "estimate and both ends of the confidence interval are all cut to ",
-            prevalence, ", because the corrected interval lies entirely ",
-            "outside 0 to 1 for this sensitivity and specificity. `moe` is ",
-            "reported as 0, but that is not real precision -- use a more ",
-            "accurate test or a larger sample.")
+    warning("After correcting for test error, the estimate and both ends of ",
+            "the confidence interval are all set to ", prevalence,
+            ", because the corrected interval lies entirely ",
+            if (prevalence == 0) "below 0" else "above 1",
+            " for this sensitivity and specificity. `moe` is reported as 0, ",
+            "but that is not real precision. Check the assumed sensitivity ",
+            "and specificity.")
 
-  # Only for "wald": its interval is normally symmetric, so one with an
-  # endpoint cut at 0 or 1 is lopsided unexpectedly. Clopper-Pearson and
+  # Only for "wald": its interval is normally symmetric, so one with an end
+  # moved to 0 or 1 is lopsided unexpectedly. Clopper-Pearson and
   # Agresti-Coull are asymmetric by design, and the help page says so.
   if (method == "wald" && moe > 0 && abs(moe_lower - moe_upper) > eps)
-    message(method, " CI is asymmetric: moe_lower = ", round(moe_lower, 4),
+    message("An end of the Wald interval was moved to 0 or 1, so the ",
+            "interval is asymmetric: moe_lower = ", round(moe_lower, 4),
             ", moe_upper = ", round(moe_upper, 4),
-            ". moe = ", round(moe, 4), " is the average half-width; ",
+            ". moe = ", round(moe, 4), " is the average of the two; ",
             "report moe_lower and moe_upper separately.")
 
   list(
