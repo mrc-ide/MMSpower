@@ -590,7 +590,7 @@ test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, nam
                fixed = TRUE)
   # TRUE must not be quietly read as 1; the message says what to pass instead.
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = TRUE),
-               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test never misses a case.",
+               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`, `FALSE` and a plain `NA` are logical, not numeric. Pass 1 if the test never misses a case.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = NULL),
                "`sensitivity` must be a single number in (0, 1] (got class `NULL`, length 0).",
@@ -599,7 +599,7 @@ test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, nam
                "`sensitivity` must be a single number in (0, 1] (got class `list`, length 1).",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = FALSE),
-               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test never gives a false positive.",
+               "`specificity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`, `FALSE` and a plain `NA` are logical, not numeric. Pass 1 if the test never gives a false positive.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = NA),
                "`specificity` must be a single number in (0, 1] (got class `logical`, length 1).",
@@ -752,10 +752,10 @@ test_that("EP-V-21: method must be one of the three names", {
                "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got 'exact').",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, method = c("wald", "clopper-pearson")),
-               "`method` must be a single character string: 'wald', 'clopper-pearson', or 'agresti-coull' (got class `character`, length 2).",
+               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `character`, length 2).",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, method = 1),
-               "`method` must be a single character string: 'wald', 'clopper-pearson', or 'agresti-coull' (got class `numeric`, length 1).",
+               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `numeric`, length 1).",
                fixed = TRUE)
 })
 

@@ -345,20 +345,18 @@ estimate_prevalence <- function(x,
          "that cluster.")
   }
 
-  # ---- validate scalar parameters ----
-  # Every parameter must be a single number. Without this check, a vector
-  # fails later with a cryptic R error, and a logical (TRUE/FALSE) silently
-  # coerces to 1/0 instead of failing loudly.
+  # ---- validate single-value parameters ----
+  # Each of the parameters below must be a single value.
   if (length(sensitivity) != 1 || !is.numeric(sensitivity))
     stop("`sensitivity` must be a single number in (0, 1] (got class `",
          class(sensitivity)[1], "`, length ", length(sensitivity), "). ",
-         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test ",
-         "never misses a case.")
+         "Note: `TRUE`, `FALSE` and a plain `NA` are logical, not numeric. ",
+         "Pass 1 if the test never misses a case.")
   if (length(specificity) != 1 || !is.numeric(specificity))
     stop("`specificity` must be a single number in (0, 1] (got class `",
          class(specificity)[1], "`, length ", length(specificity), "). ",
-         "Note: `TRUE`/`FALSE` is logical, not numeric -- pass 1 if the test ",
-         "never gives a false positive.")
+         "Note: `TRUE`, `FALSE` and a plain `NA` are logical, not numeric. ",
+         "Pass 1 if the test never gives a false positive.")
   if (length(conf_level) != 1 || !is.numeric(conf_level))
     stop("`conf_level` must be a single number in (0, 1) (got class `",
          class(conf_level)[1], "`, length ", length(conf_level), ").")
@@ -367,15 +365,14 @@ estimate_prevalence <- function(x,
          class(icc)[1], "`, length ", length(icc), "). ",
          "To estimate ICC from the data, leave `icc = NULL`.")
   if (!is.character(method) || length(method) != 1)
-    stop("`method` must be a single character string: ",
+    stop("`method` must be one of ",
          "'wald', 'clopper-pearson', or 'agresti-coull' (got class `",
          class(method)[1], "`, length ", length(method), ").")
   if (!method %in% c("wald", "clopper-pearson", "agresti-coull"))
     stop("`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' ",
          "(got '", method, "').")
 
-  # Check for NA/NaN/Inf before any comparisons -- otherwise R throws a
-  # generic "missing value where TRUE/FALSE needed" with no context.
+  # Check for NA, NaN and Inf before the range checks below.
   if (!is.finite(sensitivity))
     stop("`sensitivity` must be a single finite number (got ", sensitivity, ").")
   if (!is.finite(specificity))
@@ -431,9 +428,9 @@ estimate_prevalence <- function(x,
          "). `fpc_N` is the total population size. ",
          "Set `fpc_N = NULL` to skip the finite-population correction.")
 
-  # Uses a fuzzy zero-threshold instead of an exact icc == 0 comparison, so
-  # a supplied value like 1e-12 (floating-point noise, not a real signal)
-  # is treated as exactly 0 -- no "ignored" warning, and deff stays exactly 1.
+  # A supplied icc below this tiny threshold (e.g. 1e-12, a rounding
+  # leftover) is treated as exactly 0. There is then no "ignored" warning,
+  # and deff stays exactly 1.
   if (!is.null(icc) && icc < sqrt(.Machine$double.eps))
     icc <- 0
 
