@@ -445,40 +445,26 @@ estimate_prevalence <- function(x,
     stop("`fpc_N` (", fpc_N, ") equals the total sample size: the whole ",
          "population was tested (a census), so there is no sampling ",
          "uncertainty and no confidence interval to compute. ",
-         "Set `fpc_N = NULL` if no FPC is needed.")
+         "Set `fpc_N = NULL` if no finite-population correction is needed.")
 
   p_hat <- sum(x) / n_total   # apparent prevalence
 
   # -----------------------------------------------------------------
-  # Design effect / ICC (Kish formula, Module 5)
+  # Design effect and ICC (Kish formula)
   # -----------------------------------------------------------------
-  # TODO(review): cluster-size convention for the Kish design effect.
-  # We use the arithmetic mean cluster size n_bar = mean(n), which matches
-  # the workshop (Module 5, slide "Why is the ICC useful?": "n_bar =
-  # average cluster size"). The classical Kish deff for UNEQUAL clusters
-  # uses the size-weighted mean sum(n^2)/sum(n) instead, which is larger
-  # and inflates deff more. With a supplied `icc` and very unequal
-  # clusters the two diverge substantially. DECISION NEEDED: match the
-  # lecture (mean) or match standard Kish (weighted)? Flagged for the
-  # team's statistical review -- do not "fix" silently.
-  n_bar <- mean(n)
+  n_bar <- mean(n)   # mean cluster size
 
   if (is.null(icc)) {
     if (n_clusters < 2 || n_bar == 1) {
-      # Single cluster or all clusters of size 1 -- Kish denominator is 0.
+      # Single cluster (no between-site variation to measure) or every
+      # cluster has one person (no clustering).
       icc_used <- 0
       deff     <- 1
     } else {
       p_i     <- x / n
       var_obs <- stats::var(p_i)
-      # TODO(review): which prevalence goes into Var_SRS? We use the pooled
-      # p_hat = sum(x) / sum(n). The workshop's worked example (Module 5,
-      # "The Design Effect - worked example", Deff = 17.73) uses the
-      # unweighted mean of the site prevalences instead. On that example's
-      # data the pooled version gives Deff = 20.43; the mean-of-sites version
-      # reproduces the slide (17.73 from the slide's rounded site values,
-      # 17.94 from the exact counts). DECISION NEEDED -- do not change
-      # silently (see test EP-C-2).
+      # Variance expected if everyone were independent, using the overall
+      # prevalence p_hat.
       var_srs <- mean(p_hat * (1 - p_hat) / n)
 
       deff <- if (var_srs > 0) var_obs / var_srs else 1
@@ -489,13 +475,13 @@ estimate_prevalence <- function(x,
       deff     <- 1 + (n_bar - 1) * icc_used  # keep pair mutually consistent
     }
   } else if (n_clusters < 2 || n_bar == 1) {
-    # A supplied icc has no effect with a single cluster (or clusters all of
-    # size 1): the Kish denominator is undefined, so fall back to SRS -- same
-    # as the icc = NULL path above.
+    # A supplied icc has no effect with a single cluster or when every
+    # cluster has one person, so no clustering adjustment is made (same as
+    # the icc = NULL path above).
     if (icc > 0)
-      warning("`icc` = ", icc, " was ignored: the design effect needs a ",
-              "cluster structure (>= 2 clusters, mean size > 1). ",
-              "`icc_used` is reported as 0.")
+      warning("`icc` = ", icc, " was ignored: there is only one cluster, or ",
+              "every cluster has only one person, so there is no clustering ",
+              "to adjust for. `icc_used` is reported as 0.")
     icc_used <- 0
     deff     <- 1
   } else {
@@ -505,17 +491,10 @@ estimate_prevalence <- function(x,
 
   n_eff <- n_total / deff
 
-  # Finite-population correction. The FPC is a property of the sampling
-  # fraction of the units actually drawn -- the collected count n_total,
-  # NOT the design-effect-adjusted n_eff (Cochran 1977 sec. 2.8; Kish
-  # 1965). It is a separate adjustment from the design effect: deff
-  # measures the inefficiency of the design, the FPC measures how much of
-  # the population was observed. So the factor uses n_total, matching
-  # design_precision() / design_threshold(). (This treats the population
-  # as finite in individuals -- `fpc_N` is a headcount. A study that
-  # sampled nearly all *sites* would also shrink the between-cluster
-  # variance, which this single-FPC shortcut does not separately model.)
-  # FPC factor (1 when fpc_N is NULL); fpc_N > n_total is guaranteed above.
+  # Finite-population correction factor, sqrt(f) with
+  # f = (N - n_total) / (N - 1) (Details, step 4). It uses the number of
+  # people tested, n_total, not n_eff. 1 when fpc_N is NULL; fpc_N > n_total
+  # is guaranteed above.
   fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_total) / (fpc_N - 1)) else 1
 
   # -----------------------------------------------------------------

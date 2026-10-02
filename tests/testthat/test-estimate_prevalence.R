@@ -181,15 +181,11 @@ test_that("EP-C-1: a supplied icc widens the interval through the design effect"
   expect_gt(res$moe, estimate_prevalence(x = 30, n = 100)$moe)
 })
 
-test_that("EP-C-2: icc estimated from the data (the workshop's 8-site example)", {
-  # Same sites as Module 5 "The Design Effect - worked example".
+test_that("EP-C-2: icc estimated from the data (8-site example)", {
   # Observed variance of the site prevalences = 0.042917.
   # Expected variance if people were independent, using the overall
   # prevalence 87 / 550 = 0.158182: mean(0.158182 * 0.841818 / n) = 0.002101.
   # deff = 0.042917 / 0.002101 = 20.43; icc = (20.43 - 1) / (68.75 - 1) = 0.2867
-  # NOTE: the slide gets 17.73 because it uses the average of the site
-  # prevalences (0.186) instead of the overall prevalence -- see the
-  # TODO(review) in R/estimate_prevalence.R. This test pins the current method.
   res <- estimate_prevalence(
     x = c(0, 4, 0, 22, 25, 16, 12, 8),
     n = c(60, 80, 70, 100, 40, 60, 50, 90)
@@ -310,7 +306,7 @@ test_that("EP-C-11: a supplied icc with one site is ignored (with a warning); a 
   # One site: there is no cluster structure, so icc = 0.05 cannot be used
   expect_warning(
     res <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
-    "`icc` = 0.05 was ignored: the design effect needs a cluster structure (>= 2 clusters, mean size > 1). `icc_used` is reported as 0.",
+    "`icc` = 0.05 was ignored: there is only one cluster, or every cluster has only one person, so there is no clustering to adjust for. `icc_used` is reported as 0.",
     fixed = TRUE
   )
   expect_equal(res$icc_used, 0)
