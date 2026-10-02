@@ -165,15 +165,29 @@ test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interva
   expect_equal(res0$prevalence, 0)
   expect_equal(res0$moe,        0)
 
-  # 1 positive out of 1: the measured interval is already a single point
-  # ([1, 1]) before correcting, so there is nothing to overshoot -- no warning.
-  expect_silent(res1 <- estimate_prevalence(x = 1, n = 1,
-                                            sensitivity = 0.8, specificity = 0.9))
-  expect_equal(res1$prevalence, 1)   # (1 - 0.1) / 0.7 = 1.29, cut to 1
+  # Wald also warns when its interval has no width before the correction:
+  # 0 of 100 with specificity 0.9 corrects to (0 - 0.1) / 0.9 = -0.11 at
+  # both ends. The same at the top: 1 of 1 with sensitivity 0.8 corrects
+  # to (1 - 0.1) / 0.7 = 1.29 at both ends.
+  expect_warning(
+    res2 <- estimate_prevalence(x = 0, n = 100, specificity = 0.9),
+    "are all set to 0, because the corrected interval lies entirely below 0",
+    fixed = TRUE
+  )
+  expect_equal(c(res2$prevalence, res2$moe), c(0, 0))
+  expect_warning(
+    res1 <- estimate_prevalence(x = 1, n = 1, sensitivity = 0.8, specificity = 0.9),
+    "are all set to 1, because the corrected interval lies entirely above 1",
+    fixed = TRUE
+  )
+  expect_equal(c(res1$prevalence, res1$moe), c(1, 0))
 
-  # With sensitivity = specificity = 1 and x = 0, the interval is the
-  # ordinary [0, 0] case -- no warning
+  # No warning when the data sit exactly on 0 or 1 and fit the test:
+  # x = 0 with specificity = 1, and x = n with sensitivity = 1 (the
+  # correction gives exactly 1, apart from rounding).
   expect_silent(estimate_prevalence(x = 0, n = 50))
+  expect_silent(estimate_prevalence(x = 0, n = 50, sensitivity = 0.9))
+  expect_silent(estimate_prevalence(x = 50, n = 50, specificity = 0.95))
 })
 
 
@@ -573,6 +587,9 @@ test_that("EP-V-9: more positives than people tested is rejected, naming the pos
                "`x` cannot exceed `n` (found x[1] = 60 > n[1] = 50).", fixed = TRUE)
   expect_error(estimate_prevalence(x = c(3, 12), n = c(10, 10)),
                "`x` cannot exceed `n` (found x[2] = 12 > n[2] = 10).", fixed = TRUE)
+  # One more than n is the smallest value that is rejected
+  expect_error(estimate_prevalence(x = 11, n = 10),
+               "`x` cannot exceed `n` (found x[1] = 11 > n[1] = 10).", fixed = TRUE)
   # x = n is allowed (everyone positive): see EP-5
 })
 
@@ -694,6 +711,11 @@ test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 a
     estimate_prevalence(x = 55, n = 100, sensitivity = 0.60, specificity = 0.5)))
   expect_no_warning(suppressMessages(
     estimate_prevalence(x = 55, n = 100, sensitivity = 0.61, specificity = 0.5)))
+  # The sum is shown in full, so a value just above 1 does not look like 1
+  expect_warning(suppressMessages(
+    estimate_prevalence(x = 55, n = 100, sensitivity = 0.5000001, specificity = 0.5)),
+    "`sensitivity` + `specificity` = 1.0000001, which is very close to 1.",
+    fixed = TRUE)
 })
 
 test_that("EP-V-17: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1 works", {

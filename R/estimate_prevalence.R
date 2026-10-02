@@ -406,7 +406,8 @@ estimate_prevalence <- function(x,
          "The correction divides by `sensitivity` + `specificity` - 1, so a sum ",
          "of 1 or less cannot be corrected.")
   if (correction < 0.1)
-    warning("`sensitivity` + `specificity` = ", round(sensitivity + specificity, 4),
+    warning("`sensitivity` + `specificity` = ",
+            format(sensitivity + specificity, digits = 15),
             ", which is very close to 1. Correcting for this much test error ",
             "makes the prevalence estimate and its confidence interval very ",
             "wide, and small changes in the assumed sensitivity or specificity ",
@@ -550,16 +551,17 @@ estimate_prevalence <- function(x,
   # than false positives alone would give), both corrected ends of the
   # interval fall below 0 (or both above 1). Both are then set to 0 (or 1),
   # so the interval shrinks to a single point and moe is 0. That 0 is not
-  # real precision, so warn. (No warning when the measured interval is
-  # already a single point, e.g. x = 0 with sensitivity = specificity = 1.)
-  eps <- .Machine$double.eps^0.5
-  if ((ci_hi_app - ci_lo_app) > eps &&
-      (ci_upper - ci_lower) < eps &&
-      (prevalence == 0 || prevalence == 1))
+  # real precision, so warn. The small tolerance stops rounding errors from
+  # triggering the warning when the data sit exactly on 0 or 1 (e.g. x = 0
+  # with specificity = 1).
+  eps     <- .Machine$double.eps^0.5
+  all_low <- rg(ci_hi_app) < -eps
+  all_hi  <- rg(ci_lo_app) > 1 + eps
+  if (all_low || all_hi)
     warning("After correcting for test error, the estimate and both ends of ",
-            "the confidence interval are all set to ", prevalence,
+            "the confidence interval are all set to ", if (all_low) 0 else 1,
             ", because the corrected interval lies entirely ",
-            if (prevalence == 0) "below 0" else "above 1",
+            if (all_low) "below 0" else "above 1",
             " for this sensitivity and specificity. `moe` is reported as 0, ",
             "but that is not real precision. Check the assumed sensitivity ",
             "and specificity.")
