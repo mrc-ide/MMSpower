@@ -204,41 +204,8 @@
 #' and \code{moe_upper} should be reported together. For \code{"wald"}, the
 #' function prints a message when an end is moved to 0 or 1.
 #'
-#' @section Equations and sources:
-#' Mostly direct workshop material (MMS-SD Study Design Workshop,
-#' \url{https://mrc-ide.github.io/MMS-SD_workshop/}):
-#' \itemize{
-#'   \item \emph{Apparent prevalence} \eqn{\hat p = x/n} and the
-#'     \emph{Wald interval} \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p
-#'     (1-\hat p)/n}} -- Module 1 "Sampling from a population", slides "The
-#'     Wald confidence interval" / "Putting it all together" (lecture
-#'     slides p. 11).
-#'   \item \emph{Design effect}
-#'     \eqn{D_{eff} = \mathrm{Var}_{obs}/\mathrm{Var}_{SRS}},
-#'     \emph{effective sample size} \eqn{N_{eff} = N/D_{eff}},
-#'     \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and
-#'     \eqn{r = (D_{eff}-1)/(\bar n - 1)} -- Module 5 "Dealing with
-#'     over-dispersion in multi-cluster studies", slides "The Design
-#'     Effect", "The effective sample size", "The intra-cluster
-#'     correlation coefficient" (lecture slides pp. 4-5).
-#'   \item \emph{Clustered (generalised) Wald interval}
-#'     \eqn{\hat p \pm z_{1-\alpha/2}\sqrt{\hat p(1-\hat p)/N \cdot
-#'     D_{eff}}} -- Module 5, slide "How can we design multi-cluster
-#'     studies?" (p. 5). (The workshop's visual "detecting over-dispersion"
-#'     band -- sites outside \eqn{\hat p \pm \sqrt{\hat p(1-\hat p)/n_i}} --
-#'     is a diagnostic this function does not compute; it estimates
-#'     \eqn{D_{eff}} directly from \eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}}.)
-#'   \item \emph{Rogan-Gladen correction}
-#'     \eqn{\hat p_{true} = (\hat p_{app} - (1-Sp))/(Se + Sp - 1)}, applied
-#'     to the estimate and to both interval endpoints, the
-#'     \emph{Clopper-Pearson} and \emph{Agresti-Coull} intervals, and the
-#'     \emph{finite-population correction} -- \strong{not} in the workshop;
-#'     see the references below and Cochran (1977) for the FPC.
-#' }
-#'
 #' @references
-#' MMS-SD Study Design Workshop, Modules 1 (sampling / Wald interval) and 5
-#' (ICC / design effect). \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+#' MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 #'
 #' Kish, L. (1965) \emph{Survey Sampling}. Wiley.
 #'
