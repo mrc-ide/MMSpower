@@ -10,7 +10,8 @@
 #   CI_app  = [p_hat - moe_app, p_hat + moe_app]
 #   p_true  = (p_hat - (1 - spec)) / (sens + spec - 1) (Rogan-Gladen;
 #             sens = sensitivity, spec = specificity)
-#   CI_true = Rogan-Gladen applied to both CI_app endpoints, clamped to [0, 1]
+#   CI_true = Rogan-Gladen applied to both CI_app endpoints, with any end
+#             below 0 set to 0 and any end above 1 set to 1
 #
 # EP-1  (one site, sensitivity = specificity = 1, x = 30, n = 100):
 #   se  = sqrt(0.3 * 0.7 / 100) = 0.045826
@@ -38,7 +39,7 @@
 # Core scenarios (EP-)
 # ---------------------------------------------------------------------------
 
-test_that("EP-1: one site, sensitivity = specificity = 1 -- Wald CI matches the hand-check", {
+test_that("EP-1: one site with sensitivity = specificity = 1 gives the hand-checked Wald CI", {
   res <- estimate_prevalence(x = 30, n = 100)
   expect_equal(res$prevalence, 0.3)
   expect_equal(res$ci_lower,   0.210183, tolerance = 1e-4)
@@ -54,7 +55,7 @@ test_that("EP-1: one site, sensitivity = specificity = 1 -- Wald CI matches the 
   expect_equal(res_explicit, res)
 })
 
-test_that("EP-2: imperfect test -- Rogan-Gladen applied to the estimate and both CI endpoints", {
+test_that("EP-2: with an imperfect test, Rogan-Gladen is applied to the estimate and both CI endpoints", {
   res <- estimate_prevalence(x = 30, n = 100,
                              sensitivity = 0.9, specificity = 0.95)
   expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
