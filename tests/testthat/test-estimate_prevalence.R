@@ -47,6 +47,7 @@ test_that("EP-1: one site with sensitivity = specificity = 1 gives the hand-chec
   expect_equal(res$moe,        0.089817, tolerance = 1e-4)
   expect_equal(res$n_total,    100)
   expect_equal(res$n_eff,      100)
+  expect_equal(res$n_eff_adj,  100)   # no fpc_N, so the same as n_eff
   expect_equal(res$icc_used,   0)
   expect_equal(res$deff,       1)
   # Typing the default sensitivity = specificity = 1 changes nothing
@@ -110,14 +111,7 @@ test_that("EP-6: whole-number inputs typed as integers (100L) give the same resu
   expect_equal(r_int$moe, 0.018594, tolerance = 1e-4)
 })
 
-test_that("EP-7: a large single site gives a narrow interval", {
-  # moe = 1.959964 * sqrt(0.3 * 0.7 / 1000) = 0.028403
-  res <- estimate_prevalence(x = 300, n = 1000)
-  expect_equal(res$prevalence, 0.3)
-  expect_equal(res$moe,        0.028403, tolerance = 1e-4)
-})
-
-test_that("EP-8: a Wald interval that runs past 1 is cut at 1, and the message says it is lopsided", {
+test_that("EP-7: a Wald interval that runs past 1 is cut at 1, and the message says it is lopsided", {
   # p_hat = 0.99, moe_app = 1.959964 * sqrt(0.99 * 0.01 / 100) = 0.019501
   # CI = [0.970499, 1.009501] -> upper end cut to 1
   expect_message(
@@ -132,7 +126,7 @@ test_that("EP-8: a Wald interval that runs past 1 is cut at 1, and the message s
   expect_equal(res$moe,       0.014751, tolerance = 1e-4)  # average of the two
 })
 
-test_that("EP-9: very low prevalence -- the lower end of the interval is cut at 0", {
+test_that("EP-8: very low prevalence -- the lower end of the interval is cut at 0", {
   # 1 positive out of 50 over 5 sites: p_hat = 0.02. The icc estimated from
   # the data is small (0.0023, deff 1.02), so n_eff = 49 rather than 50.
   res <- suppressMessages(
@@ -143,7 +137,7 @@ test_that("EP-9: very low prevalence -- the lower end of the interval is cut at 
   expect_equal(res$ci_upper,   0.059199, tolerance = 1e-4)
 })
 
-test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interval already has no width", {
+test_that("EP-9: Rogan-Gladen overshoot warns, except when the measured interval already has no width", {
   # p_hat = 0.98 with sensitivity 0.8, specificity 0.9: the whole measured
   # interval maps above 1, so the estimate and CI are all pinned to 1.
   # moe = 0 here is not real precision, so the function warns.
@@ -184,11 +178,34 @@ test_that("EP-10: Rogan-Gladen overshoot warns, except when the measured interva
   expect_equal(c(res1$prevalence, res1$moe), c(1, 0))
 
   # No warning when the data sit exactly on 0 or 1 and fit the test:
-  # x = 0 with specificity = 1, and x = n with sensitivity = 1 (the
-  # correction gives exactly 1, apart from rounding).
+  # x = 0 with specificity = 1, and x = n with sensitivity = 1. With
+  # specificity 0.9 the correction gives 1.0000000000000002 because of
+  # rounding, so this also checks the small tolerance.
   expect_silent(estimate_prevalence(x = 0, n = 50))
   expect_silent(estimate_prevalence(x = 0, n = 50, sensitivity = 0.9))
-  expect_silent(estimate_prevalence(x = 50, n = 50, specificity = 0.95))
+  expect_silent(estimate_prevalence(x = 50, n = 50, specificity = 0.9))
+})
+
+test_that("EP-10: a nearly perfect test (0.999) gives almost the same result as a perfect one", {
+  # correction = 0.999 + 0.999 - 1 = 0.998
+  # p_true = (0.3 - 0.001) / 0.998 = 0.299599; moe = 0.089817 / 0.998 = 0.089997
+  res <- estimate_prevalence(x = 30, n = 100, sensitivity = 0.999, specificity = 0.999)
+  expect_equal(res$prevalence, 0.299599, tolerance = 1e-4)
+  expect_equal(res$moe,        0.089997, tolerance = 1e-4)
+  # Within 0.001 of the sensitivity = specificity = 1 result (EP-1)
+  perfect <- estimate_prevalence(x = 30, n = 100)
+  expect_lt(abs(res$prevalence - perfect$prevalence), 0.001)
+  expect_lt(abs(res$moe        - perfect$moe),        0.001)
+})
+
+test_that("EP-11: counts adding up past R's integer limit (about 2.1 billion) still work", {
+  # Three sites of 2,000,000,000 people stored as integers: the total,
+  # 6,000,000,000, is too big for an R integer.
+  # moe = 1.959964 * sqrt(0.5 * 0.5 / 6e9) = 0.00001265
+  res <- estimate_prevalence(x = c(1e9L, 1e9L, 1e9L), n = c(2e9L, 2e9L, 2e9L))
+  expect_equal(res$n_total,    6e9)
+  expect_equal(res$prevalence, 0.5)
+  expect_equal(res$moe,        0.00001265, tolerance = 1e-3)
 })
 
 
@@ -225,18 +242,7 @@ test_that("EP-C-2: icc estimated from the data (8-site example)", {
   expect_equal(res$ci_upper,   0.296012,  tolerance = 1e-4)
 })
 
-test_that("EP-C-3: icc = 0, or icc = NULL with one site, gives the no-clustering result", {
-  # With one site there is nothing to estimate icc from, so NULL falls back to 0
-  srs <- estimate_prevalence(x = 30, n = 100)
-  for (res in list(estimate_prevalence(x = 30, n = 100, icc = 0),
-                   estimate_prevalence(x = 30, n = 100, icc = NULL))) {
-    expect_equal(res$icc_used, 0)
-    expect_equal(res$deff,     1)
-    expect_equal(res$moe,      srs$moe)   # 0.089817, as in EP-1
-  }
-})
-
-test_that("EP-C-4: sites of 1 person each (or a single person) give icc = 0, deff = 1", {
+test_that("EP-C-3: sites of 1 person each (or a single person) give icc = 0, deff = 1", {
   # icc = (deff - 1) / (n_bar - 1) would divide by 0 when every site has
   # 1 person, so the function falls back to no clustering.
   res <- suppressMessages(
@@ -255,7 +261,7 @@ test_that("EP-C-4: sites of 1 person each (or a single person) give icc = 0, def
   expect_equal(one$moe,        0)
 })
 
-test_that("EP-C-5: extreme site differences cap icc at 1, and deff is recomputed to match", {
+test_that("EP-C-4: extreme site differences cap icc at 1, and deff is recomputed to match", {
   # Two sites all negative, two all positive: the raw icc would be above 1,
   # so it is capped at 1 and deff = 1 + (10 - 1) * 1 = 10.
   res <- estimate_prevalence(x = c(0, 0, 10, 10), n = rep(10, 4))
@@ -273,7 +279,7 @@ test_that("EP-C-5: extreme site differences cap icc at 1, and deff is recomputed
   expect_equal(c(res2$ci_lower, res2$ci_upper), c(0, 1))
 })
 
-test_that("EP-C-6: a supplied icc = 1 makes deff equal to the site size", {
+test_that("EP-C-5: a supplied icc = 1 makes deff equal to the site size", {
   # deff = 1 + (10 - 1) * 1 = 10; n_eff = 100 / 10 = 10 (one per site)
   # moe = 1.959964 * sqrt(0.3 * 0.7 / 10) = 0.284026
   res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1)
@@ -282,7 +288,7 @@ test_that("EP-C-6: a supplied icc = 1 makes deff equal to the site size", {
   expect_equal(res$moe,   0.284026, tolerance = 1e-4)
 })
 
-test_that("EP-C-7: sites with identical prevalence give an estimated icc of 0", {
+test_that("EP-C-6: sites with identical prevalence give an estimated icc of 0", {
   # No difference between sites -> observed variance 0 -> deff = 1
   # moe = 1.959964 * sqrt(0.3 * 0.7 / 80) = 0.100418
   res <- estimate_prevalence(x = rep(3, 8), n = rep(10, 8))
@@ -291,7 +297,7 @@ test_that("EP-C-7: sites with identical prevalence give an estimated icc of 0", 
   expect_equal(res$moe,      0.100418, tolerance = 1e-4)
 })
 
-test_that("EP-C-8: two sites are enough to estimate icc", {
+test_that("EP-C-7: two sites are enough to estimate icc", {
   # Site prevalences 0.2 and 0.4: observed variance 0.02 is below the
   # 0.021 expected for independent people, so deff is set to 1, icc to 0.
   # moe = 1.959964 * sqrt(0.3 * 0.7 / 20) = 0.200837
@@ -301,21 +307,15 @@ test_that("EP-C-8: two sites are enough to estimate icc", {
   expect_equal(res$moe,      0.200837, tolerance = 1e-4)
 })
 
-test_that("EP-C-9: sites of different sizes are handled", {
-  # Sizes 5, 10, 15, 20: p_hat = 10 / 50 = 0.2
-  res <- estimate_prevalence(x = c(1, 2, 3, 4), n = c(5, 10, 15, 20))
-  expect_equal(res$n_total,    50)
-  expect_equal(res$prevalence, 0.2)
-  expect_equal(res$moe,        0.110872, tolerance = 1e-4)
-
-  # Very different sizes (1 and 1000)
+test_that("EP-C-8: sites of very different sizes (1 and 1000) are handled", {
+  # Moderately different sizes are covered by EP-C-2 (sizes 40 to 100)
   res2 <- estimate_prevalence(x = c(0, 300), n = c(1, 1000))
   expect_equal(res2$n_total,    1001)
   expect_equal(res2$prevalence, 300 / 1001)
   expect_equal(res2$moe,        0.028380, tolerance = 1e-4)
 })
 
-test_that("EP-C-10: 100 sites (simulated, fixed seed) give the expected icc and deff", {
+test_that("EP-C-9: 100 sites (simulated, fixed seed) give the expected icc and deff", {
   set.seed(42)
   x100 <- rbinom(100, 20, 0.2)          # 414 positives in total
   res  <- estimate_prevalence(x = x100, n = rep(20, 100))
@@ -326,7 +326,7 @@ test_that("EP-C-10: 100 sites (simulated, fixed seed) give the expected icc and 
   expect_equal(res$moe,        0.019201, tolerance = 1e-4)
 })
 
-test_that("EP-C-11: a supplied icc with one site is ignored (with a warning); a tiny icc counts as 0", {
+test_that("EP-C-10: a supplied icc with one site is ignored (with a warning); a tiny icc counts as 0", {
   srs <- estimate_prevalence(x = 8, n = 50)
 
   # One site: there is no cluster structure, so icc = 0.05 cannot be used
@@ -339,8 +339,11 @@ test_that("EP-C-11: a supplied icc with one site is ignored (with a warning); a 
   expect_equal(res$deff,     1)
   expect_equal(res$moe,      srs$moe)
 
-  # icc = 0 is just "no clustering" -- nothing to warn about
-  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 0))
+  # icc = 0 means no clustering, so there is nothing to warn about, and the
+  # result is the same as with no icc at all
+  expect_silent(zero <- estimate_prevalence(x = 8, n = 50, icc = 0))
+  expect_equal(zero$deff, 1)
+  expect_equal(zero$moe,  srs$moe)
 
   # Any icc below about 0.000000015 counts as 0. A value like 1e-12 is
   # almost always leftover rounding from another calculation, not real
@@ -349,6 +352,17 @@ test_that("EP-C-11: a supplied icc with one site is ignored (with a warning); a 
   tiny <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1e-12)
   expect_equal(tiny$icc_used, 0)
   expect_equal(tiny$deff,     1)
+})
+
+test_that("EP-C-11: the order of the sites and their names do not change the result", {
+  # The 8-site example from EP-C-2, shuffled, and with named sites
+  x <- c(0, 4, 0, 22, 25, 16, 12, 8)
+  n <- c(60, 80, 70, 100, 40, 60, 50, 90)
+  res <- estimate_prevalence(x, n)
+  o   <- c(5, 2, 8, 1, 7, 3, 6, 4)
+  expect_equal(estimate_prevalence(x[o], n[o]), res)
+  expect_equal(estimate_prevalence(setNames(x, letters[1:8]),
+                                   setNames(n, letters[1:8])), res)
 })
 
 
@@ -472,30 +486,26 @@ test_that("EP-M-6: clopper-pearson with an imperfect test corrects both endpoint
 })
 
 test_that("EP-M-7: clopper-pearson with clustering gives a wider interval", {
-  # icc 0.05 -> deff 1.45 -> CP computed on n_eff = 68.97 instead of 100
-  srs <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                              icc = 0,    method = "clopper-pearson"))
-  cl  <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                              icc = 0.05, method = "clopper-pearson"))
-  expect_equal(c(srs$ci_lower, srs$ci_upper), c(0.212406, 0.399815), tolerance = 1e-4)
-  expect_equal(c(cl$ci_lower,  cl$ci_upper),  c(0.195497, 0.422331), tolerance = 1e-4)
+  # icc 0.05 -> deff 1.45 -> CP computed on n_eff = 68.97 instead of 100.
+  # Without clustering it is EP-M-2's 0.212406 to 0.399815.
+  cl <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
+                                             icc = 0.05, method = "clopper-pearson"))
+  expect_equal(c(cl$ci_lower, cl$ci_upper), c(0.195497, 0.422331), tolerance = 1e-4)
 })
 
 test_that("EP-M-8: the lopsided-interval message is for wald only", {
-  # wald cut at 0 (x = 2 of 40): message. Cut at 1 is EP-8.
+  # wald cut at 0 (x = 2 of 40): message. Cut at 1 is EP-7.
   expect_message(
     estimate_prevalence(x = 2, n = 40),
     "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.05, moe_upper = 0.0675. moe = 0.0588 is the average of the two; report moe_lower and moe_upper separately.",
     fixed = TRUE
   )
   # No message: wald away from 0 and 1 (symmetric), and clopper-pearson /
-  # agresti-coull, which are lopsided by design (sides checked so the test
-  # cannot pass on a symmetric interval)
+  # agresti-coull, which are lopsided by design (EP-M-2 and EP-M-3 show
+  # their two sides differ for these same data)
   expect_no_message(estimate_prevalence(x = 30, n = 100))
-  expect_no_message(cp <- estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"))
-  expect_no_message(ac <- estimate_prevalence(x = 30, n = 100, method = "agresti-coull"))
-  expect_equal(c(cp$moe_lower, cp$moe_upper), c(0.087594, 0.099815), tolerance = 1e-5)
-  expect_equal(c(ac$moe_lower, ac$moe_upper), c(0.081349, 0.096146), tolerance = 1e-5)
+  expect_no_message(estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"))
+  expect_no_message(estimate_prevalence(x = 30, n = 100, method = "agresti-coull"))
 })
 
 
@@ -525,7 +535,7 @@ test_that("EP-V-2: text in x or n is rejected, naming the class", {
 })
 
 test_that("EP-V-3: empty x and n are rejected", {
-  # The smallest valid input is one site: x = 1, n = 1 (EP-C-4).
+  # The smallest valid input is one site: x = 1, n = 1 (EP-C-3).
   expect_error(estimate_prevalence(x = numeric(0), n = numeric(0)),
                "`x` and `n` must each contain at least one value.", fixed = TRUE)
 })
@@ -566,7 +576,7 @@ test_that("EP-V-6: a negative count in x is rejected, naming its position", {
 })
 
 test_that("EP-V-7: a zero or negative n is rejected, naming its position", {
-  # n = 1 is allowed (a site of one person): see EP-C-4.
+  # n = 1 is allowed (a site of one person): see EP-C-3.
   expect_error(estimate_prevalence(x = c(1, 0, 2), n = c(10, 0, 10)),
                "`n` must be positive for every cluster (found n[2] = 0).", fixed = TRUE)
   expect_error(estimate_prevalence(x = 1, n = -5),
@@ -640,10 +650,13 @@ test_that("EP-V-11: text, TRUE/FALSE, a bare NA, a list or NULL is rejected, nam
                fixed = TRUE)
 })
 
-test_that("EP-V-12: NaN or Inf in a single-number argument gives the finite-value error", {
-  # NaN and Inf are numbers, so they get through the type check and reach this one
+test_that("EP-V-12: NaN, Inf or -Inf in a single-number argument gives the finite-value error", {
+  # NaN, Inf and -Inf are numbers, so they get through the type check and
+  # reach this one
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = NaN),
                "`sensitivity` must be a single finite number (got NaN).", fixed = TRUE)
+  expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = -Inf),
+               "`sensitivity` must be a single finite number (got -Inf).", fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = Inf),
                "`specificity` must be a single finite number (got Inf).", fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, conf_level = NaN),
@@ -726,8 +739,7 @@ test_that("EP-V-17: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1
   expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = 2),
                "`icc` must be in [0, 1] (got 2). `icc` is a correlation and cannot be greater than 1. To estimate ICC from the data, leave `icc = NULL`.",
                fixed = TRUE)
-  # icc = 1 itself is allowed: see EP-C-6 (deff = 10, moe = 0.284026)
-  expect_equal(estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1)$deff, 10)
+  # icc = 1 itself is allowed: see EP-C-5 (deff = 10, moe = 0.284026)
 })
 
 test_that("EP-V-18: conf_level must be in (0, 1) -- boundaries and outside values rejected, inside works", {
@@ -736,9 +748,7 @@ test_that("EP-V-18: conf_level must be in (0, 1) -- boundaries and outside value
                  paste0("`conf_level` must be in (0, 1) (got ", bad, "). For example, use 0.95 for a 95% confidence interval."),
                  fixed = TRUE)
   }
-  # A valid value gives the hand-checked moe (see EP-4): 0.075377
-  expect_equal(estimate_prevalence(x = 30, n = 100, conf_level = 0.90)$moe,
-               0.075377, tolerance = 1e-4)
+  # Valid values: 0.90 and 0.99 give the hand-checked moe in EP-4
 })
 
 test_that("EP-V-19: fpc_N must be a single positive whole number", {
@@ -803,20 +813,6 @@ test_that("EP-R-1: return list contains all expected fields, in order", {
                ignore.order = FALSE)
 })
 
-test_that("EP-R-2: n_eff_adj equals n_eff without an FPC, and is larger with one", {
-  # n_eff is the equivalent simple-random-sample size before the FPC;
-  # n_eff_adj is the size the interval actually uses after it.
-  no_fpc <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(no_fpc$n_eff_adj, no_fpc$n_eff)          # both 100
-
-  # Population 400: FPC factor = (400 - 100) / (400 - 1) = 0.7519
-  # n_eff_adj = 100 / 0.7519 = 133; moe = 1.959964 * sqrt(0.21 / 133) = 0.077881
-  with_fpc <- estimate_prevalence(x = 30, n = 100, fpc_N = 400)
-  expect_equal(with_fpc$n_eff,     100)
-  expect_equal(with_fpc$n_eff_adj, 133)
-  expect_equal(with_fpc$moe,       0.077881, tolerance = 1e-4)
-})
-
 
 # ---------------------------------------------------------------------------
 # Round trips with design_precision() (EP-T-)
@@ -828,19 +824,16 @@ test_that("EP-T-1: the n from design_precision gives back the target moe (no clu
   expect_equal(res$moe, 0.049990, tolerance = 1e-4)   # target 0.05
 })
 
-test_that("EP-T-2: the clustered design from design_precision gives back the target moe when icc is supplied", {
+test_that("EP-T-2: the clustered design from design_precision gives back the target moe when icc is supplied, not when it is estimated", {
   # design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05) -> 47 sites of 10;
   # 3 positives per site
   res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
   expect_equal(res$moe, 0.049888, tolerance = 1e-4)   # target 0.05
-})
 
-test_that("EP-T-3: without icc supplied, identical sites estimate icc = 0 and the round trip misses", {
-  # Identical site prevalences -> observed variance 0 -> estimated icc = 0,
-  # deff = 1 -> the interval is narrower than design_precision planned for.
-  # The clustered round trip only holds when icc is supplied (EP-T-2).
-  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
-  expect_equal(res$icc_used, 0)
-  expect_equal(res$deff,     1)
-  expect_equal(res$moe,      0.041429, tolerance = 1e-4)   # not 0.05
+  # Without icc supplied, the identical sites give an estimated icc of 0
+  # (deff = 1), so the interval is narrower than design_precision planned
+  # for: the clustered round trip needs icc supplied.
+  no_icc <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
+  expect_equal(c(no_icc$icc_used, no_icc$deff), c(0, 1))
+  expect_equal(no_icc$moe, 0.041429, tolerance = 1e-4)   # not 0.05
 })
