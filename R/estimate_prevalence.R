@@ -492,19 +492,18 @@ estimate_prevalence <- function(x,
   n_eff <- n_total / deff
 
   # Finite-population correction factor, sqrt(f) with
-  # f = (N - n_total) / (N - 1) (Details, step 4). It uses the number of
-  # people tested, n_total, not n_eff. 1 when fpc_N is NULL; fpc_N > n_total
-  # is guaranteed above.
+  # f = (N - n_total) / (N - 1). It uses the number of people tested,
+  # n_total, not n_eff. 1 when fpc_N is NULL; fpc_N > n_total is guaranteed
+  # above.
   fpc <- if (!is.null(fpc_N)) sqrt((fpc_N - n_total) / (fpc_N - 1)) else 1
 
   # -----------------------------------------------------------------
-  # Confidence interval on apparent prevalence
-  # All three methods use n_eff_adj = n_eff / fpc^2, which collapses to
-  # n_eff when there is no FPC (fpc = 1). This is the variance-equivalent
-  # simple-random-sample size: sqrt(p*(1-p)/n_eff_adj) == sqrt(p*(1-p)/n_eff)*fpc.
+  # Confidence interval on apparent prevalence. All three methods use
+  # n_eff_adj, which includes both the design effect and the
+  # finite-population correction.
   # -----------------------------------------------------------------
   z         <- stats::qnorm(1 - (1 - conf_level) / 2)
-  n_eff_adj <- n_eff / (fpc^2)   # incorporates both Deff and FPC
+  n_eff_adj <- n_eff / (fpc^2)
   alpha     <- 1 - conf_level
 
   if (method == "wald") {
@@ -513,7 +512,8 @@ estimate_prevalence <- function(x,
     ci_hi_app <- min(p_hat + z * se, 1)
 
   } else if (method == "clopper-pearson") {
-    x_eff <- p_hat * n_eff_adj   # effective successes (continuous)
+    # Positives scaled to n_eff_adj (not always an integer).
+    x_eff <- p_hat * n_eff_adj
 
     ci_lo_app <- if (p_hat == 0) 0 else
       stats::qbeta(alpha / 2,     x_eff,     n_eff_adj - x_eff + 1)
