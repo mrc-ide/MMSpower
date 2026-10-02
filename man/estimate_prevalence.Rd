@@ -16,9 +16,10 @@ estimate_prevalence(
 )
 }
 \arguments{
-\item{x}{Vector of whole-number positive counts, one per cluster/site.}
+\item{x}{Vector of integer counts of people who tested positive, one per
+cluster/site.}
 
-\item{n}{Vector of whole-number totals tested, one per cluster/site (same
+\item{n}{Vector of integer totals tested, one per cluster/site (same
 length as \code{x}).}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
@@ -38,7 +39,7 @@ negative. Default 1 (the test never gives a false positive). Set below
 clustering. Only relevant when \code{x} and \code{n} have more than one
 element. Values below about 1.5e-8 are treated as 0.}
 
-\item{fpc_N}{Optional whole number. Total population size for a
+\item{fpc_N}{Optional positive integer. Total population size for a
 finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
 (default) = no finite-population correction applied.}
 
@@ -209,7 +210,7 @@ distribution with parameters \eqn{a} and \eqn{b}, and \eqn{L = 0} when
 \eqn{\hat{p} = 0} and \eqn{U = 1} when \eqn{\hat{p} = 1}. For a simple
 random sample, it covers the true prevalence at least as often as the
 stated confidence level, so it is usually wider than the Wald interval.
-Here \eqn{x_{eff}} does not need to be a whole number, so the clustering
+Here \eqn{x_{eff}} does not need to be an integer, so the clustering
 and population adjustments can be applied. When they are, "at least as
 often as the stated confidence level" holds only approximately.
 

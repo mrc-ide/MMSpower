@@ -30,8 +30,9 @@
 #' independent; if people at the same site tend to be similar, this gives an
 #' interval that is too narrow.
 #'
-#' @param x Vector of whole-number positive counts, one per cluster/site.
-#' @param n Vector of whole-number totals tested, one per cluster/site (same
+#' @param x Vector of integer counts of people who tested positive, one per
+#'   cluster/site.
+#' @param n Vector of integer totals tested, one per cluster/site (same
 #'   length as `x`).
 #' @param sensitivity Diagnostic sensitivity in (0, 1]: the share of people
 #'   who truly have the condition that the test detects as positive.
@@ -46,7 +47,7 @@
 #'   (default), ICC is estimated from the data. Set to `0` for no
 #'   clustering. Only relevant when `x` and `n` have more than one
 #'   element. Values below about 1.5e-8 are treated as 0.
-#' @param fpc_N Optional whole number. Total population size for a
+#' @param fpc_N Optional positive integer. Total population size for a
 #'   finite-population correction; must be larger than `sum(n)`. `NULL`
 #'   (default) = no finite-population correction applied.
 #' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
@@ -153,7 +154,7 @@
 #' \eqn{\hat{p} = 0} and \eqn{U = 1} when \eqn{\hat{p} = 1}. For a simple
 #' random sample, it covers the true prevalence at least as often as the
 #' stated confidence level, so it is usually wider than the Wald interval.
-#' Here \eqn{x_{eff}} does not need to be a whole number, so the clustering
+#' Here \eqn{x_{eff}} does not need to be an integer, so the clustering
 #' and population adjustments can be applied. When they are, "at least as
 #' often as the stated confidence level" holds only approximately.
 #'
@@ -290,26 +291,32 @@ estimate_prevalence <- function(x,
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical (got class `",
          class(x)[1], "` for x, `", class(n)[1], "` for n). ",
-         "Note: a plain `NA` is logical in R -- remove missing observations ",
+         "Note: a plain `NA` is logical in R. Remove missing observations ",
          "before calling.")
   if (!is.numeric(x) || !is.numeric(n))
-    stop("`x` and `n` must be numeric vectors (got class `", class(x)[1], "` for x, ",
-         "`", class(n)[1], "` for n). Supply integer or double counts.")
+    stop("`x` and `n` must be numeric (got class `", class(x)[1], "` for x, ",
+         "`", class(n)[1], "` for n).")
   if (length(x) == 0 || length(n) == 0)
-    stop("`x` and `n` must be non-empty vectors. ",
+    stop("`x` and `n` must each contain at least one value. ",
          "Supply at least one cluster's count and total.")
-  if (!all(is.finite(x)))
-    stop("`x` contains NA, NaN, or infinite values. ",
-         "All counts must be finite non-negative integers.")
-  if (!all(is.finite(n)))
-    stop("`n` contains NA, NaN, or infinite values. ",
-         "All cluster totals must be finite positive integers.")
+  # For each check below, `i` is the position of the first bad element.
+  if (!all(is.finite(x))) {
+    i <- which(!is.finite(x))[1]
+    stop("`x` contains a missing or infinite value (found x[", i, "] = ",
+         x[i], "). The number of positives at each cluster must be a finite ",
+         "non-negative integer.")
+  }
+  if (!all(is.finite(n))) {
+    i <- which(!is.finite(n))[1]
+    stop("`n` contains a missing or infinite value (found n[", i, "] = ",
+         n[i], "). The number tested at each cluster must be a finite positive ",
+         "integer.")
+  }
   if (length(x) != length(n))
     stop("`x` and `n` must have the same length ",
          "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
-         "Each element of `x` is the positive count for one cluster and each ",
-         "element of `n` is that cluster's total.")
-  # For each check, `i` is the position of the first bad element.
+         "Each value of `x` is the number of positives at one cluster, and ",
+         "each value of `n` is the number tested at that cluster.")
   if (any(x < 0)) {
     i <- which(x < 0)[1]
     stop("`x` must be non-negative (found x[", i, "] = ", x[i], "). ",
@@ -318,23 +325,24 @@ estimate_prevalence <- function(x,
   if (any(n <= 0)) {
     i <- which(n <= 0)[1]
     stop("`n` must be positive for every cluster (found n[", i, "] = ", n[i], "). ",
-         "A cluster with zero or negative total is undefined.")
+         "Each cluster must have tested at least one person.")
   }
   if (any(x != floor(x))) {
     i <- which(x != floor(x))[1]
-    stop("`x` must contain whole numbers -- counts cannot be fractional ",
+    stop("`x` must contain integers, not decimals ",
          "(found x[", i, "] = ", x[i], ").")
   }
   if (any(n != floor(n))) {
     i <- which(n != floor(n))[1]
-    stop("`n` must contain whole numbers -- sample sizes cannot be fractional ",
+    stop("`n` must contain integers, not decimals ",
          "(found n[", i, "] = ", n[i], ").")
   }
   if (any(x > n)) {
     i <- which(x > n)[1]
     stop("`x` cannot exceed `n` (found x[", i, "] = ", x[i],
          " > n[", i, "] = ", n[i], "). ",
-         "Positive counts cannot exceed the total tested per cluster.")
+         "The number of positives cannot be more than the number tested at ",
+         "that cluster.")
   }
 
   # ---- validate scalar parameters ----

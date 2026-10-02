@@ -485,7 +485,7 @@ test_that("EP-V-1: TRUE/FALSE or a bare NA in x or n is rejected", {
   # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
   # A bare NA is logical in R, so it is caught here, and the message says so
   expect_error(estimate_prevalence(x = NA, n = 100),
-               "`x` and `n` must be numeric, not logical (got class `logical` for x, `numeric` for n). Note: a plain `NA` is logical in R -- remove missing observations before calling.",
+               "`x` and `n` must be numeric, not logical (got class `logical` for x, `numeric` for n). Note: a plain `NA` is logical in R. Remove missing observations before calling.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = TRUE),
                "`x` and `n` must be numeric, not logical (got class `numeric` for x, `logical` for n).",
@@ -495,27 +495,33 @@ test_that("EP-V-1: TRUE/FALSE or a bare NA in x or n is rejected", {
 test_that("EP-V-2: text in x or n is rejected, naming the class", {
   # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
   expect_error(estimate_prevalence(x = "30", n = 100),
-               "`x` and `n` must be numeric vectors (got class `character` for x, `numeric` for n).",
+               "`x` and `n` must be numeric (got class `character` for x, `numeric` for n).",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = "100"),
-               "`x` and `n` must be numeric vectors (got class `numeric` for x, `character` for n).",
+               "`x` and `n` must be numeric (got class `numeric` for x, `character` for n).",
                fixed = TRUE)
 })
 
 test_that("EP-V-3: empty x and n are rejected", {
   # The smallest valid input is one site: x = 1, n = 1 (EP-C-4).
   expect_error(estimate_prevalence(x = numeric(0), n = numeric(0)),
-               "`x` and `n` must be non-empty vectors.", fixed = TRUE)
+               "`x` and `n` must each contain at least one value.", fixed = TRUE)
 })
 
-test_that("EP-V-4: NA, NaN or Inf inside x or n is rejected", {
+test_that("EP-V-4: NA, NaN or Inf inside x or n is rejected, naming its position", {
   # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
   expect_error(estimate_prevalence(x = c(1, NA_real_), n = c(10, 10)),
-               "`x` contains NA, NaN, or infinite values.", fixed = TRUE)
+               "`x` contains a missing or infinite value (found x[2] = NA).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(NaN, 1), n = c(10, 10)),
+               "`x` contains a missing or infinite value (found x[1] = NaN).",
+               fixed = TRUE)
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, NA, 10)),
-               "`n` contains NA, NaN, or infinite values.", fixed = TRUE)
-  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, Inf, 10)),
-               "`n` contains NA, NaN, or infinite values.", fixed = TRUE)
+               "`n` contains a missing or infinite value (found n[2] = NA).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10, Inf)),
+               "`n` contains a missing or infinite value (found n[3] = Inf).",
+               fixed = TRUE)
 })
 
 test_that("EP-V-5: x and n of different lengths are rejected", {
@@ -548,10 +554,10 @@ test_that("EP-V-7: a zero or negative n is rejected, naming its position", {
 test_that("EP-V-8: a fraction in x or n is rejected, naming its position", {
   # Whole numbers stored as decimals (100) or integers (100L) both work: see EP-6.
   expect_error(estimate_prevalence(x = c(1.5, 2, 3), n = c(10, 10, 10)),
-               "`x` must contain whole numbers -- counts cannot be fractional (found x[1] = 1.5).",
+               "`x` must contain integers, not decimals (found x[1] = 1.5).",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10.5, 10)),
-               "`n` must contain whole numbers -- sample sizes cannot be fractional (found n[2] = 10.5).",
+               "`n` must contain integers, not decimals (found n[2] = 10.5).",
                fixed = TRUE)
 })
 
