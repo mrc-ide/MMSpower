@@ -705,6 +705,11 @@ test_that("EP-V-15: sensitivity + specificity <= 1 is rejected (Rogan-Gladen cor
   # Sum exactly 1 (0.5 + 0.5): it would divide by 0.
   expect_error(estimate_prevalence(x = 10, n = 50, sensitivity = 0.5, specificity = 0.5),
                "(got 0.5 + 0.5 = 1).", fixed = TRUE)
+  # Sum above 1 only by rounding (a calculated specificity of
+  # 0.7000000000000004): counts as exactly 1, so it is rejected too.
+  expect_error(estimate_prevalence(x = 10, n = 50, sensitivity = 0.3,
+                                   specificity = 0.7 + 2 * .Machine$double.eps),
+               "must exceed 1 for the Rogan-Gladen correction", fixed = TRUE)
 })
 
 test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 and above does not", {

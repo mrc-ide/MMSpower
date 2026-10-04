@@ -142,7 +142,9 @@
 #' with any end below 0 set to 0 and any end above 1 set to 1. For small
 #' \eqn{n} or prevalence near 0 or 1 it can be too narrow (it covers the
 #' true prevalence less often than the stated confidence level), and it has
-#' zero width when \eqn{\hat{p} = 0} or \eqn{1}.
+#' zero width when \eqn{\hat{p} = 0} or \eqn{1}. For example, with 30
+#' people and a true prevalence of 5 percent, a 95 percent Wald interval
+#' contains the true prevalence only about 78 percent of the time.
 #'
 #' \emph{\code{"clopper-pearson"}} -- the exact binomial interval,
 #'
@@ -181,8 +183,9 @@
 #' When \eqn{Se = Sp = 1} it leaves the values unchanged.
 #'
 #' The denominator \eqn{Se + Sp - 1} must be positive, as the correction
-#' divides by it. Thus, as it approaches 0, the corrected interval becomes
-#' very wide, and the function warns when it is below 0.1.
+#' divides by it (a value below about 1.5e-8 is treated as 0). Thus, as it
+#' approaches 0, the corrected interval becomes very wide, and the function
+#' warns when it is below 0.1.
 #'
 #' If the whole corrected interval lies below 0, both ends are set to 0 and
 #' the interval has zero width (likewise above 1). This happens when there
@@ -399,8 +402,9 @@ estimate_prevalence <- function(x,
     stop("`specificity` must be in (0, 1] (got 0). ",
          "A specificity of 0 means everyone who truly does not have the ",
          "condition tests positive.")
+  # A sum above 1 only by rounding (within about 1.5e-8 of 1) counts as 1.
   correction <- sensitivity + specificity - 1
-  if (correction <= 0)
+  if (correction < sqrt(.Machine$double.eps))
     stop("`sensitivity` + `specificity` must exceed 1 for the Rogan-Gladen correction ",
          "(got ", sensitivity, " + ", specificity, " = ", sensitivity + specificity, "). ",
          "The correction divides by `sensitivity` + `specificity` - 1, so a sum ",
