@@ -103,7 +103,7 @@ test_that("EP-5: no positives, or all positive, collapses the interval to a poin
                c(1, 1, 1, 0))
 })
 
-test_that("EP-6: whole-number inputs typed as integers (100L) give the same result as doubles", {
+test_that("EP-6: counts stored as R integers (100L) give the same result as 100", {
   # moe = 1.959964 * sqrt(0.1 * 0.9 / 1000) = 0.018594
   r_int <- estimate_prevalence(x = 100L, n = 1000L)
   r_dbl <- estimate_prevalence(x = 100,  n = 1000)
@@ -111,9 +111,9 @@ test_that("EP-6: whole-number inputs typed as integers (100L) give the same resu
   expect_equal(r_int$moe, 0.018594, tolerance = 1e-4)
 })
 
-test_that("EP-7: a Wald interval that runs past 1 is cut at 1, and the message says it is lopsided", {
+test_that("EP-7: a Wald interval that runs past 1 has its upper end set to 1, and the message says it is lopsided", {
   # p_hat = 0.99, moe_app = 1.959964 * sqrt(0.99 * 0.01 / 100) = 0.019501
-  # CI = [0.970499, 1.009501] -> upper end cut to 1
+  # CI = [0.970499, 1.009501] -> upper end set to 1
   expect_message(
     res <- estimate_prevalence(x = 99, n = 100),
     "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.0195, moe_upper = 0.01. moe = 0.0148 is the average of the two; report moe_lower and moe_upper separately.",
@@ -126,7 +126,7 @@ test_that("EP-7: a Wald interval that runs past 1 is cut at 1, and the message s
   expect_equal(res$moe,       0.014751, tolerance = 1e-4)  # average of the two
 })
 
-test_that("EP-8: very low prevalence -- the lower end of the interval is cut at 0", {
+test_that("EP-8: very low prevalence: the lower end of the interval is set to 0", {
   # 1 positive out of 50 over 5 sites: p_hat = 0.02. The icc estimated from
   # the data is small (0.0023, deff 1.02), so n_eff = 49 rather than 50.
   res <- suppressMessages(
@@ -137,9 +137,9 @@ test_that("EP-8: very low prevalence -- the lower end of the interval is cut at 
   expect_equal(res$ci_upper,   0.059199, tolerance = 1e-4)
 })
 
-test_that("EP-9: Rogan-Gladen overshoot warns, except when the measured interval already has no width", {
+test_that("EP-9: a warning when the correction pushes the whole interval below 0 or above 1, but not when the data fit the test", {
   # p_hat = 0.98 with sensitivity 0.8, specificity 0.9: the whole measured
-  # interval maps above 1, so the estimate and CI are all pinned to 1.
+  # interval maps above 1, so the estimate and CI are all set to 1.
   # moe = 0 here is not real precision, so the function warns.
   expect_warning(
     res <- estimate_prevalence(x = 49, n = 50, sensitivity = 0.8, specificity = 0.9),
@@ -186,7 +186,7 @@ test_that("EP-9: Rogan-Gladen overshoot warns, except when the measured interval
   expect_silent(estimate_prevalence(x = 50, n = 50, specificity = 0.9))
 })
 
-test_that("EP-10: a nearly perfect test (0.999) gives almost the same result as a perfect one", {
+test_that("EP-10: sensitivity = specificity = 0.999 gives almost the same result as 1", {
   # correction = 0.999 + 0.999 - 1 = 0.998
   # p_true = (0.3 - 0.001) / 0.998 = 0.299599; moe = 0.089817 / 0.998 = 0.089997
   res <- estimate_prevalence(x = 30, n = 100, sensitivity = 0.999, specificity = 0.999)
@@ -327,9 +327,9 @@ test_that("EP-C-9: 100 sites (simulated, fixed seed) give the expected icc and d
 })
 
 test_that("EP-C-10: a supplied icc with one site is ignored (with a warning); a tiny icc counts as 0", {
-  srs <- estimate_prevalence(x = 8, n = 50)
+  no_icc <- estimate_prevalence(x = 8, n = 50)
 
-  # One site: there is no cluster structure, so icc = 0.05 cannot be used
+  # One site: there is no clustering to adjust for, so icc = 0.05 cannot be used
   expect_warning(
     res <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
     "`icc` = 0.05 was ignored: there is only one cluster, or every cluster has only one person, so there is no clustering to adjust for. `icc_used` is reported as 0.",
@@ -337,13 +337,13 @@ test_that("EP-C-10: a supplied icc with one site is ignored (with a warning); a 
   )
   expect_equal(res$icc_used, 0)
   expect_equal(res$deff,     1)
-  expect_equal(res$moe,      srs$moe)
+  expect_equal(res$moe,      no_icc$moe)
 
   # icc = 0 means no clustering, so there is nothing to warn about, and the
   # result is the same as with no icc at all
   expect_silent(zero <- estimate_prevalence(x = 8, n = 50, icc = 0))
   expect_equal(zero$deff, 1)
-  expect_equal(zero$moe,  srs$moe)
+  expect_equal(zero$moe,  no_icc$moe)
 
   # Any icc below about 0.000000015 counts as 0. A value like 1e-12 is
   # almost always leftover rounding from another calculation, not real
@@ -403,7 +403,7 @@ test_that("EP-F-3: the FPC uses the number of people actually tested, not n_eff"
   expect_equal(r_fpc$moe,       0.025207, tolerance = 1e-4)
 })
 
-test_that("EP-F-4: clustering and FPC together -- both are applied", {
+test_that("EP-F-4: clustering and FPC together: both are applied", {
   # deff = 1.45 (as EP-C-1), n_eff = 68.9655; population 500:
   # FPC factor = (500 - 100) / (500 - 1) = 0.8016 -> n_eff_adj = 86.0345
   # moe = 1.959964 * sqrt(0.3 * 0.7 / 86.0345) = 0.096833 (vs 0.108154 without FPC)
@@ -432,7 +432,7 @@ test_that("EP-M-2: clopper-pearson matches R's own binom.test, and is lopsided",
   ref <- binom.test(30, 100)$conf.int                 # 0.212406, 0.399815
   expect_equal(res$method,   "clopper-pearson")
   expect_equal(c(res$ci_lower, res$ci_upper), c(ref[1], ref[2]))
-  # moe is the average half-width; moe_lower / moe_upper are the two sides
+  # moe is the average of the two sides; moe_lower / moe_upper are the sides
   expect_equal(res$moe,       0.093704, tolerance = 1e-4)
   expect_equal(res$moe_lower, 0.087594, tolerance = 1e-4)
   expect_equal(res$moe_upper, 0.099815, tolerance = 1e-4)
@@ -494,7 +494,8 @@ test_that("EP-M-7: clopper-pearson with clustering gives a wider interval", {
 })
 
 test_that("EP-M-8: the lopsided-interval message is for wald only", {
-  # wald cut at 0 (x = 2 of 40): message. Cut at 1 is EP-7.
+  # A Wald interval with its lower end set to 0 (x = 2 of 40): message.
+  # The upper end set to 1 is EP-7.
   expect_message(
     estimate_prevalence(x = 2, n = 40),
     "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.05, moe_upper = 0.0675. moe = 0.0588 is the average of the two; report moe_lower and moe_upper separately.",
@@ -570,7 +571,7 @@ test_that("EP-V-6: a negative count in x is rejected, naming its position", {
   # x = 0 is allowed (no positives): see EP-5.
   expect_error(estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
                "`x` must be non-negative (found x[2] = -1).", fixed = TRUE)
-  # -0.5 is both negative and not whole: the negative check comes first
+  # -0.5 is both negative and not an integer: the negative check comes first
   expect_error(estimate_prevalence(x = -0.5, n = 10),
                "`x` must be non-negative (found x[1] = -0.5).", fixed = TRUE)
 })
@@ -584,7 +585,7 @@ test_that("EP-V-7: a zero or negative n is rejected, naming its position", {
 })
 
 test_that("EP-V-8: a fraction in x or n is rejected, naming its position", {
-  # Whole numbers stored as decimals (100) or integers (100L) both work: see EP-6.
+  # Counts stored as decimals (100) or R integers (100L) both work: see EP-6.
   expect_error(estimate_prevalence(x = c(1.5, 2, 3), n = c(10, 10, 10)),
                "`x` must contain integers, not decimals (found x[1] = 1.5).",
                fixed = TRUE)
@@ -672,12 +673,13 @@ test_that("EP-V-13: sensitivity's own range check (0, 1] gives the right message
   # case: it is stopped here, by sensitivity's own check, before the
   # combined check runs.
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 0),
-               "A sensitivity of 0 means", fixed = TRUE)
+               "`sensitivity` must be in (0, 1] (got 0). A sensitivity of 0 means everyone who truly has the condition tests negative.",
+               fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = 1.1),
-               "`sensitivity` is a diagnostic probability and cannot be greater than 1",
+               "`sensitivity` must be in (0, 1] (got 1.1). `sensitivity` is a diagnostic probability and cannot be greater than 1.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, sensitivity = -0.5),
-               "`sensitivity` is a diagnostic probability and cannot be negative",
+               "`sensitivity` must be in (0, 1] (got -0.5). `sensitivity` is a diagnostic probability and cannot be negative.",
                fixed = TRUE)
 })
 
@@ -685,12 +687,13 @@ test_that("EP-V-14: specificity's own range check (0, 1] gives the right message
   # Valid values: 1 (EP-1), 0.95 (EP-2).
   # Mirror of the sensitivity test above.
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = 0),
-               "A specificity of 0 means", fixed = TRUE)
+               "`specificity` must be in (0, 1] (got 0). A specificity of 0 means everyone who truly does not have the condition tests positive.",
+               fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = 1.1),
-               "`specificity` is a diagnostic probability and cannot be greater than 1",
+               "`specificity` must be in (0, 1] (got 1.1). `specificity` is a diagnostic probability and cannot be greater than 1.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = 30, n = 100, specificity = -0.5),
-               "`specificity` is a diagnostic probability and cannot be negative",
+               "`specificity` must be in (0, 1] (got -0.5). `specificity` is a diagnostic probability and cannot be negative.",
                fixed = TRUE)
 })
 
@@ -737,7 +740,7 @@ test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 a
     fixed = TRUE)
 })
 
-test_that("EP-V-17: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1 works", {
+test_that("EP-V-17: icc must be in [0, 1]: below 0 and above 1 are rejected, 1 works", {
   expect_error(estimate_prevalence(x = c(3, 3), n = c(10, 10), icc = -0.1),
                "`icc` must be in [0, 1] (got -0.1). `icc` is a correlation and cannot be negative. To estimate ICC from the data, leave `icc = NULL`.",
                fixed = TRUE)
@@ -747,7 +750,7 @@ test_that("EP-V-17: icc must be in [0, 1] -- below 0 and above 1 are rejected, 1
   # icc = 1 itself is allowed: see EP-C-5 (deff = 10, moe = 0.284026)
 })
 
-test_that("EP-V-18: conf_level must be in (0, 1) -- boundaries and outside values rejected, inside works", {
+test_that("EP-V-18: conf_level must be in (0, 1): boundaries and outside values rejected, inside works", {
   for (bad in c(0, 1, -0.05, 1.05)) {
     expect_error(estimate_prevalence(x = 30, n = 100, conf_level = bad),
                  paste0("`conf_level` must be in (0, 1) (got ", bad, "). For example, use 0.95 for a 95% confidence interval."),
@@ -756,7 +759,7 @@ test_that("EP-V-18: conf_level must be in (0, 1) -- boundaries and outside value
   # Valid values: 0.90 and 0.99 give the hand-checked moe in EP-4
 })
 
-test_that("EP-V-19: fpc_N must be a single positive whole number", {
+test_that("EP-V-19: fpc_N must be a single positive integer", {
   for (bad in list(0, -10, 100.5, Inf)) {
     expect_error(estimate_prevalence(x = 30, n = 100, fpc_N = bad),
                  paste0("`fpc_N` must be a single finite positive integer (got ", bad, ")."),
