@@ -255,13 +255,14 @@ test_that("DP-C-12: the reported deff matches the reported people per site", {
   expect_equal(a$n_per_site, 10)
   expect_equal(a$deff, 1.45)
 
-  # 50 sites in a population of 1000: the FPC lowers n to 312.
-  # 312 / 50 = 6.24 per site, rounded up to 7: deff = 1 + (7 - 1) * 0.05 = 1.3
-  # (collects 50 * 7 = 350)
-  b <-design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
-  expect_equal(b$n, 312)
-  expect_equal(b$n_per_site, 7)
-  expect_equal(b$deff, 1.3)
+  # 50 sites in a population of 1000: the FPC and the design effect are
+  # solved together, giving n = 285.2 -> 286 (see DP-F-5).
+  # 286 / 50 = 5.72 per site, rounded up to 6: deff = 1 + (6 - 1) * 0.05 = 1.25
+  # (collects 50 * 6 = 300)
+  b <- design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1000)
+  expect_equal(b$n, 286)
+  expect_equal(b$n_per_site, 6)
+  expect_equal(b$deff, 1.25)
 })
 
 test_that("DP-C-13: a tiny icc (1e-12) is treated as exactly 0, with or without sites", {
@@ -325,6 +326,49 @@ test_that("DP-F-4: a population of 1 or 2 -> n is the whole population", {
   # N = 2: n = 645.36 / 323.68 = 1.99 -> rounds up to 2
   expect_equal(design_precision(0.3, 0.05, fpc_N = 1)$n, 1)
   expect_equal(design_precision(0.3, 0.05, fpc_N = 2)$n, 2)
+})
+
+test_that("DP-F-5: with n_sites fixed, the FPC and the design effect are solved together", {
+  # n solves n0 * (1 + (n / n_sites - 1) * icc) * (N - n) / (N - 1) = n,
+  # with n0 = 322.68. Checked here against a numerical solution of that
+  # equation (uniroot), not against the function's own formula.
+  n0 <- stats::qnorm(0.975)^2 * 0.3 * 0.7 / 0.05^2
+  for (case in list(c(sites = 50, N = 1000), c(sites = 20, N = 5000), c(sites = 40, N = 3000))) {
+    k <- case[["sites"]]; N <- case[["N"]]
+    eq   <- function(n) n0 * (1 + (n / k - 1) * 0.05) * (N - n) / (N - 1) - n
+    root <- stats::uniroot(eq, c(1e-9, N), tol = 1e-10)$root
+    expect_equal(design_precision(0.3, 0.05, n_sites = k, icc = 0.05, fpc_N = N)$n,
+                 ceiling(root))
+  }
+  # A very large population gives the same n as no population at all (453)
+  expect_equal(design_precision(0.3, 0.05, n_sites = 50, icc = 0.05, fpc_N = 1e9)$n,
+               design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)$n)
+})
+
+test_that("DP-F-6: a target that is unachievable with n_sites alone becomes achievable with a small population", {
+  # 10 sites, icc 0.05: without fpc_N the target is unachievable (DP-C-3).
+  # With a population of 2000 the FPC brings the variance down enough:
+  # n = 964.9 -> 965, 97 per site, deff = 1 + (97 - 1) * 0.05 = 5.8
+  expect_error(design_precision(0.3, 0.05, n_sites = 10, icc = 0.05), "unachievable")
+  res <- design_precision(0.3, 0.05, n_sites = 10, icc = 0.05, fpc_N = 2000)
+  expect_equal(res$n, 965)
+  expect_equal(res$n_per_site, 97)
+  expect_equal(res$deff, 5.8)
+})
+
+test_that("DP-F-7: a rounded design larger than the population warns", {
+  # Population 50, 11 sites: n = 45, 45 / 11 = 4.09 per site, rounded up to
+  # 5, so the design is 11 x 5 = 55 people, more than the 50 who exist.
+  expect_warning(
+    res <- design_precision(0.3, 0.05, n_sites = 11, icc = 0.05, fpc_N = 50),
+    "The rounded design (11 sites x 5 = 55) exceeds `fpc_N` = 50: the required n of 45 is close to a census of the population. Consider surveying the whole population instead.",
+    fixed = TRUE
+  )
+  expect_equal(res$n, 45)
+  # Too many sites for the population-corrected SRS size is still rejected,
+  # and the message gives that size (245 for a population of 1000)
+  expect_error(design_precision(0.3, 0.05, n_sites = 300, icc = 0.05, fpc_N = 1000),
+               "n_sites = 300 is >= the SRS sample size (n_base ~= 245)", fixed = TRUE)
 })
 
 test_that("DP-V-1: prevalence = 0 and prevalence = 1 are rejected as degenerate", {
@@ -619,12 +663,12 @@ test_that("DP-V-22: more sites, or more people per site, than the whole populati
   expect_error(design_precision(0.3, 0.05, n_per_site = 100, fpc_N = 50, icc = 0.01),
                "`n_per_site` (100) exceeds `fpc_N` (50): a cluster cannot be larger than the whole population.",
                fixed = TRUE)
-  # 20 sites in a population of 5000 is fine: n = 1205, 61 per site,
-  # deff = 1 + (61 - 1) * 0.05 = 4
+  # 20 sites in a population of 5000 is fine: n = 799.6 -> 800, 40 per site,
+  # deff = 1 + (40 - 1) * 0.05 = 2.95 (see DP-F-5 for the joint solve)
   res <- design_precision(0.3, 0.05, n_sites = 20, fpc_N = 5000, icc = 0.05)
-  expect_equal(res$n, 1205)
-  expect_equal(res$n_per_site, 61)
-  expect_equal(res$deff, 4)
+  expect_equal(res$n, 800)
+  expect_equal(res$n_per_site, 40)
+  expect_equal(res$deff, 2.95)
 })
 
 test_that("DP-R-1: return list contains all expected fields", {
