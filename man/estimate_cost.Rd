@@ -18,33 +18,36 @@ estimate_cost(
 five design functions report this as \code{$n}:
 \code{design_precision()}, \code{design_threshold()},
 \code{design_detection()}, \code{design_difference()} and
-\code{design_trend()} (for the last two, \code{$n} is the study total --
-summed across both groups / all timepoints).}
+\code{design_trend()} (for the last two, \code{$n} is the study total,
+summed across both groups or all timepoints). With sites, every site
+gets the same whole number of people, so the number actually collected
+can be more than \code{$n}. To budget for what will be collected, pass
+\code{n_sites * n_per_site}, times the number of groups or timepoints
+for \code{design_difference()} and \code{design_trend()}.}
 
 \item{cost_per_sample}{Non-negative number. Variable cost per enrolled
 sample.}
 
-\item{n_sites}{Number of health facilities. One of:
-\itemize{
-\item a single positive integer -- one region;
-\item a named positive-integer vector -- the facility count in each
-region, e.g. \code{c(North = 10, South = 8, West = 12)};
-\item \code{NULL} (the default) -- no health facilities are costed,
-so the result is the sample (variable) cost only.
-}
-A single-region count can be taken straight from a design function's
-\code{$n_sites} (reported per group by \code{design_difference()} and
-per timepoint by \code{design_trend()}).}
+\item{n_sites}{Positive integer. Total number of sites to cost. Most
+design functions report it as \code{$n_sites}, but
+\code{design_difference()} reports it per group, so pass
+\code{2 * n_sites}, and \code{design_trend()} reports it per timepoint,
+so pass the total for the study, which depends on whether the same
+sites are visited at every timepoint. \code{NULL} (the default) means
+no sites are costed, so the result is the sample (variable) cost
+only.}
 
-\item{fixed_cost_per_site}{Non-negative. Fixed cost per health facility
-(training, equipment, administration). Either a single number applied to
-every region, or a named vector with the same region names as
-\code{n_sites}, e.g. \code{c(North = 5000, South = 4000)}. Default 0.}
+\item{fixed_cost_per_site}{Non-negative number or vector. Fixed cost per
+site (training, equipment, administration). Either a single
+number applied to every site, or one value per site (length
+\code{n_sites}), for example \code{c(100, 200, 300)} for 3 sites.
+Values are matched to sites by position; names are ignored.
+Default 0.}
 
-\item{transport_cost_per_site}{Non-negative. Transport cost per health
-facility. Either a single number applied to every region, or a named
-vector with the same region names as \code{n_sites}, e.g.
-\code{c(North = 1000, South = 1500, West = 800)}. Default 0.}
+\item{transport_cost_per_site}{Non-negative number or vector. Transport
+cost per site. Either a single number applied to every
+site, or one value per site (length \code{n_sites}). Values are
+matched to sites by position; names are ignored. Default 0.}
 
 \item{budget}{Optional positive number. Total money available. When
 supplied, the result reports \code{budget_remaining} and
@@ -54,73 +57,61 @@ supplied, the result reports \code{budget_remaining} and
 A named list of class \code{"mms_cost"}:
 \item{total_cost}{\code{total_fixed_cost + total_variable_cost}.}
 \item{total_variable_cost}{\code{n * cost_per_sample}.}
-\item{total_fixed_cost}{\eqn{\sum_{r} n_{sites,r} \times
-    (fixed\_cost\_per\_site_r + transport\_cost\_per\_site_r)}; 0 when
-\code{n_sites} is \code{NULL}.}
-\item{by_region}{Data frame with one row per region -- \code{region},
-\code{n_sites}, \code{fixed_cost_per_site},
-\code{transport_cost_per_site}, \code{fixed_subtotal}
-(\code{n_sites * fixed_cost_per_site}), \code{transport_subtotal}
-(\code{n_sites * transport_cost_per_site}), \code{region_total}
-(their sum). \code{NULL} when \code{n_sites} is \code{NULL}.}
-\item{n}{Total samples as supplied.}
-\item{n_sites}{Total health facilities across all regions (0 when
+\item{total_fixed_cost}{\eqn{\sum_{i} (fixed\_cost\_per\_site_i +
+    transport\_cost\_per\_site_i)} over the \code{n_sites} sites; 0
+when \code{n_sites} is \code{NULL}.}
+\item{by_site}{Data frame with one row per site and columns
+\code{site} (1 to \code{n_sites}), \code{fixed_cost_per_site},
+\code{transport_cost_per_site} and \code{site_total} (their sum).
+\code{NULL} when \code{n_sites} is \code{NULL}.}
+\item{n}{Total samples, as supplied (as a plain number).}
+\item{n_sites}{Number of sites as supplied (as a plain number; 0 when
 \code{n_sites} is \code{NULL}).}
-\item{cost_per_sample, fixed_cost_per_site, transport_cost_per_site}{As
-supplied (scalar or per-region vector).}
-\item{budget}{As supplied, or \code{NULL}.}
-\item{budget_remaining}{\code{budget - total_cost} (negative if over);
-\code{NULL} when no \code{budget}.}
-\item{over_budget}{Logical: \code{total_cost > budget}; \code{NULL}
-when no \code{budget}.}
+\item{cost_per_sample}{As supplied (as a plain number).}
+\item{fixed_cost_per_site, transport_cost_per_site}{As supplied (single
+number or per-site vector).}
+\item{budget}{As supplied (as a plain number), or \code{NULL}.}
+\item{budget_remaining}{\code{budget - total_cost}, worked out in whole
+cents (negative if over), so rounding error in decimal costs never
+shows as a difference. \code{NULL} when no \code{budget}.}
+\item{over_budget}{Logical: \code{TRUE} when \code{budget_remaining}
+is below 0; \code{NULL} when no \code{budget}.}
 }
 \description{
-Costs an MMS study from its design choices, using the budget structure
-taught in the MMS-SD workshop budget-officer activity:
+Costs an MMS study from its design choices, as a variable cost plus a
+fixed cost:
 
 \itemize{
-\item \strong{Total variable cost} = total samples enrolled x cost per
-sample (collection, laboratory testing, consumables, data
+\item \strong{Total variable cost} = total samples enrolled times the
+cost per sample (collection, laboratory testing, consumables, data
 management).
-\item \strong{Total fixed cost} = for each region, number of health
-facilities x (fixed cost per facility + transport cost per facility).
-Both the fixed cost per facility (training, equipment,
-administration) and the transport cost per facility may be given once
-for all regions or as a per-region named vector.
+\item \strong{Total fixed cost} = the sum over sites of
+(fixed cost per site + transport cost per site). The fixed
+cost (training, equipment, administration) and the transport cost may
+each be given once for all sites or as one value per site.
+When the costs are the same at every site, this is the number of
+sites times (fixed cost + transport cost).
 }
 
-Provide the design: total samples, health facilities per region, and the
-cost rates, and \code{estimate_cost()} returns the fixed / variable /
-total breakdown, a per-region table, and (if you pass a \code{budget})
+Provide the design: total samples, number of sites, and the
+costs, and \code{estimate_cost()} returns the fixed, variable and
+total costs, a per-site table, and (if you pass a \code{budget})
 whether you are within it. To explore trade-offs, change \code{n} or
 \code{n_sites} and call it again.
 
-Pairs with the design functions: for a single-region design, pass a
-design function's \code{n} and \code{n_sites} straight in; for a
-multi-region budget, split \code{n_sites} across regions yourself (a
-named \code{n_sites} vector).
+Pairs with the design functions: take \code{n} and \code{n_sites} from a
+design function's result, as described under each argument below. To
+cost several regions, call \code{estimate_cost()} once per region and add
+the totals.
 
-Please note that all monetary inputs and outputs are in one currency
-unit; the function does no conversion.
+All monetary inputs and outputs are in one currency unit; the function
+does no conversion.
 }
-\section{Equations and sources}{
-
-Straight from the MMS-SD Study Design Workshop budget-officer group
-activity (\url{https://mrc-ide.github.io/MMS-SD_workshop/}):
-\deqn{\mathrm{Total\ Fixed} = \sum_{r} n_{HF,r} \times
-  (\mathrm{fixed\ cost\ per\ HF}_r + \mathrm{transport\ cost\ per\ HF}_r)}
-\deqn{\mathrm{Total\ Variable} = \mathrm{samples\ enrolled} \times
-  \mathrm{cost\ per\ sample}}
-The function frames cost as the feasibility side of the design
-trade-off; it operationalises those formulae so a design's \code{n} /
-\code{n_sites} can be costed and checked against a budget.
-}
-
 \examples{
 # Variable cost only
 estimate_cost(n = 323, cost_per_sample = 50)
 
-# Single region, workshop rates ($5,000 fixed + $1,000 transport per HF)
+# Same costs at every site (5,000 fixed + 1,000 transport per site)
 estimate_cost(
   n = 600, cost_per_sample = 50,
   n_sites = 12,
@@ -128,27 +119,19 @@ estimate_cost(
   transport_cost_per_site = 1000
 )
 
-# Multi-region, per-region transport costs, checked against a budget
+# A different fixed cost at each of 3 sites, checked against a budget
 estimate_cost(
-  n = 800, cost_per_sample = 50,
-  n_sites = c(North = 10, South = 8, West = 12),
-  fixed_cost_per_site = 5000,
-  transport_cost_per_site = c(North = 1000, South = 1500, West = 800),
-  budget = 300000
+  n = 50, cost_per_sample = 10,
+  n_sites = 3,
+  fixed_cost_per_site = c(100, 200, 300),
+  budget = 1500
 )
 
-# Fixed cost can also vary by region (e.g. higher setup in the North)
-estimate_cost(
-  n = 400, cost_per_sample = 50,
-  n_sites = c(North = 6, South = 6),
-  fixed_cost_per_site = c(North = 6000, South = 4500),
-  transport_cost_per_site = c(North = 1000, South = 1500)
-)
-
-# Feed a design function's output in
+# Feed a design function's output in, budgeting for the people collected
 \dontrun{
 des <- design_precision(prevalence = 0.15, moe = 0.05, n_per_site = 30, icc = 0.05)
-estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
+estimate_cost(n = des$n_sites * des$n_per_site, cost_per_sample = 50,
+              n_sites = des$n_sites,
               fixed_cost_per_site = 5000, transport_cost_per_site = 1200)
 }
 }
@@ -157,10 +140,10 @@ MMS-SD Study Design Workshop, budget-officer activity; Modules 2 and 7.
 \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 }
 \seealso{
-The design functions that produce the \code{n} / \code{n_sites}
-this costs: \code{design_precision()}, \code{design_threshold()},
-\code{design_detection()}, \code{design_difference()},
-\code{design_trend()}.
+The design functions that produce the \code{n} and
+\code{n_sites} this costs: \code{design_precision()},
+\code{design_threshold()}, \code{design_detection()},
+\code{design_difference()}, \code{design_trend()}.
 }
 \concept{budget}
 \concept{cost}
