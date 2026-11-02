@@ -617,6 +617,9 @@ test_that("DD-V-8: sensitivity + specificity of 1 or less is rejected, including
   expect_error(design_difference(0.1, 0.2, sensitivity = 0.3,
                                  specificity = 0.7 + 2 * .Machine$double.eps),
                "`sensitivity` + `specificity` must exceed 1 (got 0.3 + 0.7", fixed = TRUE)
+  # A sum above 1 only by rounding counts as 1, and is shown as 1
+  expect_error(design_difference(0.1, 0.2, sensitivity = 0.5, specificity = 0.5 + 1e-13),
+               "`sensitivity` + `specificity` must exceed 1 (got 0.5 + 0.5000000000001 = 1). ", fixed = TRUE)
 })
 
 test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showing the full sum", {

@@ -293,7 +293,8 @@ design_difference <- function(prevalence1,
   if (correction < 1e-12)
     stop("`sensitivity` + `specificity` must exceed 1 ",
          "(got ", num(sensitivity), " + ", num(specificity), " = ",
-         num(sensitivity + specificity), "). ",
+         # 12 digits, so a sum that is 1 up to rounding (within 1e-12) reads 1
+         format(sensitivity + specificity, digits = 12, scientific = FALSE), "). ",
          "The difference the test can see is the true difference times ",
          "`sensitivity` + `specificity` - 1, so with a sum of 1 or less the ",
          "test cannot see the difference, or sees it reversed.")
