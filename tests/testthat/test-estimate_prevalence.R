@@ -339,9 +339,13 @@ test_that("EP-C-10: a supplied icc is used with one site; one person per site gi
 
   no_icc <- estimate_prevalence(x = 8, n = 50)
 
-  # One person per site: deff = 1 + (1 - 1) * 0.05 = 1, icc reported as given
-  expect_silent(pp <- suppressMessages(
-    estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1), icc = 0.05)))
+  # One person per site: deff = 1 + (1 - 1) * 0.05 = 1, icc reported as
+  # given, no warning. With only 5 people the Wald interval's upper end is
+  # moved to 1, which gives its usual message.
+  expect_no_warning(expect_message(
+    pp <- estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1), icc = 0.05),
+    "An end of the Wald interval was moved to 0 or 1, so the interval is asymmetric: moe_lower = 0.4294, moe_upper = 0.4. moe = 0.4147 is the average of the two; report moe_lower and moe_upper separately.",
+    fixed = TRUE))
   expect_equal(c(pp$icc_used, pp$deff), c(0.05, 1))
 
   # icc = 0 means no clustering: the same as no icc at all

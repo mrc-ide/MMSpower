@@ -82,11 +82,11 @@
 #' where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
 #' intra-cluster correlation (ICC).
 #'
-#' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
-#' value below about 1.5e-8 is treated as 0. This holds for a single cluster
-#' too: people at the same site tend to be alike, so one site tells you less
-#' about the whole population than the same number of people sampled
-#' separately. With one person per cluster, \eqn{D_{eff} = 1}.
+#' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly, also
+#' for a single cluster: people at the same site tend to be alike, so one
+#' site tells you less about the whole population than the same number of
+#' people sampled separately. A value below about 1.5e-8 is treated as 0.
+#' With one person per cluster, \eqn{D_{eff} = 1}.
 #'
 #' \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
 #' clusters and an average cluster size above 1, the design effect is
