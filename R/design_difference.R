@@ -2,20 +2,27 @@
 #'
 #' @description
 #' Design function: given the expected true prevalence in two groups, returns
-#' the sample size needed \strong{per group} to detect that difference with
-#' the target power.
+#' the sample size needed in each group to detect that difference with the
+#' target power.
 #'
-#' The two groups get the same number of people. Clustering and the
-#' finite-population correction are applied to each group in the same way.
-#' Three designs are supported:
+#' Each group can have its own number of sites, people per site, ICC and
+#' population size: give one value for both groups, or two,
+#' \code{c(group 1, group 2)}. The function solves for one unknown, the
+#' same in both groups:
 #' \describe{
 #'   \item{No clustering (\code{n_sites} and \code{n_per_site} both
-#'     \code{NULL}, the default)}{Returns the number of people per group.}
+#'     \code{NULL}, default)}{Solves for the number of people per group.}
 #'   \item{Fixed number of people per site (\code{n_per_site})}{Solves for
-#'     the number of sites needed per group.}
+#'     the number of sites per group.}
 #'   \item{Fixed number of sites (\code{n_sites})}{Solves for the number of
-#'     people needed per site.}
+#'     people per site.}
 #' }
+#' So with one value of \code{n_sites} or \code{n_per_site} the two groups
+#' are the same size, and with two values their sizes follow those values.
+#' For example, \code{n_sites = c(10, 20)} gives group 2 twice as many people
+#' as group 1 (the same number of people per site in both groups), and so
+#' does \code{n_per_site = c(10, 20)} (the same number of sites in both
+#' groups).
 #'
 #' @param prevalence1 Expected true prevalence in group 1, in \[0, 1\].
 #' @param prevalence2 Expected true prevalence in group 2, in \[0, 1\].
@@ -37,108 +44,123 @@
 #'   same in both groups.
 #' @param conf_level Confidence level, in \[0.5, 1); default 0.95. The
 #'   significance level of the test is 1 - \code{conf_level}.
-#' @param n_sites Optional positive integer. Fixes the number of sites per
-#'   group; the function solves for the number of people per site. Cannot be
-#'   used together with \code{n_per_site}.
-#' @param n_per_site Optional positive integer. Fixes the number of people
-#'   per site; the function solves for the number of sites per group. Cannot
-#'   be used together with \code{n_sites}. If \code{n_per_site} is more than
-#'   the number of people a group needs, one site is already enough and the
-#'   function stops with an error; use \code{n_sites = 1} to find how many
-#'   people that one site needs.
+#' @param n_sites Optional. Number of sites in each group: one positive
+#'   integer for both groups, or two, \code{c(group 1, group 2)}. The
+#'   function solves for the number of people per site, the same in both
+#'   groups. Cannot be used together with \code{n_per_site}.
+#' @param n_per_site Optional. Number of people per site: one positive
+#'   integer for both groups, or two, \code{c(group 1, group 2)}. The
+#'   function solves for the number of sites, the same in both groups.
+#'   Cannot be used together with \code{n_sites}. If one site in each group
+#'   already has more people than needed, the function stops with an error;
+#'   use \code{n_sites = 1} to find how many people that one site needs.
 #' @param icc Intra-cluster correlation (ICC): how alike people in the same
-#'   site are, from 0 (not at all) to 1 (identical). Default 0 (no
-#'   clustering). An \code{icc} above 0 needs \code{n_sites} or
-#'   \code{n_per_site}, and the value given is then used exactly, however
-#'   small. Without sites, a tiny value below about 1.5e-8, such as one left
-#'   over from rounding in an earlier calculation, is treated as 0.
-#' @param fpc_N Optional positive integer. Population size \strong{per
-#'   group}, for a finite-population correction. \code{NULL} (default) = no
-#'   finite-population correction applied.
+#'   site are, from 0 (not at all) to 1 (identical). One number for both
+#'   groups, or two, \code{c(group 1, group 2)}. Default 0 (no clustering).
+#'   An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}, and the
+#'   value given is then used exactly, however small. Without sites, a tiny
+#'   value below about 1.5e-8, such as one left over from rounding in an
+#'   earlier calculation, is treated as 0.
+#' @param fpc_N Optional. Population size of each group, for a
+#'   finite-population correction: one positive integer for both groups, or
+#'   two, \code{c(group 1, group 2)}. \code{NULL} (default) means no
+#'   finite-population correction.
 #'
 #' @details
-#' \strong{Sample size per group.} With no clustering, the number of people
-#' needed per group for a two-proportion z-test is
+#' \strong{Sample size.} Write \eqn{m_1}, \eqn{m_2} for the effective sizes
+#' of the two groups (below). The test reaches the target power when
+#'
+#' \deqn{z_\alpha \sqrt{\bar{p}(1-\bar{p})\,(1/m_1 + 1/m_2)} +
+#'   z_\beta \sqrt{p_{1,app}(1-p_{1,app})/m_1 + p_{2,app}(1-p_{2,app})/m_2}
+#'   = |p_{1,app} - p_{2,app}|}
+#'
+#' where \eqn{p_{g,app} = p_g \cdot Se + (1-p_g)(1-Sp)} is the prevalence the
+#' test would measure in group \eqn{g}, \eqn{\bar{p} = (p_{1,app} m_1 +
+#' p_{2,app} m_2)/(m_1 + m_2)}, \eqn{z_\beta} = \code{qnorm(power)} (0.84 for
+#' 80 percent power), and \eqn{z_\alpha} = \code{qnorm(1 - alpha/2)} for a
+#' two-sided test (1.96 at 95 percent) or \code{qnorm(1 - alpha)} for a
+#' one-sided test (1.64 at 95 percent), with \eqn{\alpha = 1 -}
+#' \code{conf_level}. The function finds the smallest value of the unknown
+#' (people per group, sites, or people per site) for which the left side is
+#' no larger than the right, by a numerical search, and rounds it up to a
+#' whole number.
+#'
+#' With no clustering and two groups of \eqn{n} people this gives
 #'
 #' \deqn{n_0 = \frac{\left(z_\alpha \sqrt{2\,\bar{p}(1-\bar{p})} +
 #'   z_\beta \sqrt{p_{1,app}(1-p_{1,app}) + p_{2,app}(1-p_{2,app})}\right)^2}
 #'   {(p_{1,app} - p_{2,app})^2}}
 #'
-#' where \eqn{p_{g,app} = p_g \cdot Se + (1-p_g)(1-Sp)} is the prevalence the
-#' test would measure in group \eqn{g}, \eqn{\bar{p} = (p_{1,app} +
-#' p_{2,app})/2}, \eqn{z_\beta} = \code{qnorm(power)} (0.84 for 80 percent
-#' power), and \eqn{z_\alpha} = \code{qnorm(1 - alpha/2)} for a two-sided
-#' test (1.96 at 95 percent) or \code{qnorm(1 - alpha)} for a one-sided test
-#' (1.64 at 95 percent), with \eqn{\alpha = 1 -} \code{conf_level}. This is
 #' the same formula as R's \code{power.prop.test()}.
 #'
 #' Because \eqn{p_{1,app} - p_{2,app} = (p_1 - p_2)(Se + Sp - 1)}, an
-#' imperfect test shrinks the difference the test can see and increases
-#' \eqn{n_0}. When \eqn{Se = Sp = 1} the measured and true prevalences are
+#' imperfect test shrinks the difference the test can see and increases the
+#' sample size. When \eqn{Se = Sp = 1} the measured and true prevalences are
 #' the same.
 #'
-#' \strong{Clustering.} The design effect \eqn{D_{eff} = 1 + (\bar{n} -
-#' 1)\,ICC}, with \eqn{\bar{n}} the number of people per site, is applied to
-#' each group. With \code{n_per_site} fixed, \eqn{n = n_0 \cdot D_{eff}}. With
-#' \code{n_sites} fixed, \eqn{D_{eff}} itself depends on \eqn{n}, and solving
-#' \eqn{n = n_0 (1 + (n/n_{sites} - 1) ICC)} gives
+#' \strong{Effective size.} For group \eqn{g} with \eqn{n_g} people,
+#' \eqn{m_g = n_g / D_g}, where \eqn{D_g = 1 + (\bar{n}_g - 1)\,ICC_g} is the
+#' design effect and \eqn{\bar{n}_g} the number of people per site. With
+#' \code{fpc_N} (the population size \eqn{N_g}), sampling without
+#' replacement reduces the variance by the factor \eqn{(N_g - n_g)/(N_g - 1)},
+#' so \eqn{m_g} is divided by it as well (Cochran, 1977).
 #'
-#' \deqn{n = \frac{n_0 \cdot n_{sites} \cdot (1-ICC)}{n_{sites} - n_0 \cdot ICC}}
+#' \strong{Highest power.} With \code{n_sites} fixed and no \code{fpc_N},
+#' adding people to each site cannot raise the power past a limit. People in
+#' the same site tend to resemble each other, so after a point each extra
+#' person adds almost nothing new. Each site is worth at most \eqn{1 / ICC}
+#' independent people, so a group can never count as more than
+#' \eqn{n_{sites} / ICC} independent people. For example, with ICC 0.05 each
+#' site is worth at most 20 independent people, so 8 sites per group give at
+#' most 160 independent people. For 10 versus 20 percent, 160 people per
+#' group give 70.9 percent power, so 80 percent can never be reached. When
+#' the target cannot be reached, the function stops and reports the highest
+#' power the sites can give.
 #'
-#' This has a solution only when \eqn{n_{sites} > n_0 \cdot ICC}. Otherwise
-#' the target power cannot be reached, and the function stops and reports
-#' the maximum power those sites can give. People in the same site
-#' tend to resemble each other, so after a point each extra person adds
-#' almost nothing new. Each site is worth at most \eqn{1 / ICC} independent
-#' people, so a group can never count as more than \eqn{n_{sites} / ICC}
-#' independent people. For example, with ICC 0.05 each site is worth at
-#' most 20 independent people, so 8 sites per group give at most 160
-#' independent people. For 10 versus 20 percent, 160 people per group give
-#' 70.9 percent power, so 80 percent can never be reached.
-#'
-#' The number of people per site is rounded up, and the design effect
-#' (returned as \code{deff}) is then worked out again from that rounded
-#' number, so that
-#' \eqn{D_{eff} = 1 + (n_{per site} - 1) ICC} describes the design reported.
-#'
-#' \strong{Finite-population correction.} With \code{fpc_N} (the population
-#' size \eqn{N} of each group), sampling without replacement reduces the
-#' variance by the factor \eqn{(N - n)/(N - 1)}, which gives
-#' \eqn{n = n_1 N / (N + n_1 - 1)}, where \eqn{n_1} is the size before the
-#' correction (Cochran, 1977). With \code{n_sites} fixed, the correction and
-#' the design effect both depend on \eqn{n}, so they are solved together: the
-#' equation \eqn{n_0 (1 + (n/n_{sites} - 1) ICC)(N - n)/(N - 1) = n} is a
-#' quadratic, solved for its root between 0 and \eqn{N}. With a
-#' finite population the target is therefore always reachable. If there are
-#' too few sites for this ICC to reach the target power on their own, the
+#' With \code{fpc_N}, a group whose whole population is tested has no
+#' sampling uncertainty left, so with the same design in both groups the
+#' target is always reachable. When the groups differ, one group can reach
+#' its whole population before the target is reached; the function then
+#' stops and reports the highest power at that point. If there are too few
+#' sites for the ICC to reach the target power on their own, the
 #' correction can still make it reachable, but often only by testing a large
 #' share of the population; a warning says so.
 #'
 #' \code{fpc_N} counts people, not sites. If a study samples nearly all of
-#' the sites in a group, the returned \eqn{n} is larger than necessary,
+#' the sites in a group, the returned sample size is larger than necessary,
 #' because the correction does not remove the variation between sites.
 #'
+#' \strong{Rounding.} The people needed in each group, and the number of
+#' sites or people per site, are rounded up. Each design effect (returned as
+#' \code{deff1}, \code{deff2}) is then worked out again from the rounded
+#' number of people per site, so that
+#' \eqn{D_g = 1 + (n_{per site, g} - 1) ICC_g} describes the design reported.
+#'
 #' @return A named list with the following fields, in the order returned:
-#'   \item{n_per_group}{Number of people needed in each group.}
+#'   \item{n_per_group1, n_per_group2}{Number of people needed in each
+#'     group. They are equal when \code{n_sites}, \code{n_per_site},
+#'     \code{icc} and \code{fpc_N} each have one value.}
 #'   \item{n}{Total number of people across both groups,
-#'     \code{2 * n_per_group}. With sites, every site gets the same whole
-#'     number of people, rounded up, so the study collects
-#'     \code{2 * n_sites * n_per_site} people, which can be more than
-#'     \code{n}. Budget for that number. The extra is usually small, but can
-#'     almost double the study when sites have only 1 or 2 people each: for
-#'     example, a group needing 199 people across 198 sites gets 2 per site,
-#'     so 396 are collected in that group instead of 199.}
-#'   \item{n_eff}{\eqn{n_0} rounded up: the number of people per group that
-#'     would be needed with no clustering and no finite-population
-#'     correction.}
-#'   \item{n_sites}{Sites per group: solved for when \code{n_per_site} is
-#'     given, echoed when \code{n_sites} is given. If the study needs fewer
-#'     people per group than \code{n_sites}, only that many sites are used,
-#'     with 1 person at each, and a warning says so. \code{NULL} with no
-#'     clustering.}
-#'   \item{n_per_site}{People per site: solved for when \code{n_sites} is
-#'     given, echoed when \code{n_per_site} is given. \code{NULL} with no
-#'     clustering.}
+#'     \code{n_per_group1 + n_per_group2}. With sites, every site in a group
+#'     gets the same whole number of people, rounded up, so the study
+#'     collects \code{n_sites1 * n_per_site1 + n_sites2 * n_per_site2}
+#'     people, which can be more than \code{n}. Budget for that number. The
+#'     extra is usually small, but can almost double the study when sites
+#'     have only 1 or 2 people each: for example, a group needing 199 people
+#'     across 198 sites gets 2 per site, so 396 are collected in that group
+#'     instead of 199.}
+#'   \item{n_eff1, n_eff2}{The number of people each group would need with
+#'     no clustering and no finite-population correction, keeping the
+#'     groups in the same ratio as the design (for example, twice as many
+#'     people in group 2 with \code{n_sites = c(10, 20)}).}
+#'   \item{n_sites1, n_sites2}{Sites in each group: solved for when
+#'     \code{n_per_site} is given, as given when \code{n_sites} is given. If
+#'     the study needs fewer people in a group than its sites, fewer sites are
+#'     used, with 1 person at each, and a warning says so. \code{NULL} with
+#'     no clustering.}
+#'   \item{n_per_site1, n_per_site2}{People per site in each group: solved
+#'     for when \code{n_sites} is given, as given when \code{n_per_site} is
+#'     given. \code{NULL} with no clustering.}
 #'   \item{prevalence1, prevalence2}{The true prevalences, as supplied.}
 #'   \item{apparent_prev1, apparent_prev2}{The prevalences the test would
 #'     measure in each group.}
@@ -151,14 +173,11 @@
 #'   \item{conf_level}{Confidence level, as supplied.}
 #'   \item{sensitivity}{Sensitivity, as supplied.}
 #'   \item{specificity}{Specificity, as supplied.}
-#'   \item{icc}{ICC, as supplied.}
-#'   \item{deff}{Design effect: how much clustering inflates the number of
-#'     people needed (1 with no clustering). With sites, it is worked out for
-#'     the people actually collected, \code{n_sites * n_per_site} per group.
-#'     Dividing that number by \code{deff} gives at least \code{n_eff}
-#'     (without \code{fpc_N}); dividing \code{n_per_group} by \code{deff} can
-#'     give slightly less, because \code{n_per_group} comes before the
-#'     rounding up to whole sites.}
+#'   \item{icc}{ICC, as supplied (one or two values).}
+#'   \item{deff1, deff2}{Design effect of each group: how much clustering
+#'     inflates the number of people needed (1 with no clustering). With
+#'     sites, it is worked out for the people actually collected,
+#'     \code{n_sites * n_per_site} in that group.}
 #'   \item{fpc_N}{\code{fpc_N}, as supplied, or \code{NULL}.}
 #'
 #' @references
@@ -193,6 +212,9 @@
 #'
 #' # Fixed number of sites: how many people per site?
 #' design_difference(0.10, 0.20, n_sites = 30, icc = 0.02)
+#'
+#' # Twice as many sites in group 2, and more clustering there
+#' design_difference(0.10, 0.20, n_sites = c(20, 40), icc = c(0.02, 0.05))
 design_difference <- function(prevalence1,
                               prevalence2,
                               power       = 0.80,
@@ -229,9 +251,10 @@ design_difference <- function(prevalence1,
   if (length(conf_level) != 1 || !is.numeric(conf_level))
     stop("`conf_level` must be a single number in [0.5, 1) (got class `",
          class(conf_level)[1], "`, length ", length(conf_level), ").")
-  if (length(icc) != 1 || !is.numeric(icc))
-    stop("`icc` must be a single number in [0, 1] (got class `",
-         class(icc)[1], "`, length ", length(icc), ").")
+  if (!(length(icc) %in% c(1, 2)) || !is.numeric(icc))
+    stop("`icc` must be one or two numbers in [0, 1]: one for both groups, ",
+         "or c(group 1, group 2) (got class `", class(icc)[1], "`, length ",
+         length(icc), ").")
   if (!is.character(alternative) || length(alternative) != 1)
     stop("`alternative` must be one of 'two.sided', 'greater', or 'less' ",
          "(got class `", class(alternative)[1], "`, length ",
@@ -239,6 +262,18 @@ design_difference <- function(prevalence1,
   if (!alternative %in% c("two.sided", "greater", "less"))
     stop("`alternative` must be one of 'two.sided', 'greater', or 'less' ",
          "(got '", alternative, "').")
+
+  # Numbers in messages are printed in full (100000, not 1e+05).
+  num <- function(v) format(v, scientific = FALSE, digits = 15)
+  # ...except numbers far beyond any real study, shown as 1e+200.
+  huge <- function(v) if (v < 1e16) num(v) else format(v, digits = 15)
+  # How a bad value of a one-or-two-value argument is shown: "(got 1.5)"
+  # for one value, "(found icc[2] = 1.5)" for the first bad one of two.
+  got <- function(v, nm, bad) {
+    i <- which(bad)[1]
+    if (length(v) == 1) paste0("(got ", num(v), ")")
+    else paste0("(found ", nm, "[", i, "] = ", num(v[i]), ")")
+  }
 
   # Check for NA, NaN and Inf before the range checks below.
   if (!is.finite(prevalence1))
@@ -253,13 +288,8 @@ design_difference <- function(prevalence1,
     stop("`specificity` must be a single finite number (got ", specificity, ").")
   if (!is.finite(conf_level))
     stop("`conf_level` must be a single finite number (got ", conf_level, ").")
-  if (!is.finite(icc))
-    stop("`icc` must be a single finite number (got ", icc, ").")
-
-  # Numbers in messages are printed in full (100000, not 1e+05).
-  num <- function(v) format(v, scientific = FALSE, digits = 15)
-  # ...except numbers far beyond any real study, shown as 1e+200.
-  huge <- function(v) if (v < 1e16) num(v) else format(v, digits = 15)
+  if (!all(is.finite(icc)))
+    stop("`icc` must be finite ", got(icc, "icc", !is.finite(icc)), ".")
 
   for (nm in c("prevalence1", "prevalence2")) {
     p <- get(nm)
@@ -298,10 +328,12 @@ design_difference <- function(prevalence1,
          "The difference the test can see is the true difference times ",
          "`sensitivity` + `specificity` - 1, so with a sum of 1 or less the ",
          "test cannot see the difference, or sees it reversed.")
-  if (icc < 0 || icc > 1)
-    stop("`icc` must be in [0, 1] (got ", num(icc), "). ",
+  if (any(icc < 0 | icc > 1)) {
+    bad <- icc < 0 | icc > 1
+    stop("`icc` must be in [0, 1] ", got(icc, "icc", bad), ". ",
          "`icc` is a correlation and cannot be ",
-         if (icc < 0) "negative." else "greater than 1.")
+         if (icc[which(bad)[1]] < 0) "negative." else "greater than 1.")
+  }
   if (conf_level >= 1)
     stop("`conf_level` must be in [0.5, 1) (got ", num(conf_level), "). ",
          "For example, use 0.95 for a 95% confidence interval.")
@@ -324,43 +356,44 @@ design_difference <- function(prevalence1,
          "`n_sites` fixes the number of sites and solves for people per site; ",
          "`n_per_site` fixes the number of people per site and solves for the ",
          "number of sites.")
-  if (!is.null(n_sites) &&
-      (!is.numeric(n_sites) || length(n_sites) != 1 || !is.finite(n_sites) ||
-       n_sites != floor(n_sites) || n_sites < 1))
-    stop("`n_sites` must be a single finite positive integer (got ",
-         if (!is.numeric(n_sites)) paste0("class `", class(n_sites)[1], "`")
-         else if (length(n_sites) != 1) paste0("length = ", length(n_sites))
-         else num(n_sites), "). ",
-         "`n_sites` is the number of sites per group.")
-  if (!is.null(n_per_site) &&
-      (!is.numeric(n_per_site) || length(n_per_site) != 1 || !is.finite(n_per_site) ||
-       n_per_site != floor(n_per_site) || n_per_site < 1))
-    stop("`n_per_site` must be a single finite positive integer (got ",
-         if (!is.numeric(n_per_site)) paste0("class `", class(n_per_site)[1], "`")
-         else if (length(n_per_site) != 1) paste0("length = ", length(n_per_site))
-         else num(n_per_site), "). ",
-         "`n_per_site` is the fixed number of people sampled per site.")
-  if (!is.null(fpc_N) &&
-      (!is.numeric(fpc_N) || length(fpc_N) != 1 || !is.finite(fpc_N) ||
-       fpc_N < 1 || fpc_N != floor(fpc_N)))
-    stop("`fpc_N` must be a single finite positive integer (got ",
-         if (!is.numeric(fpc_N)) paste0("class `", class(fpc_N)[1], "`")
-         else if (length(fpc_N) != 1) paste0("length = ", length(fpc_N))
-         else num(fpc_N),
-         "). `fpc_N` is the population size per group. ",
-         "Set `fpc_N = NULL` to skip the finite-population correction.")
-  if (!is.null(fpc_N) && fpc_N > 2^53)
-    stop("`fpc_N` (", huge(fpc_N), ") is larger than 2^53 = 9007199254740992, ",
-         "the largest whole number R can store exactly. No real population is ",
-         "this large: set `fpc_N = NULL`.")
-  if (!is.null(n_sites) && n_sites > 2^53)
-    stop("`n_sites` (", huge(n_sites), ") is larger than 2^53 = 9007199254740992, ",
-         "the largest whole number R can store exactly. No real study has ",
-         "this many sites.")
-  if (!is.null(n_per_site) && n_per_site > 2^53)
-    stop("`n_per_site` (", huge(n_per_site), ") is larger than 2^53 = ",
-         "9007199254740992, the largest whole number R can store exactly. No ",
-         "real site has this many people.")
+
+  # n_sites, n_per_site and fpc_N: one or two positive integers each.
+  check_counts <- function(v, nm, what, tail = "") {
+    if (is.null(v)) return(invisible())
+    if (!is.numeric(v) || !(length(v) %in% c(1, 2)))
+      stop("`", nm, "` must be one or two finite positive integers (got ",
+           if (!is.numeric(v)) paste0("class `", class(v)[1], "`")
+           else paste0("length = ", length(v)), "). ", what, tail)
+    bad <- !is.finite(v)
+    bad[!bad] <- v[!bad] < 1 | v[!bad] != floor(v[!bad])
+    if (any(bad))
+      stop("`", nm, "` must be one or two finite positive integers ",
+           got(v, nm, bad), ". ", what, tail)
+  }
+  check_counts(n_sites, "n_sites",
+               "`n_sites` is the number of sites in each group: one value for both groups, or c(group 1, group 2).")
+  check_counts(n_per_site, "n_per_site",
+               "`n_per_site` is the number of people sampled per site: one value for both groups, or c(group 1, group 2).")
+  check_counts(fpc_N, "fpc_N",
+               "`fpc_N` is the population size of each group: one value for both groups, or c(group 1, group 2).",
+               " Set `fpc_N = NULL` to skip the finite-population correction.")
+  # How the i-th of one or two values is named in a message.
+  lab <- function(v, nm, i) if (length(v) == 1) paste0("`", nm, "`") else paste0("`", nm, "[", i, "]`")
+  for (i in seq_along(fpc_N))
+    if (fpc_N[i] > 2^53)
+      stop(lab(fpc_N, "fpc_N", i), " (", huge(fpc_N[i]), ") is larger than 2^53 = ",
+           "9007199254740992, the largest whole number R can store exactly. No ",
+           "real population is this large: set `fpc_N = NULL`.")
+  for (i in seq_along(n_sites))
+    if (n_sites[i] > 2^53)
+      stop(lab(n_sites, "n_sites", i), " (", huge(n_sites[i]), ") is larger than 2^53 = ",
+           "9007199254740992, the largest whole number R can store exactly. No ",
+           "real study has this many sites.")
+  for (i in seq_along(n_per_site))
+    if (n_per_site[i] > 2^53)
+      stop(lab(n_per_site, "n_per_site", i), " (", huge(n_per_site[i]), ") is larger ",
+           "than 2^53 = 9007199254740992, the largest whole number R can store ",
+           "exactly. No real site has this many people.")
 
   # From here on every number is a plain number: a 1 x 1 matrix, a name or a
   # class would otherwise leak into the arithmetic and the result.
@@ -372,27 +405,37 @@ design_difference <- function(prevalence1,
   if (!is.null(n_per_site)) n_per_site <- as.numeric(n_per_site)
   if (!is.null(fpc_N))      fpc_N      <- as.numeric(fpc_N)
 
+  # One value is used for both groups: from here on each is a pair.
+  icc_g <- rep_len(icc, 2)
+  k_g   <- if (is.null(n_sites))    NULL else rep_len(n_sites, 2)
+  s_g   <- if (is.null(n_per_site)) NULL else rep_len(n_per_site, 2)
+  N_g   <- if (is.null(fpc_N))      NULL else rep_len(fpc_N, 2)
+
   # The number of sites, or people per site, cannot exceed the population.
-  if (!is.null(fpc_N) && !is.null(n_sites) && n_sites > fpc_N)
-    stop("`n_sites` (", format(n_sites, scientific = FALSE), ") exceeds `fpc_N` (",
-         format(fpc_N, scientific = FALSE), "): you cannot have more sites than ",
-         "people in the population.")
-  if (!is.null(fpc_N) && !is.null(n_per_site) && n_per_site > fpc_N)
-    stop("`n_per_site` (", format(n_per_site, scientific = FALSE), ") exceeds `fpc_N` (",
-         format(fpc_N, scientific = FALSE), "): a site cannot have more people ",
-         "than there are in the whole population.")
+  # (With one value of each, the message names no group.)
+  grp_of <- function(i, a, b) if (length(a) == 1 && length(b) == 1) "" else paste0(" for group ", i)
+  for (i in 1:2) {
+    if (!is.null(N_g) && !is.null(k_g) && k_g[i] > N_g[i])
+      stop("`n_sites`", grp_of(i, n_sites, fpc_N), " (", num(k_g[i]),
+           ") exceeds `fpc_N`", grp_of(i, n_sites, fpc_N), " (", num(N_g[i]),
+           "): you cannot have more sites than people in the population.")
+    if (!is.null(N_g) && !is.null(s_g) && s_g[i] > N_g[i])
+      stop("`n_per_site`", grp_of(i, n_per_site, fpc_N), " (", num(s_g[i]),
+           ") exceeds `fpc_N`", grp_of(i, n_per_site, fpc_N), " (", num(N_g[i]),
+           "): a site cannot have more people than there are in the whole population.")
+  }
 
   # Without sites there is no clustering, so a tiny icc there (e.g. 1e-12, a
   # rounding leftover) counts as 0. With sites, any icc above 0 is used: with
   # very large sites even a tiny icc changes the design effect.
   no_sites <- is.null(n_sites) && is.null(n_per_site)
-  if (no_sites && icc >= sqrt(.Machine$double.eps))
+  if (no_sites && any(icc >= sqrt(.Machine$double.eps)))
     stop("`icc` is greater than 0 but no sites were given (`n_sites` and ",
          "`n_per_site` are both `NULL`), so the design effect cannot be ",
          "computed. Supply `n_sites` (fix the number of sites) or `n_per_site` ",
          "(fix the number of people per site), or set `icc = 0` for a design ",
          "without clustering.")
-  icc_is_zero <- no_sites || icc == 0
+  if (no_sites) icc_g <- c(0, 0)
 
   # ---- direction of the test ----
   # Checked after "equal", so that the advice to switch the alternative is
@@ -461,183 +504,323 @@ design_difference <- function(prevalence1,
     stop("The required sample size is too large for R to compute. Use a lower ",
          "`conf_level`.")
 
-  # ---- design effect and n per group ----
-  # If icc is above 0, `n_sites` or `n_per_site` was given (checked above). With
-  # n_sites fixed, the finite-population correction is part of the solve;
-  # otherwise it is applied afterwards.
-  fpc_applied <- FALSE
-  # TRUE when the sites alone could not reach the target and only the
-  # finite-population correction makes it reachable (warned about below).
-  fpc_rescue  <- FALSE
-  # TRUE when more sites were given than people needed, so some are dropped.
-  sites_cut   <- FALSE
-
-  if (icc_is_zero) {
-    deff   <- 1
-    n_cont <- n_base_cont
-
-  } else if (!is.null(n_per_site)) {
-    deff   <- 1 + (n_per_site - 1) * icc
-    n_cont <- n_base_cont * deff
-
-  } else {
-    # Number of sites fixed: deff depends on n, and n depends on deff.
-    if (is.null(fpc_N)) {
-      # Solving n = n_base * (1 + (n / n_sites - 1) * icc) for n gives
-      #   n = n_base * n_sites * (1 - icc) / (n_sites - n_base * icc),
-      # which needs n_sites > n_base * icc. The highest power these sites
-      # can give is where n_base * icc = n_sites exactly.
-      denom <- n_sites - n_base_cont * icc
-      if (denom <= 0) {
-        z_b_max   <- (delta * sqrt(n_sites / icc) - z_a * se0) / se1
-        max_power <- stats::pnorm(z_b_max)
-        shown <- format_apart(100 * power, 100 * max_power, digits = 7)
-        # A maximum like 2e-16 percent is shown as "less than 0.0001".
-        if (100 * max_power < 1e-4) shown[2] <- "less than 0.0001"
-        stop("Target power of ", shown[1], " percent cannot be ",
-             "reached with ", format(n_sites, scientific = FALSE),
-             if (n_sites == 1) " site" else " sites", " per group and ICC = ",
-             num(icc), ". The highest power ",
-             if (n_sites == 1) "this site" else "these sites", " can give is ",
-             shown[2], " percent. ",
-             "Increase `n_sites`, lower the ICC, or lower the target power.")
-      }
-      n_cont <- n_base_cont * n_sites * (1 - icc) / denom
-
+  # ---- the requirement ----
+  # For effective sizes m = c(m1, m2) (Inf for a group whose whole
+  # population is tested), the ratio of the left side of the equation in
+  # Details to the right side. The target power is reached when it is at
+  # most 1. With m1 = m2 = m it is sqrt(n_base_cont / m).
+  p_app <- c(p1_app, p2_app)
+  ratio <- function(m) {
+    if (any(m == 0)) return(Inf)
+    inv <- ifelse(is.infinite(m), 0, 1 / m)
+    if (all(inv == 0)) return(0)
+    if (any(inv == 0)) {
+      # A fully tested group carries all the weight in the pooled prevalence.
+      pb <- p_app[inv == 0][1]; qb <- 1 - pb
     } else {
-      # With an FPC, solve n_base * (1 + (n / n_sites - 1) * icc) *
-      # (N - n) / (N - 1) = n for n. This is the quadratic A*n^2 + B*n + C = 0
-      # with A > 0 and C < 0, so it has exactly one positive root, below N.
-      # The root is taken in a form that stays accurate for very large N.
-      # With icc = 1, C = 0: the roots are 0 and -B / A. (0 people needed,
-      # possible with 0 versus 1 prevalence, stays 0.)
-      A <- n_base_cont * icc / n_sites
-      B <- n_base_cont * (1 - icc) - A * fpc_N + fpc_N - 1
-      C <- -n_base_cont * (1 - icc) * fpc_N
-      q <- -(B + (if (B < 0) -1 else 1) * sqrt(B^2 - 4 * A * C)) / 2
-      n_cont <- if (n_base_cont == 0) 0
-                else if (C == 0) max(0, -B / A)
-                else max(q / A, C / q)
-      fpc_applied <- TRUE
-      fpc_rescue  <- n_sites <= n_base_cont * icc
+      pb <- sum(p_app * m) / sum(m)
+      # 1 - pb worked out directly, so it does not round to 0 when pb is
+      # within rounding of 1.
+      qb <- sum((1 - p_app) * m) / sum(m)
     }
-    deff <- 1 + (n_cont / n_sites - 1) * icc
-
-    # With icc at least 0, deff is below 1 only when the solve gives fewer
-    # than one person per site: more sites than people needed with no
-    # clustering.
-    if (deff < 1) {
-      n_srs <- if (is.null(fpc_N) || n_base_cont == 0) n_base_cont
-               else (n_base_cont * fpc_N) / (n_base_cont + fpc_N - 1)
-      # Use 1 person per site, so no clustering: the whole number of people
-      # needed with no clustering (198.96 -> 199), or n_sites if that is
-      # smaller. Extra sites are dropped below, with a warning.
-      n_cont <- min(n_sites, ceiling(n_srs * (1 - 1e-12)))
-      deff   <- 1
-    }
+    v0 <- pb * qb * sum(inv)
+    # (A prevalence of 0 or 1 adds nothing, even when 1 / m is huge.)
+    pq <- p_app * (1 - p_app)
+    v1 <- sum(pq[pq > 0] * inv[pq > 0])
+    # (z is 0 for a one-sided test at conf_level 0.5, or power 0.5: then
+    # its term is 0, even when the variance is huge.)
+    t0 <- if (z_a == 0) 0 else z_a * sqrt(v0)
+    t1 <- if (z_b == 0 || v1 == 0) 0 else z_b * sqrt(v1)
+    (t0 + t1) / delta
   }
 
-  # ---- finite-population correction (per group) ----
-  # (0 people needed, possible with 0 versus 1 prevalence, stays 0.)
-  if (!is.null(fpc_N) && !fpc_applied && n_cont > 0)
-    n_cont <- (n_cont * fpc_N) / (n_cont + fpc_N - 1)
+  # People in each group, and their effective sizes, for a value x of the
+  # unknown. `how` is "none" (x people per group), "per_site" (x sites of
+  # n_per_site people), "sites" (n_sites sites of x people) or "one_each"
+  # (a share x of the sites, 1 person at each). `cluster` and `fpc` FALSE
+  # leave out the design effect or the finite-population correction.
+  people <- function(x, how) {
+    switch(how,
+      none     = c(x, x),
+      per_site = x * s_g,
+      sites    = k_g * x,
+      one_each = x * k_g)
+  }
+  eff <- function(x, how, cluster = TRUE, fpc = TRUE) {
+    n <- people(x, how)
+    d <- if (!cluster || how %in% c("none", "one_each")) c(1, 1)
+         else if (how == "per_site") 1 + (s_g - 1) * icc_g
+         else 1 + (x - 1) * icc_g
+    m <- n / d
+    if (fpc && !is.null(N_g)) {
+      full <- n >= N_g
+      m[full]  <- Inf
+      m[!full] <- m[!full] * (N_g[!full] - 1) / (N_g[!full] - n[!full])
+    }
+    m
+  }
+  # The largest x before the first group reaches its whole population (Inf
+  # without fpc_N).
+  x_full <- function(how) {
+    if (is.null(N_g)) return(Inf)
+    min(N_g / switch(how, none = c(1, 1), per_site = s_g, sites = k_g, one_each = k_g))
+  }
+
+  # The smallest x in (lo, hi] that meets the requirement, found by halving
+  # the interval until it is as small as R can store. ratio() falls as x
+  # grows. Returns NA when even hi does not meet it.
+  solve_x <- function(how, lo, hi, cluster = TRUE, fpc = TRUE) {
+    r <- function(x) ratio(eff(x, how, cluster, fpc))
+    if (is.infinite(hi)) {
+      # Double until the requirement is met. (Past the largest number R can
+      # store this gives Inf, which the halving below keeps, and the
+      # trillion check then stops.)
+      hi <- max(1, lo * 2)
+      while (is.finite(hi) && r(hi) > 1) { lo <- hi; hi <- hi * 2 }
+    } else if (r(hi) > 1) {
+      return(NA_real_)
+    }
+    repeat {
+      mid <- lo + (hi - lo) / 2
+      if (mid <= lo || mid >= hi) break
+      if (r(mid) <= 1) hi <- mid else lo <- mid
+    }
+    hi
+  }
+
+  # Rounds up to whole people. Shrinking by one part in a trillion first
+  # stops rounding error just above a whole number (300.00000000000006)
+  # adding a whole person; it could only remove a real person above a
+  # trillion people, which is stopped below.
+  shrink <- 1 - 1e-12
+  up     <- function(v) max(1, ceiling(v * shrink))
+
+  # Describing the design in messages: "9 sites per group" for one value,
+  # "10 sites in group 1 and 20 in group 2" for two.
+  same <- function(v) is.null(v) || v[1] == v[2]
+  sites_text <- function(k)
+    if (same(k)) paste0(num(k[1]), if (k[1] == 1) " site" else " sites", " per group")
+    else paste0(num(k[1]), if (k[1] == 1) " site" else " sites", " in group 1 and ",
+                num(k[2]), " in group 2")
+  # Sites and ICC together: "8 sites per group and ICC = 0.05" when both
+  # have one value; otherwise "6 sites in group 1 and 8 in group 2, with
+  # ICC = 0.05 in group 1 and 0.1 in group 2" (`join` is "with" or "and").
+  design_text <- function(join) {
+    icc_part <- if (same(icc_g)) num(icc_g[1])
+                else paste0(num(icc_g[1]), " in group 1 and ", num(icc_g[2]), " in group 2")
+    if (same(k_g) && same(icc_g)) paste0(sites_text(k_g), " and ICC = ", icc_part)
+    else paste0(sites_text(k_g), ", ", join, " ICC = ", icc_part)
+  }
+  # The highest power with effective sizes m (Inf for a fully tested group).
+  power_at <- function(m) {
+    inv <- ifelse(is.infinite(m), 0, 1 / m)
+    if (any(inv == 0)) { pb <- p_app[inv == 0][1]; qb <- 1 - pb }
+    else { pb <- sum(p_app * m) / sum(m); qb <- sum((1 - p_app) * m) / sum(m) }
+    pq <- p_app * (1 - p_app)
+    v1 <- sum(pq[pq > 0] * inv[pq > 0])
+    # With prevalences of 0 and 1 the measured difference never varies, so
+    # the test always or never finds it.
+    if (v1 == 0) return(as.numeric(delta > z_a * sqrt(pb * qb * sum(inv))))
+    stats::pnorm((delta - z_a * sqrt(pb * qb * sum(inv))) / sqrt(v1))
+  }
+  max_power_text <- function(max_power) {
+    shown <- format_apart(100 * power, 100 * max_power, digits = 7)
+    # A maximum like 2e-16 percent is shown as "less than 0.0001".
+    if (100 * max_power < 1e-4) shown[2] <- "less than 0.0001"
+    shown
+  }
+  # The group that reaches its whole population first.
+  first_full <- function(how) {
+    per <- N_g / switch(how, none = c(1, 1), per_site = s_g, sites = k_g)
+    which.min(per)
+  }
+  stop_full <- function(how, x_cap, fix) {
+    g     <- first_full(how)
+    shown <- max_power_text(power_at(eff(x_cap, how)))
+    stop("Target power of ", shown[1], " percent cannot be reached: group ", g,
+         " has only ", num(N_g[g]),
+         if (N_g[g] == 1) " person (`fpc_N`), and testing that person"
+         else " people (`fpc_N`), and testing all of them",
+         " gives at most ", shown[2],
+         " percent power. ", fix)
+  }
+
+  # ---- solve for the unknown ----
+  # TRUE when the sites alone could not reach the target and only the
+  # finite-population correction makes it reachable (warned about below).
+  fpc_rescue <- FALSE
+  # TRUE when more sites were given than people needed, so some are dropped.
+  sites_cut  <- FALSE
+
+  if (no_sites) {
+    how <- "none"
+    x   <- solve_x(how, 0, x_full(how))
+    if (is.na(x))
+      stop_full(how, x_full(how), "Check `fpc_N`, or lower the target power.")
+    n_pg   <- people(x, how)
+    x0     <- solve_x(how, 0, Inf, cluster = FALSE, fpc = FALSE)
+    n_eff  <- vapply(people(x0, how), up, 0)
+    k_out  <- NULL
+    s_out  <- NULL
+    deff   <- c(1, 1)
+
+  } else if (!is.null(s_g)) {
+    how <- "per_site"
+    x   <- solve_x(how, 0, x_full(how))
+    if (is.na(x))
+      stop_full(how, x_full(how), "Use a different `n_per_site`, check `fpc_N`, or lower the target power.")
+    n_pg  <- people(x, how)
+    x0    <- solve_x(how, 0, Inf, cluster = FALSE, fpc = FALSE)
+    n_eff <- vapply(people(x0, how), up, 0)
+    deff  <- 1 + (s_g - 1) * icc_g
+    s_out <- s_g
+
+  } else {
+    how <- "sites"
+    # Without fpc_N, is the target reachable at all with these sites? Each
+    # site counts as at most 1 / ICC independent people.
+    m_inf <- ifelse(icc_g == 0, Inf, k_g / icc_g)
+    unreachable <- ratio(m_inf) >= 1
+    if (is.null(N_g) && unreachable) {
+      shown <- max_power_text(power_at(m_inf))
+      stop("Target power of ", shown[1], " percent cannot be ",
+           "reached with ", design_text("with"),
+           ". The highest power ",
+           if (same(k_g) && k_g[1] == 1) "this site" else "these sites",
+           " can give is ", shown[2], " percent. ",
+           "Increase `n_sites`, lower the ICC, or lower the target power.")
+    }
+    fpc_rescue <- !is.null(N_g) && unreachable
+    # One person per site has no clustering. If that already meets the
+    # target, there are more sites than needed: use 1 person at each of
+    # just enough of them (the same share of each group's sites).
+    if (ratio(eff(1, how)) <= 1) {
+      t      <- solve_x("one_each", 0, 1)
+      n_pg   <- people(t, "one_each")
+      k_used <- pmin(k_g, vapply(n_pg, up, 0))
+      sites_cut <- any(k_used < k_g)
+      x <- 1   # every site used has 1 person
+    } else {
+      x <- solve_x(how, 1, x_full(how))
+      if (is.na(x))
+        stop_full(how, x_full(how), "Use different `n_sites`, check `fpc_N`, or lower the target power.")
+      n_pg <- people(x, how)
+    }
+    x0    <- solve_x(if (same(k_g)) "none" else "one_each", 0, Inf,
+                     cluster = FALSE, fpc = FALSE)
+    n_eff <- vapply(people(x0, if (same(k_g)) "none" else "one_each"), up, 0)
+  }
 
   # Above a trillion people, rounding error in the calculation itself is
   # more than one person, so the answer could not be given exactly.
-  if (n_cont > 1e12) {
+  if (max(n_pg) > 1e12) {
+    clustered <- !no_sites && any(icc_g > 0)
     fixes <- c("prevalences further apart", "a lower `power` or `conf_level`")
-    if (!icc_is_zero && !is.null(n_per_site)) fixes <- c(fixes, "a smaller `n_per_site`")
-    if (!icc_is_zero && !is.null(n_sites))    fixes <- c(fixes, "more sites or a lower ICC")
-    if (correction < 1)                       fixes <- c(fixes, "a more accurate test")
+    if (clustered && !is.null(n_per_site)) fixes <- c(fixes, "a smaller `n_per_site`")
+    if (clustered && !is.null(n_sites))    fixes <- c(fixes, "more sites or a lower ICC")
+    if (correction < 1)                    fixes <- c(fixes, "a more accurate test")
     stop("The required sample size is more than a trillion (1000000000000) ",
          "people per group, too large to work out to the nearest person. Use ",
          paste(fixes[-length(fixes)], collapse = ", "), ", or ",
          fixes[length(fixes)], ".")
   }
 
-  # Round up to whole people. Shrinking by one part in a trillion first stops
-  # rounding error just above a whole number (300.00000000000006) adding a
-  # whole person; it could only remove a real person above a trillion
-  # people, which is stopped above.
   # At least 1 person per group: with 0 versus 1 prevalence the formula can
-  # give 0.
-  # Never more people than the population: rounding error in the correction
-  # could otherwise give 2 people from a population of 1.
-  shrink      <- 1 - 1e-12
-  n_per_group <- max(1, ceiling(n_cont * shrink))
-  if (!is.null(fpc_N)) n_per_group <- min(n_per_group, fpc_N)
-  n_total     <- 2 * n_per_group
+  # give 0. Never more people than the population: rounding error in the
+  # correction could otherwise give 2 people from a population of 1.
+  n_pg <- vapply(n_pg, up, 0)
+  if (!is.null(N_g)) n_pg <- pmin(n_pg, N_g)
 
-  # n_eff: people per group needed with no clustering and no FPC.
-  n_eff <- max(1, ceiling(n_base_cont * shrink))
-
-  # ---- distribute across sites ----
-  if (!is.null(n_per_site)) {
+  # ---- whole sites ----
+  if (how == "per_site") {
     # A site larger than a whole group would be only partly sampled, so its
     # size would not be the real site size used in the design effect.
-    if (n_per_site > n_per_group)
-      stop("`n_per_site` (", format(n_per_site, scientific = FALSE), ") is ",
-           "larger than the number of people needed per group (",
-           format(n_per_group, scientific = FALSE), "), so one site would be ",
-           "more than enough. Use a smaller `n_per_site`, or set ",
-           "`n_sites = 1` to find how many people one site needs.")
-    n_sites_out    <- ceiling(n_per_group / n_per_site)
-    n_per_site_out <- n_per_site
-  } else if (!is.null(n_sites)) {
-    n_sites_out <- n_sites
-    # More sites than people needed: 1 person per site is enough, so only
-    # as many sites as people needed are used.
-    if (n_sites > n_per_group) {
-      n_sites_out <- n_per_group
-      sites_cut   <- TRUE
-      one <- n_per_group == 1
-      warning("With these prevalences and this power, the study needs ",
-              format(n_per_group, scientific = FALSE),
-              if (one) " person" else " people", " per group, fewer than the ",
-              format(n_sites, scientific = FALSE), " sites given (`n_sites`). ",
-              "The design uses ", format(n_per_group, scientific = FALSE),
-              if (one) " site" else " sites", " with 1 person at each.")
+    if (all(s_g > n_pg)) {
+      if (same(s_g) && same(n_pg))
+        stop("`n_per_site` (", num(s_g[1]), ") is larger than the number of ",
+             "people needed per group (", num(n_pg[1]), "), so one site would be ",
+             "more than enough. Use a smaller `n_per_site`, or set ",
+             "`n_sites = 1` to find how many people one site needs.")
+      stop("`n_per_site` (", num(s_g[1]), " and ", num(s_g[2]), ") is larger than ",
+           "the number of people needed in each group (", num(n_pg[1]), " and ",
+           num(n_pg[2]), "), so one site per group would be more than enough. Use a ",
+           "smaller `n_per_site`, or set `n_sites = 1` to find how many people ",
+           "one site needs.")
     }
-    n_per_site_out <- ceiling(n_per_group / n_sites_out)
-    # Work deff out again from the rounded people per site, so that
-    # deff == 1 + (n_per_site - 1) * icc describes the reported design.
-    if (!icc_is_zero) deff <- 1 + (n_per_site_out - 1) * icc
-  } else {
-    n_sites_out    <- NULL
-    n_per_site_out <- NULL
+    k_out <- rep(up(x), 2)
+  } else if (how == "sites") {
+    if (sites_cut) {
+      k_out <- k_used
+      s_out <- c(1, 1)
+      deff  <- c(1, 1)
+      if (same(k_g) && same(n_pg)) {
+        one <- n_pg[1] == 1
+        warning("With these prevalences and this power, the study needs ",
+                num(n_pg[1]), if (one) " person" else " people", " per group, ",
+                "fewer than the ", num(k_g[1]), " sites given (`n_sites`). ",
+                "The design uses ", num(n_pg[1]), if (one) " site" else " sites",
+                " with 1 person at each.")
+      } else {
+        warning("With these prevalences and this power, the study needs ",
+                num(n_pg[1]), " people in group 1 and ", num(n_pg[2]), " in group 2, ",
+                "fewer than the ", num(k_g[1]), " and ", num(k_g[2]), " sites given ",
+                "(`n_sites`). The design uses ", num(k_out[1]), " and ",
+                num(k_out[2]), " sites, with 1 person at each.")
+      }
+    } else {
+      k_out <- k_g
+      s_out <- rep(up(x), 2)
+      # Work deff out again from the rounded people per site, so that
+      # deff == 1 + (n_per_site - 1) * icc describes the reported design.
+      deff  <- 1 + (s_out - 1) * icc_g
+    }
   }
 
   # Rounding the number of sites or people per site up can push the design
   # past the population. That only happens close to a census.
-  if (!is.null(fpc_N) && !is.null(n_sites_out) &&
-      n_sites_out * n_per_site_out > fpc_N)
-    warning("The rounded design (",
-            format(n_sites_out, scientific = FALSE), " sites x ",
-            format(n_per_site_out, scientific = FALSE), " = ",
-            format(n_sites_out * n_per_site_out, scientific = FALSE),
-            " per group) exceeds `fpc_N` = ", format(fpc_N, scientific = FALSE),
-            ": the required n of ", format(n_per_group, scientific = FALSE),
-            " per group is close to a census of the population. Consider ",
-            "surveying the whole population instead.")
+  if (!is.null(N_g) && !is.null(k_out)) {
+    over <- k_out * s_out > N_g
+    if (any(over)) {
+      if (same(k_out) && same(s_out) && same(N_g))
+        warning("The rounded design (", num(k_out[1]), " sites x ", num(s_out[1]),
+                " = ", num(k_out[1] * s_out[1]), " per group) exceeds `fpc_N` = ",
+                num(N_g[1]), ": the required n of ", num(n_pg[1]),
+                " per group is close to a census of the population. Consider ",
+                "surveying the whole population instead.")
+      else for (g in which(over))
+        warning("The rounded design for group ", g, " (", num(k_out[g]), " sites x ",
+                num(s_out[g]), " = ", num(k_out[g] * s_out[g]), ") exceeds its `fpc_N` = ",
+                num(N_g[g]), ": the required n of ", num(n_pg[g]), " is close to a ",
+                "census of that group. Consider surveying the whole group instead.")
+    }
+  }
 
   # Without the population, these sites could not reach the target at all,
   # so the design can be very large.
-  if (fpc_rescue)
-    warning("With ", format(n_sites, scientific = FALSE),
-            if (n_sites == 1) " site" else " sites", " per group and ICC = ",
-            num(icc), ", the target power can only be reached because of ",
-            "the finite-population correction: the design tests ",
-            format(n_per_group, scientific = FALSE), " of the ",
-            format(fpc_N, scientific = FALSE), " people in each group (",
-            format(n_per_site_out, scientific = FALSE), " per site). Check that ",
-            "`fpc_N` is right", if (sites_cut) "." else ", or use more sites.")
+  if (fpc_rescue) {
+    tested <- if (same(n_pg) && same(N_g))
+      paste0(num(n_pg[1]), " of the ", num(N_g[1]), " people in each group (",
+             num(s_out[1]), " per site)")
+    else
+      paste0(num(n_pg[1]), " of the ", num(N_g[1]), " people in group 1 and ",
+             num(n_pg[2]), " of the ", num(N_g[2]), " in group 2 (",
+             num(s_out[1]), " per site)")
+    warning("With ", design_text("and"), ", the target power ",
+            "can only be reached because of the finite-population correction: ",
+            "the design tests ", tested, ". Check that `fpc_N` is right",
+            if (sites_cut) "." else ", or use more sites.")
+  }
 
   list(
-    n_per_group    = n_per_group,
-    n              = n_total,
-    n_eff          = n_eff,
-    n_sites        = n_sites_out,
-    n_per_site     = n_per_site_out,
+    n_per_group1   = n_pg[1],
+    n_per_group2   = n_pg[2],
+    n              = sum(n_pg),
+    n_eff1         = n_eff[1],
+    n_eff2         = n_eff[2],
+    n_sites1       = k_out[1],
+    n_sites2       = k_out[2],
+    n_per_site1    = s_out[1],
+    n_per_site2    = s_out[2],
     prevalence1    = prevalence1,
     prevalence2    = prevalence2,
     apparent_prev1 = p1_app,
@@ -650,7 +833,8 @@ design_difference <- function(prevalence1,
     sensitivity    = sensitivity,
     specificity    = specificity,
     icc            = icc,
-    deff           = deff,
+    deff1          = deff[1],
+    deff2          = deff[2],
     fpc_N          = fpc_N
   )
 }

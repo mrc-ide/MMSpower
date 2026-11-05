@@ -26,42 +26,42 @@
 
 test_that("DD-1: 10 versus 20 percent with 80 percent power gives the hand-checked 199 per group", {
   res <- design_difference(0.10, 0.20)
-  expect_equal(res$n_per_group, 199)
+  expect_equal(res$n_per_group1, 199)
   expect_equal(res$n,           398)
-  expect_equal(res$n_eff,       199)
-  expect_equal(res$deff,        1)
-  expect_null(res$n_sites)
-  expect_null(res$n_per_site)
+  expect_equal(res$n_eff1,       199)
+  expect_equal(res$deff1,        1)
+  expect_null(res$n_sites1)
+  expect_null(res$n_per_site1)
 })
 
 test_that("DD-2: matches R's own power.prop.test for several designs", {
   for (s in list(c(0.10, 0.20, 0.80), c(0.10, 0.20, 0.90), c(0.30, 0.50, 0.80),
                  c(0.05, 0.10, 0.80), c(0.60, 0.40, 0.80), c(0.01, 0.02, 0.80))) {
     ref <- ceiling(stats::power.prop.test(p1 = s[1], p2 = s[2], power = s[3])$n)
-    expect_equal(design_difference(s[1], s[2], power = s[3])$n_per_group, ref)
+    expect_equal(design_difference(s[1], s[2], power = s[3])$n_per_group1, ref)
   }
   # One-sided: 157 per group
   ref <- ceiling(stats::power.prop.test(p1 = 0.10, p2 = 0.20, power = 0.80,
                                         alternative = "one.sided")$n)
-  expect_equal(design_difference(0.10, 0.20, alternative = "less")$n_per_group, ref)
+  expect_equal(design_difference(0.10, 0.20, alternative = "less")$n_per_group1, ref)
   expect_equal(ref, 157)
 })
 
 test_that("DD-3: more power, or a higher conf_level, needs more people", {
-  expect_equal(design_difference(0.10, 0.20, power = 0.90)$n_per_group,      266)
-  expect_equal(design_difference(0.10, 0.20, conf_level = 0.99)$n_per_group, 297)
+  expect_equal(design_difference(0.10, 0.20, power = 0.90)$n_per_group1,      266)
+  expect_equal(design_difference(0.10, 0.20, conf_level = 0.99)$n_per_group1, 297)
 })
 
 test_that("DD-4: a one-sided test needs fewer people than a two-sided one", {
   # 157 (one-sided, DD-2) versus 199 (two-sided, DD-1); "greater" and
   # "less" give the same n for the mirrored prevalences
-  expect_equal(design_difference(0.20, 0.10, alternative = "greater")$n_per_group, 157)
-  expect_equal(design_difference(0.10, 0.20, alternative = "less")$n_per_group,    157)
+  expect_equal(design_difference(0.20, 0.10, alternative = "greater")$n_per_group1, 157)
+  expect_equal(design_difference(0.10, 0.20, alternative = "less")$n_per_group1,    157)
 })
 
 test_that("DD-5: a two-sided design does not depend on which group is listed first", {
-  expect_equal(design_difference(0.20, 0.10)$n_per_group,
-               design_difference(0.10, 0.20)$n_per_group)
+  expect_equal(design_difference(0.20, 0.10)$n_per_group1,
+               design_difference(0.10, 0.20)$n_per_group1)
 })
 
 test_that("DD-6: an imperfect test shrinks the measured difference and needs more people", {
@@ -73,13 +73,13 @@ test_that("DD-6: an imperfect test shrinks the measured difference and needs mor
   expect_equal(res$apparent_prev2, 0.22)
   expect_equal(res$difference,     -0.1)
   expect_equal(res$difference_app, -0.085)
-  expect_equal(res$n_per_group,    317)
+  expect_equal(res$n_per_group1,    317)
 })
 
 test_that("DD-7: sensitivity = specificity = 0.999 gives almost the same n as 1", {
   # 201 versus 199 (DD-1)
   expect_equal(design_difference(0.10, 0.20, sensitivity = 0.999,
-                                 specificity = 0.999)$n_per_group, 201)
+                                 specificity = 0.999)$n_per_group1, 201)
 })
 
 test_that("DD-8: a prevalence of 0 or 1 is allowed, as long as the two differ", {
@@ -87,14 +87,14 @@ test_that("DD-8: a prevalence of 0 or 1 is allowed, as long as the two differ", 
   # R's power.prop.test, including at the edges.
   for (s in list(c(0, 0.05), c(0, 0.20), c(0.95, 1), c(0, 1), c(1, 0.5))) {
     ref <- ceiling(stats::power.prop.test(p1 = s[1], p2 = s[2], power = 0.80)$n)
-    expect_equal(design_difference(s[1], s[2])$n_per_group, ref)
+    expect_equal(design_difference(s[1], s[2])$n_per_group1, ref)
   }
-  expect_equal(design_difference(0, 0.05)$n_per_group, 152)
+  expect_equal(design_difference(0, 0.05)$n_per_group1, 152)
   # 0 versus 1, one-sided at conf_level 0.5: the formula gives 0, but a group
   # always needs at least 1 person
   res <- design_difference(0, 1, conf_level = 0.5, alternative = "less")
-  expect_equal(res$n_per_group, 1)
-  expect_equal(res$n_eff, 1)
+  expect_equal(res$n_per_group1, 1)
+  expect_equal(res$n_eff1, 1)
   # Equal prevalences of 0 are still "no difference" (see DD-V-4)
   expect_error(design_difference(0, 0), "are equal, or nearly so", fixed = TRUE)
 })
@@ -110,7 +110,7 @@ test_that("DD-9: integers stored as R integers (30L) give the same result", {
   # and nothing of it leaks into the result
   expect_equal(design_difference(0.10, 0.20, n_per_site = matrix(30), icc = 0.02, fpc_N = array(1000)),
                design_difference(0.10, 0.20, n_per_site = 30, icc = 0.02, fpc_N = 1000))
-  expect_identical(design_difference(0.10, 0.20, n_sites = c(s = 30), icc = 0.05)$deff, 1.45)
+  expect_identical(design_difference(0.10, 0.20, n_sites = c(s = 30), icc = 0.05)$deff1, 1.45)
 })
 
 test_that("DD-10: a tiny difference gives a huge n that is still a finite whole number", {
@@ -118,18 +118,18 @@ test_that("DD-10: a tiny difference gives a huge n that is still a finite whole 
   # 39244398666.9993, just below a whole number, so 39244398667: rounding
   # must not drop any whole people
   res <- design_difference(0.5, 0.50001)
-  expect_equal(res$n_per_group, 39244398667, tolerance = 0)
+  expect_equal(res$n_per_group1, 39244398667, tolerance = 0)
   expect_equal(res$n,           2 * 39244398667, tolerance = 0)
-  expect_equal(res$n_per_group %% 1, 0)
+  expect_equal(res$n_per_group1 %% 1, 0)
   # The same with more sites than people needed (1 person per site)
   expect_warning(res <- design_difference(0.5, 0.50001, n_sites = 1e11, icc = 0.05),
                  "the study needs 39244398667 people per group", fixed = TRUE)
-  expect_equal(res$n_per_group, 39244398667, tolerance = 0)
+  expect_equal(res$n_per_group1, 39244398667, tolerance = 0)
   # icc just above the zero cutoff: deff is only a hair below 1, which must
   # not lower n either
   expect_warning(res <- design_difference(0.5, 0.50001, n_sites = 1e11, icc = 2e-8),
                  "the study needs 39244398667 people per group", fixed = TRUE)
-  expect_equal(res$n_per_group, 39244398667, tolerance = 0)
+  expect_equal(res$n_per_group1, 39244398667, tolerance = 0)
   # Too large for R to compute: an error, not Inf. Only a conf_level this
   # close to 1 can do it (z is then infinite), in every design
   for (a in list(list(), list(n_sites = 10, icc = 0.05), list(n_sites = 10, icc = 0.05, fpc_N = 1000),
@@ -158,8 +158,8 @@ test_that("DD-10: a tiny difference gives a huge n that is still a finite whole 
                "Use prevalences further apart, a lower `power` or `conf_level`, or more sites or a lower ICC.",
                fixed = TRUE)
   # Just under a trillion is still given; and a population brings it down
-  expect_equal(design_difference(0.5, 0.5 + 3e-6)$n_per_group, 436048874133, tolerance = 0)
-  expect_equal(design_difference(0.5, 0.5 + 1e-6, fpc_N = 1e6)$n_per_group, 1e6)
+  expect_equal(design_difference(0.5, 0.5 + 3e-6)$n_per_group1, 436048874133, tolerance = 0)
+  expect_equal(design_difference(0.5, 0.5 + 1e-6, fpc_N = 1e6)$n_per_group1, 1e6)
 })
 
 
@@ -169,25 +169,25 @@ test_that("DD-10: a tiny difference gives a huge n that is still a finite whole 
 
 test_that("DD-C-1: a fixed number of people per site multiplies n by the design effect", {
   res <- design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
-  expect_equal(res$deff,        1.95)
-  expect_equal(res$n_per_group, 388)
-  expect_equal(res$n_sites,     20)
-  expect_equal(res$n_per_site,  20)
-  expect_equal(res$n_eff,       199)   # the unclustered n, unchanged
+  expect_equal(res$deff1,        1.95)
+  expect_equal(res$n_per_group1, 388)
+  expect_equal(res$n_sites1,     20)
+  expect_equal(res$n_per_site1,  20)
+  expect_equal(res$n_eff1,       199)   # the unclustered n, unchanged
   # 1 person per site: no two people share a site, so deff = 1 whatever the icc
   res1 <- design_difference(0.10, 0.20, n_per_site = 1, icc = 0.05)
-  expect_equal(res1$deff,        1)
-  expect_equal(res1$n_per_group, 199)
-  expect_equal(res1$n_sites,     199)
+  expect_equal(res1$deff1,        1)
+  expect_equal(res1$n_per_group1, 199)
+  expect_equal(res1$n_sites1,     199)
 })
 
 test_that("DD-C-2: a fixed number of sites solves for people per site, and deff matches it", {
   res <- design_difference(0.10, 0.20, n_sites = 30, icc = 0.05)
-  expect_equal(res$n_per_group, 283)
-  expect_equal(res$n_sites,     30)
-  expect_equal(res$n_per_site,  10)
+  expect_equal(res$n_per_group1, 283)
+  expect_equal(res$n_sites1,     30)
+  expect_equal(res$n_per_site1,  10)
   # deff is worked out again from the rounded 10 per site
-  expect_equal(res$deff, 1 + (10 - 1) * 0.05)
+  expect_equal(res$deff1, 1 + (10 - 1) * 0.05)
 })
 
 test_that("DD-C-3: too few sites for the target power is rejected, giving the maximum power", {
@@ -240,25 +240,25 @@ test_that("DD-C-4: more sites than people needed uses only as many sites as peop
     res <- design_difference(0.10, 0.20, n_sites = 250, icc = 0.05),
     "With these prevalences and this power, the study needs 199 people per group, fewer than the 250 sites given (`n_sites`). The design uses 199 sites with 1 person at each.",
     fixed = TRUE)
-  expect_equal(res$n_per_group, 199)
-  expect_equal(res$n_sites,     199)
-  expect_equal(res$n_per_site,  1)
-  expect_equal(res$deff,        1)
+  expect_equal(res$n_per_group1, 199)
+  expect_equal(res$n_sites1,     199)
+  expect_equal(res$n_per_site1,  1)
+  expect_equal(res$deff1,        1)
   # The same with icc = 0: 199 sites are used, not all 250
   expect_warning(res0 <- design_difference(0.10, 0.20, n_sites = 250), "uses 199 sites", fixed = TRUE)
-  expect_equal(res0$n_sites, 199)
+  expect_equal(res0$n_sites1, 199)
   # Large site numbers are printed in full, not as 1e+05
   expect_warning(design_difference(0.10, 0.20, n_sites = 1e5, icc = 0.05),
                  "fewer than the 100000 sites given", fixed = TRUE)
   # 199 sites is exactly enough: 1 person each, no warning
   expect_no_warning(res <- design_difference(0.10, 0.20, n_sites = 199, icc = 0.05))
-  expect_equal(res$n_per_group, 199)
-  expect_equal(res$n_per_site,  1)
-  expect_equal(res$deff,        1)
+  expect_equal(res$n_per_group1, 199)
+  expect_equal(res$n_per_site1,  1)
+  expect_equal(res$deff1,        1)
   # One site fewer than that: 198 sites need 200 people, so 2 per site and
   # 396 collected, nearly double n_per_group (see the help page for n)
   res <- design_difference(0.10, 0.20, n_sites = 198, icc = 0.05)
-  expect_equal(c(res$n_per_group, res$n_per_site), c(200, 2))
+  expect_equal(c(res$n_per_group1, res$n_per_site1), c(200, 2))
   # A study needing 1 person says "1 person" and "1 site"
   expect_warning(design_difference(0, 1, conf_level = 0.5, alternative = "less", n_sites = 5, icc = 0.05),
                  "the study needs 1 person per group, fewer than the 5 sites given (`n_sites`). The design uses 1 site with 1 person at each.",
@@ -273,51 +273,51 @@ test_that("DD-C-4: more sites than people needed uses only as many sites as peop
     se1 <- sqrt(0.10 * 0.90 + 0.20 * 0.80)
     pw  <- pnorm((0.10 * sqrt(k) - z_a * se0) / se1)
     res <- design_difference(0.10, 0.20, power = pw, n_sites = k, icc = 0.05)
-    expect_equal(res$n_per_group, k)
-    expect_equal(res$n_eff,       k)
-    expect_equal(res$n_per_site,  1)
-    expect_equal(res$deff,        1)
+    expect_equal(res$n_per_group1, k)
+    expect_equal(res$n_eff1,       k)
+    expect_equal(res$n_per_site1,  1)
+    expect_equal(res$deff1,        1)
     # 50 more sites than needed: still exactly k people, with a warning
     expect_warning(res <- design_difference(0.10, 0.20, power = pw, n_sites = k + 50, icc = 0.05),
                    paste0("the study needs ", k, " people per group"), fixed = TRUE)
-    expect_equal(res$n_per_group, k)
-    expect_equal(res$n_sites,     k)
+    expect_equal(res$n_per_group1, k)
+    expect_equal(res$n_sites1,     k)
   }
 })
 
 test_that("DD-C-5: icc = 0 with sites is the unclustered result spread over the sites; a tiny icc is used as given", {
   res <- design_difference(0.10, 0.20, n_sites = 30, icc = 0)
-  expect_equal(res$n_per_group, 199)
-  expect_equal(res$n_per_site,  7)    # 199 / 30 = 6.6, rounded up
-  expect_identical(res$deff, 1)
+  expect_equal(res$n_per_group1, 199)
+  expect_equal(res$n_per_site1,  7)    # 199 / 30 = 6.6, rounded up
+  expect_identical(res$deff1, 1)
   # A tiny icc with sites is used, not set to 0: here it changes deff only
   # in the 12th decimal place (1 + 6 * 1e-12), and n not at all
   res <- design_difference(0.10, 0.20, n_sites = 30, icc = 1e-12)
-  expect_equal(c(res$n_per_group, res$n_per_site), c(199, 7))
-  expect_identical(res$deff, 1 + 6 * 1e-12)
+  expect_equal(c(res$n_per_group1, res$n_per_site1), c(199, 7))
+  expect_identical(res$deff1, 1 + 6 * 1e-12)
   expect_identical(res$icc,  1e-12)   # echoed as given
   # With a very large site even a tiny icc matters: 15.7 million people at
   # one site with icc 1.4e-8 have deff 1.28, so more people are needed
   res <- design_difference(0.5, 0.5005, n_sites = 1, icc = 1.4e-8)
-  expect_equal(res$n_per_group, 20119357)
-  expect_equal(res$deff, 1 + (20119357 - 1) * 1.4e-8)
+  expect_equal(res$n_per_group1, 20119357)
+  expect_equal(res$deff1, 1 + (20119357 - 1) * 1.4e-8)
   # A tiny icc without sites is not an error: it counts as 0
-  expect_equal(design_difference(0.10, 0.20, icc = 1e-12)$n_per_group, 199)
+  expect_equal(design_difference(0.10, 0.20, icc = 1e-12)$n_per_group1, 199)
   # One site with icc 0: all 199 at that site
   res1 <- design_difference(0.10, 0.20, n_sites = 1)
-  expect_equal(res1$n_per_group, 199)
-  expect_equal(res1$n_sites,     1)
-  expect_equal(res1$n_per_site,  199)
+  expect_equal(res1$n_per_group1, 199)
+  expect_equal(res1$n_sites1,     1)
+  expect_equal(res1$n_per_site1,  199)
   # n_per_site with icc 0: the same 199, on 10 sites of 20 (199 / 20 = 9.95)
   res2 <- design_difference(0.10, 0.20, n_per_site = 20)
-  expect_equal(res2$n_per_group, 199)
-  expect_equal(res2$deff,        1)
-  expect_equal(res2$n_sites,     10)
+  expect_equal(res2$n_per_group1, 199)
+  expect_equal(res2$deff1,        1)
+  expect_equal(res2$n_sites1,     10)
 })
 
 test_that("DD-C-6: a larger icc needs more people", {
-  expect_gt(design_difference(0.10, 0.20, n_per_site = 20, icc = 0.10)$n_per_group,
-            design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)$n_per_group)
+  expect_gt(design_difference(0.10, 0.20, n_per_site = 20, icc = 0.10)$n_per_group1,
+            design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)$n_per_group1)
 })
 
 
@@ -328,12 +328,12 @@ test_that("DD-C-6: a larger icc needs more people", {
 test_that("DD-F-1: a small population reduces n, and leaves n_eff alone", {
   # 198.96 * 2000 / (198.96 + 2000 - 1) = 181.04 -> 182
   res <- design_difference(0.10, 0.20, fpc_N = 2000)
-  expect_equal(res$n_per_group, 182)
-  expect_equal(res$n_eff,       199)
+  expect_equal(res$n_per_group1, 182)
+  expect_equal(res$n_eff1,       199)
   # With n_per_site: 387.98 * 1000 / (387.98 + 999) = 279.73 -> 280, 14 sites
   res2 <- design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05, fpc_N = 1000)
-  expect_equal(res2$n_per_group, 280)
-  expect_equal(res2$n_sites,     14)
+  expect_equal(res2$n_per_group1, 280)
+  expect_equal(res2$n_sites1,     14)
 })
 
 test_that("DD-F-2: with n_sites fixed, the FPC and the design effect are solved together", {
@@ -349,27 +349,27 @@ test_that("DD-F-2: with n_sites fixed, the FPC and the design effect are solved 
     root <- stats::uniroot(eq, c(1e-9, N), tol = 1e-10)$root
     # (The 9-site and icc = 1 cases also warn: see DD-F-3.)
     res  <- suppressWarnings(design_difference(0.10, 0.20, n_sites = k, icc = r, fpc_N = N))
-    expect_equal(res$n_per_group, ceiling(root))
+    expect_equal(res$n_per_group1, ceiling(root))
   }
   # A very large population gives the same n as no population (283)
-  expect_equal(design_difference(0.10, 0.20, n_sites = 30, icc = 0.05, fpc_N = 1e9)$n_per_group, 283)
+  expect_equal(design_difference(0.10, 0.20, n_sites = 30, icc = 0.05, fpc_N = 1e9)$n_per_group1, 283)
   # With icc = 1 one root of the equation is 0. Here the other is 0 too
   # (n0 = 1.6, 2 sites, population 5: 1.6 * (n / 2) * (5 - n) / 4 = n only
   # at n = 0), so the unclustered answer is used: 2 people, 1 per site
   res <- design_difference(1, 0, alternative = "greater", conf_level = 0.96318086493984867,
                            n_sites = 2, icc = 1, fpc_N = 5)
-  expect_equal(c(res$n_per_group, res$n_sites, res$n_per_site), c(2, 2, 1))
+  expect_equal(c(res$n_per_group1, res$n_sites1, res$n_per_site1), c(2, 2, 1))
 })
 
 test_that("DD-F-3: a target unachievable with n_sites alone becomes achievable with a population, with a warning", {
   # 10 sites, icc 0.05: 198.96 * 0.05 = 9.95 is just under 10, so the target is
   # only just achievable and needs 36469 per group. With a population of
   # 2000 the joint solve gives 525 (53 per site, deff 1 + 52 * 0.05 = 3.6).
-  expect_equal(design_difference(0.10, 0.20, n_sites = 10, icc = 0.05)$n_per_group, 36469)
+  expect_equal(design_difference(0.10, 0.20, n_sites = 10, icc = 0.05)$n_per_group1, 36469)
   res <- design_difference(0.10, 0.20, n_sites = 10, icc = 0.05, fpc_N = 2000)
-  expect_equal(res$n_per_group, 525)
-  expect_equal(res$n_per_site,  53)
-  expect_equal(res$deff,        3.6)
+  expect_equal(res$n_per_group1, 525)
+  expect_equal(res$n_per_site1,  53)
+  expect_equal(res$deff1,        3.6)
   # 10 sites can reach the target on their own, so no warning
   expect_no_warning(design_difference(0.10, 0.20, n_sites = 10, icc = 0.05, fpc_N = 2000))
   # 9 sites: unachievable without a population (DD-C-3). With a population
@@ -378,7 +378,7 @@ test_that("DD-F-3: a target unachievable with n_sites alone becomes achievable w
     res <- design_difference(0.10, 0.20, n_sites = 9, icc = 0.05, fpc_N = 2000),
     "With 9 sites per group and ICC = 0.05, the target power can only be reached because of the finite-population correction: the design tests 596 of the 2000 people in each group (67 per site). Check that `fpc_N` is right, or use more sites.",
     fixed = TRUE)
-  expect_equal(c(res$n_per_group, res$n_per_site), c(596, 67))
+  expect_equal(c(res$n_per_group1, res$n_per_site1), c(596, 67))
   # A huge population can give a huge design: 95312682 people per group
   expect_warning(design_difference(0.10, 0.20, n_sites = 9, icc = 0.05, fpc_N = 1e9),
                  "the design tests 95312682 of the 1000000000 people in each group (10590298 per site)",
@@ -403,7 +403,7 @@ test_that("DD-F-4: a rounded design larger than the population warns; too many s
     res <- design_difference(0.10, 0.20, n_sites = 23, icc = 0.05, fpc_N = 60),
     "The rounded design (23 sites x 3 = 69 per group) exceeds `fpc_N` = 60: the required n of 47 per group is close to a census of the population. Consider surveying the whole population instead.",
     fixed = TRUE)
-  expect_equal(res$n_per_group, 47)
+  expect_equal(res$n_per_group1, 47)
   # Large numbers are printed in full, not as 3e+05 or 1e+06
   expect_warning(
     design_difference(0.5, 0.5005, n_sites = 300000, icc = 1e-7, fpc_N = 1e6),
@@ -414,31 +414,31 @@ test_that("DD-F-4: a rounded design larger than the population warns; too many s
   # Too many sites is judged against the population-corrected n (166.08, so
   # 167 whole people): 167 sites is exactly enough, 250 is cut to 167
   expect_no_warning(res <- design_difference(0.10, 0.20, n_sites = 167, icc = 0.05, fpc_N = 1000))
-  expect_equal(res$n_per_site, 1)
+  expect_equal(res$n_per_site1, 1)
   expect_warning(res <- design_difference(0.10, 0.20, n_sites = 250, icc = 0.05, fpc_N = 1000),
                  "the study needs 167 people per group, fewer than the 250 sites given", fixed = TRUE)
-  expect_equal(res$n_sites,    167)
-  expect_equal(res$n_per_site, 1)
+  expect_equal(res$n_sites1,    167)
+  expect_equal(res$n_per_site1, 1)
 })
 
 test_that("DD-F-5: a population of 1 or 2 per group means testing everyone", {
   for (N in c(1, 2)) {
     res <- design_difference(0.10, 0.20, fpc_N = N)
-    expect_equal(res$n_per_group, N)
-    expect_equal(res$n_eff,       199)   # without the population, unchanged
+    expect_equal(res$n_per_group1, N)
+    expect_equal(res$n_eff1,       199)   # without the population, unchanged
   }
   # Never more people than the population, even when rounding error in the
   # correction comes out a hair above 1 (here 1.0000000000088)
   res <- suppressWarnings(design_difference(0.17, 0.163828627001494, power = 0.15060057245877,
                                             alternative = "greater", conf_level = 0.84940042754123,
                                             fpc_N = 1))
-  expect_equal(res$n_per_group, 1)
+  expect_equal(res$n_per_group1, 1)
   # 0 versus 1 needs 0 people by the formula (see DD-8): with a population
   # of 1 that is still 1 person, with or without a site
-  expect_equal(design_difference(0, 1, conf_level = 0.5, alternative = "less", fpc_N = 1)$n_per_group, 1)
+  expect_equal(design_difference(0, 1, conf_level = 0.5, alternative = "less", fpc_N = 1)$n_per_group1, 1)
   res <- design_difference(0, 1, conf_level = 0.5, alternative = "less", n_sites = 1,
                            icc = 0.05, fpc_N = 1)
-  expect_equal(c(res$n_per_group, res$n_sites, res$n_per_site), c(1, 1, 1))
+  expect_equal(c(res$n_per_group1, res$n_sites1, res$n_per_site1), c(1, 1, 1))
 })
 
 
@@ -480,15 +480,15 @@ test_that("DD-V-2: power at or below the false-alarm rate is rejected; below 0.5
   # but a power truly above the rate is allowed, however close
   expect_error(design_difference(0.1, 0.2, power = 1 - 0.8, conf_level = 0.8),
                "`power` must be greater than 1 - `conf_level` = 0.2", fixed = TRUE)
-  expect_equal(suppressWarnings(design_difference(0.1, 0.2, power = 0.05 + 1e-8))$n_per_group, 3)
+  expect_equal(suppressWarnings(design_difference(0.1, 0.2, power = 0.05 + 1e-8))$n_per_group1, 3)
   expect_error(design_difference(0.1, 0.2, power = 1e5), "`power` must be in (0, 1) (got 100000).", fixed = TRUE)
   # Between the false-alarm rate and 0.5: warns, and the result is still correct
   # (53 per group really gives 30 percent power, see power.prop.test)
   expect_warning(res <- design_difference(0.1, 0.2, power = 0.3),
                  "`power` = 0.3 is below 0.5, so the study would be more likely to miss a real difference than to find it.",
                  fixed = TRUE)
-  expect_equal(res$n_per_group, 53)
-  expect_equal(res$n_per_group, ceiling(stats::power.prop.test(p1 = 0.1, p2 = 0.2, power = 0.3)$n))
+  expect_equal(res$n_per_group1, 53)
+  expect_equal(res$n_per_group1, ceiling(stats::power.prop.test(p1 = 0.1, p2 = 0.2, power = 0.3)$n))
   expect_warning(design_difference(0.1, 0.2, power = 0.45), "is below 0.5", fixed = TRUE)
   expect_no_warning(design_difference(0.1, 0.2, power = 0.5))
 })
@@ -558,7 +558,12 @@ test_that("DD-V-5: a vector, text, TRUE/FALSE, a bare NA or NULL in a single-num
   expect_error(design_difference(0.1, 0.2, conf_level = list(0.95)),
                "`conf_level` must be a single number in [0.5, 1) (got class `list`, length 1).", fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, icc = FALSE),
-               "`icc` must be a single number in [0, 1] (got class `logical`, length 1).", fixed = TRUE)
+               "`icc` must be one or two numbers in [0, 1]: one for both groups, or c(group 1, group 2) (got class `logical`, length 1).",
+               fixed = TRUE)
+  # icc takes one value, or one per group, but not three
+  expect_error(design_difference(0.1, 0.2, n_sites = 30, icc = c(0.01, 0.02, 0.03)),
+               "`icc` must be one or two numbers in [0, 1]: one for both groups, or c(group 1, group 2) (got class `numeric`, length 3).",
+               fixed = TRUE)
 })
 
 test_that("DD-V-6: NaN, Inf or -Inf in a single-number argument gives the finite-value error", {
@@ -573,7 +578,10 @@ test_that("DD-V-6: NaN, Inf or -Inf in a single-number argument gives the finite
   expect_error(design_difference(0.1, 0.2, conf_level = NaN),
                "`conf_level` must be a single finite number (got NaN).", fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, icc = Inf),
-               "`icc` must be a single finite number (got Inf).", fixed = TRUE)
+               "`icc` must be finite (got Inf).", fixed = TRUE)
+  # With two values, the first bad one is named
+  expect_error(design_difference(0.1, 0.2, n_sites = 30, icc = c(0.05, NaN)),
+               "`icc` must be finite (found icc[2] = NaN).", fixed = TRUE)
 })
 
 test_that("DD-V-7: sensitivity and specificity range checks give the right message for each bad value", {
@@ -629,7 +637,7 @@ test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showin
            "with and without the condition, so the required n is very large, and small changes in the assumed ",
            "sensitivity or specificity will change n a lot."),
     fixed = TRUE)
-  expect_equal(res$n_per_group, 9802)
+  expect_equal(res$n_per_group1, 9802)
   # A sum of 1.0000001 warns, showing all the digits; the study would then
   # need more than a trillion people per group, which stops (see DD-10)
   expect_error(
@@ -668,15 +676,15 @@ test_that("DD-V-10: icc and conf_level outside their ranges are rejected", {
                         "no real difference, the test would wrongly report one more than half the time."),
                  fixed = TRUE)
   }
-  expect_equal(design_difference(0.2, 0.1, conf_level = 0.5, alternative = "greater")$n_per_group, 18)
+  expect_equal(design_difference(0.2, 0.1, conf_level = 0.5, alternative = "greater")$n_per_group1, 18)
   # icc = 1 itself works: everyone at a site is alike, so deff = site size
   # (20) and n = 198.96 * 20 = 3979.3 -> 3980
   res <- design_difference(0.1, 0.2, n_per_site = 20, icc = 1)
-  expect_equal(res$deff,        20)
-  expect_equal(res$n_per_group, 3980)
+  expect_equal(res$deff1,        20)
+  expect_equal(res$n_per_group1, 3980)
   # With n_sites and icc = 1 each site is worth one person, so 199 sites of
   # 1 person is the only design that works: 198 cannot reach the target
-  expect_equal(design_difference(0.1, 0.2, n_sites = 199, icc = 1)$n_per_site, 1)
+  expect_equal(design_difference(0.1, 0.2, n_sites = 199, icc = 1)$n_per_site1, 1)
   expect_error(design_difference(0.1, 0.2, n_sites = 198, icc = 1),
                "cannot be reached", fixed = TRUE)
   # Valid values: icc = 0.05 (DD-C-1), conf_level = 0.99 (DD-3)
@@ -692,39 +700,53 @@ test_that("DD-V-11: icc above 0 with no sites, or both n_sites and n_per_site, i
                "Supply at most one of `n_sites` or `n_per_site`, not both.", fixed = TRUE)
 })
 
-test_that("DD-V-12: n_sites, n_per_site and fpc_N must be single positive integers, naming the problem", {
+test_that("DD-V-12: n_sites, n_per_site and fpc_N must be one or two positive integers, naming the problem", {
+  tails <- c(n_sites    = "`n_sites` is the number of sites in each group: one value for both groups, or c(group 1, group 2).",
+             n_per_site = "`n_per_site` is the number of people sampled per site: one value for both groups, or c(group 1, group 2).")
   for (arg in c("n_sites", "n_per_site")) {
     call_with <- function(v) {
       a <- list(0.1, 0.2, icc = 0.05); a[[arg]] <- v
       do.call(design_difference, a)
     }
-    expect_error(call_with("10"),     paste0("`", arg, "` must be a single finite positive integer (got class `character`)."), fixed = TRUE)
-    expect_error(call_with(TRUE),     paste0("`", arg, "` must be a single finite positive integer (got class `logical`)."), fixed = TRUE)
-    expect_error(call_with(c(10, 20)), paste0("`", arg, "` must be a single finite positive integer (got length = 2)."), fixed = TRUE)
+    msg <- function(what) paste0("`", arg, "` must be one or two finite positive integers ", what, ". ", tails[[arg]])
+    expect_error(call_with("10"),          msg("(got class `character`)"), fixed = TRUE)
+    expect_error(call_with(TRUE),          msg("(got class `logical`)"), fixed = TRUE)
+    expect_error(call_with(c(10, 20, 30)), msg("(got length = 3)"), fixed = TRUE)
     for (bad in c(-5, 0, 2.5, Inf)) {
-      expect_error(call_with(bad), paste0("`", arg, "` must be a single finite positive integer (got ", bad, ")."), fixed = TRUE)
+      expect_error(call_with(bad), msg(paste0("(got ", bad, ")")), fixed = TRUE)
     }
     # Large values are printed in full, not as -1e+05
-    expect_error(call_with(-1e5), paste0("`", arg, "` must be a single finite positive integer (got -100000)."), fixed = TRUE)
+    expect_error(call_with(-1e5), msg("(got -100000)"), fixed = TRUE)
+    # With two values, the first bad one is named
+    expect_error(call_with(c(10, 2.5)), msg(paste0("(found ", arg, "[2] = 2.5)")), fixed = TRUE)
+    expect_error(call_with(c(0, 10)),   msg(paste0("(found ", arg, "[1] = 0)")), fixed = TRUE)
+    expect_error(call_with(c(10, NA)),  msg(paste0("(found ", arg, "[2] = NA)")), fixed = TRUE)
   }
+  fpc_tail <- "`fpc_N` is the population size of each group: one value for both groups, or c(group 1, group 2). Set `fpc_N = NULL` to skip the finite-population correction."
   expect_error(design_difference(0.1, 0.2, fpc_N = "500"),
-               "`fpc_N` must be a single finite positive integer (got class `character`). `fpc_N` is the population size per group. Set `fpc_N = NULL` to skip the finite-population correction.",
+               paste0("`fpc_N` must be one or two finite positive integers (got class `character`). ", fpc_tail),
                fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, fpc_N = TRUE),
-               "`fpc_N` must be a single finite positive integer (got class `logical`).", fixed = TRUE)
-  expect_error(design_difference(0.1, 0.2, fpc_N = c(100, 200)),
-               "`fpc_N` must be a single finite positive integer (got length = 2).", fixed = TRUE)
+               paste0("`fpc_N` must be one or two finite positive integers (got class `logical`). ", fpc_tail),
+               fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(100, 200, 300)),
+               paste0("`fpc_N` must be one or two finite positive integers (got length = 3). ", fpc_tail),
+               fixed = TRUE)
   for (bad in c(-5, 0, 100.5, Inf)) {
     expect_error(design_difference(0.1, 0.2, fpc_N = bad),
-                 paste0("`fpc_N` must be a single finite positive integer (got ", bad, ")."), fixed = TRUE)
+                 paste0("`fpc_N` must be one or two finite positive integers (got ", bad, "). ", fpc_tail),
+                 fixed = TRUE)
   }
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(5000, 100.5)),
+               paste0("`fpc_N` must be one or two finite positive integers (found fpc_N[2] = 100.5). ", fpc_tail),
+               fixed = TRUE)
   # Above 2^53 R cannot tell whole numbers apart (and the arithmetic breaks
   # above about 1e150); 2^53 itself works
   expect_error(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 1e200),
                "`fpc_N` (1e+200) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real population is this large: set `fpc_N = NULL`.",
                fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, fpc_N = 2^53 + 2), "is larger than 2^53", fixed = TRUE)
-  expect_equal(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 2^53)$n_per_group, 283)
+  expect_equal(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 2^53)$n_per_group1, 283)
   # Just above 2^53 is printed in full, not as 9.007199e+15
   expect_error(design_difference(0.1, 0.2, n_sites = 2^53 + 2, icc = 0.05),
                "`n_sites` (9007199254740994) is larger than 2^53", fixed = TRUE)
@@ -737,6 +759,11 @@ test_that("DD-V-12: n_sites, n_per_site and fpc_N must be single positive intege
   expect_error(design_difference(0.1, 0.2, n_per_site = 1e16, icc = 0.05),
                "`n_per_site` (1e+16) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real site has this many people.",
                fixed = TRUE)
+  # With two values, the one that is too large is named
+  expect_error(design_difference(0.1, 0.2, n_sites = c(30, 1e16), icc = 0.05),
+               "`n_sites[2]` (1e+16) is larger than 2^53", fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(1e200, 5000)),
+               "`fpc_N[1]` (1e+200) is larger than 2^53", fixed = TRUE)
   expect_warning(design_difference(0.1, 0.2, n_sites = 2^53, icc = 0.05),
                  "fewer than the 9007199254740992 sites given", fixed = TRUE)
   # Valid values: n_sites = 30 (DD-C-2), n_per_site = 20 (DD-C-1), fpc_N = 2000 (DD-F-1)
@@ -760,9 +787,9 @@ test_that("DD-V-13: more sites, or more people per site, than the population is 
   # (2 sites alone are worth at most 40 people), so it warns (see DD-F-3).
   expect_warning(res <- design_difference(0.1, 0.2, n_sites = 2, icc = 0.05, fpc_N = 2),
                  "the design tests 2 of the 2 people in each group (1 per site)", fixed = TRUE)
-  expect_equal(c(res$n_per_group, res$n_sites, res$n_per_site), c(2, 2, 1))
+  expect_equal(c(res$n_per_group1, res$n_sites1, res$n_per_site1), c(2, 2, 1))
   expect_no_warning(res <- design_difference(0.1, 0.2, n_per_site = 2, icc = 0.05, fpc_N = 2))
-  expect_equal(c(res$n_per_group, res$n_sites, res$n_per_site), c(2, 1, 2))
+  expect_equal(c(res$n_per_group1, res$n_sites1, res$n_per_site1), c(2, 1, 2))
   # Other valid values: 23 sites with a population of 60 (DD-F-4), 20 per site
   # with a population of 1000 (DD-F-1)
 })
@@ -775,14 +802,14 @@ test_that("DD-V-14: a site larger than a whole group is rejected", {
                       "so one site would be more than enough. Use a smaller `n_per_site`, or set ",
                       "`n_sites = 1` to find how many people one site needs."),
                fixed = TRUE)
-  expect_equal(design_difference(0.1, 0.2, n_sites = 1, icc = 0.001)$n_per_site, 249)
+  expect_equal(design_difference(0.1, 0.2, n_sites = 1, icc = 0.001)$n_per_site1, 249)
   # The check is against the clustered need, not the 199 without clustering:
   # 220 per site is above 199 but below the 243 needed, so it is allowed
   res <- design_difference(0.1, 0.2, n_per_site = 220, icc = 0.001)
-  expect_equal(res$n_per_group, 243)
-  expect_equal(res$n_sites, 2)
+  expect_equal(res$n_per_group1, 243)
+  expect_equal(res$n_sites1, 2)
   # With icc 0 the group needs 199: a site of 199 is exactly one site, 200 is too big
-  expect_equal(design_difference(0.1, 0.2, n_per_site = 199)$n_sites, 1)
+  expect_equal(design_difference(0.1, 0.2, n_per_site = 199)$n_sites1, 1)
   expect_error(design_difference(0.1, 0.2, n_per_site = 200),
                "`n_per_site` (200) is larger than the number of people needed per group (199)",
                fixed = TRUE)
@@ -796,16 +823,180 @@ test_that("DD-V-14: a site larger than a whole group is rejected", {
 })
 
 
+# Two groups that differ (DD-G-)
+# ---------------------------------------------------------------------------
+
+# Power of a two-group design worked out directly from the formula in the
+# help page (not from the package code): n people, design effect d and
+# population N in each group.
+power_of <- function(p1, p2, n, d, N = NULL, conf = 0.95) {
+  m <- n / d
+  if (!is.null(N)) m <- ifelse(n >= N, Inf, m * (N - 1) / (N - n))
+  inv <- ifelse(is.infinite(m), 0, 1 / m)
+  pb <- if (any(inv == 0)) c(p1, p2)[inv == 0][1] else (p1 * m[1] + p2 * m[2]) / sum(m)
+  v0 <- pb * (1 - pb) * sum(inv)
+  v1 <- p1 * (1 - p1) * inv[1] + p2 * (1 - p2) * inv[2]
+  pnorm((abs(p1 - p2) - qnorm(1 - (1 - conf) / 2) * sqrt(v0)) / sqrt(v1))
+}
+
+test_that("DD-G-1: two equal values give exactly the same design as one value", {
+  # (Everything but the echoed icc and fpc_N, which keep their length.)
+  drop_echo <- function(r) r[setdiff(names(r), c("icc", "fpc_N"))]
+  expect_identical(drop_echo(design_difference(0.1, 0.2, n_sites = c(30, 30), icc = c(0.05, 0.05))),
+                   drop_echo(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05)))
+  expect_identical(drop_echo(design_difference(0.1, 0.2, n_per_site = c(20, 20), icc = 0.05, fpc_N = c(5000, 5000))),
+                   drop_echo(design_difference(0.1, 0.2, n_per_site = 20, icc = 0.05, fpc_N = 5000)))
+  # With one value of everything, the two groups are always the same
+  res <- design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 5000)
+  expect_identical(res[c("n_per_group1", "n_eff1", "n_sites1", "n_per_site1", "deff1")],
+                   setNames(res[c("n_per_group2", "n_eff2", "n_sites2", "n_per_site2", "deff2")],
+                            c("n_per_group1", "n_eff1", "n_sites1", "n_per_site1", "deff1")))
+})
+
+test_that("DD-G-2: two values of n_sites give the groups different sizes, with the same people per site", {
+  # 20 and 40 sites, ICC 0.02 and 0.05: 10 people per site in both groups
+  res <- design_difference(0.1, 0.2, n_sites = c(20, 40), icc = c(0.02, 0.05))
+  expect_identical(c(res$n_sites1, res$n_sites2), c(20, 40))
+  expect_identical(c(res$n_per_site1, res$n_per_site2), c(10, 10))
+  expect_identical(c(res$n_per_group1, res$n_per_group2, res$n), c(193, 385, 578))
+  expect_identical(c(res$n_eff1, res$n_eff2), c(155, 309))
+  # 1 + 9 * 0.02 = 1.18 and 1 + 9 * 0.05 = 1.45
+  expect_equal(c(res$deff1, res$deff2), c(1.18, 1.45))
+  # The design reaches 80 percent power; 9 people per site would not
+  expect_gte(power_of(0.1, 0.2, c(200, 400), c(1.18, 1.45)), 0.8)
+  expect_lt(power_of(0.1, 0.2, c(180, 360), 1 + 8 * c(0.02, 0.05)), 0.8)
+  # Group 1 needs 193 of its 200 people, and group 2 385 of its 400
+  expect_true(all(c(res$n_per_group1, res$n_per_group2) <= c(200, 400)))
+})
+
+test_that("DD-G-3: two values of n_per_site give the groups different sizes, with the same number of sites", {
+  # 400 and 100 people per site, ICC 0.05: design effects 1 + 399 * 0.05 =
+  # 20.95 and 1 + 99 * 0.05 = 5.95, 12 sites in each group
+  res <- design_difference(0.1, 0.2, n_per_site = c(400, 100), icc = 0.05)
+  expect_identical(c(res$n_sites1, res$n_sites2), c(12, 12))
+  expect_identical(c(res$n_per_site1, res$n_per_site2), c(400, 100))
+  expect_identical(c(res$n_per_group1, res$n_per_group2), c(4421, 1106))
+  expect_equal(c(res$deff1, res$deff2), c(20.95, 5.95))
+  expect_gte(power_of(0.1, 0.2, c(4800, 1200), c(20.95, 5.95)), 0.8)
+  expect_lt(power_of(0.1, 0.2, c(4400, 1100), c(20.95, 5.95)), 0.8)
+  # One group's site can be larger than that group needs, as long as the
+  # other group's is not: 2 sites of 10 (group 1 needs 11) and 2 of 200
+  res <- design_difference(0.1, 0.5, n_per_site = c(10, 200))
+  expect_identical(c(res$n_sites1, res$n_per_group1, res$n_per_group2), c(2, 11, 203))
+  # Only an error when every group's site is larger than needed: here group
+  # 2's site of 300 has 2 spare, but group 1 needs all of its 10
+  res <- design_difference(0.1, 0.5, n_per_site = c(10, 300))
+  expect_identical(c(res$n_sites1, res$n_per_group1, res$n_per_group2), c(1, 10, 298))
+})
+
+test_that("DD-G-4: two ICCs with one n_sites keep the groups the same size, each with its own design effect", {
+  # 15 sites, ICC 0 and 0.08: 24 per site; design effects 1 and 1 + 23 * 0.08 = 2.84
+  res <- design_difference(0.1, 0.2, n_sites = 15, icc = c(0, 0.08))
+  expect_identical(c(res$n_per_site1, res$n_per_site2), c(24, 24))
+  expect_identical(res$n_per_group1, res$n_per_group2)
+  expect_identical(res$n_per_group1, 359)
+  expect_equal(c(res$deff1, res$deff2), c(1, 2.84))
+  expect_gte(power_of(0.1, 0.2, c(360, 360), c(1, 2.84)), 0.8)
+  expect_lt(power_of(0.1, 0.2, c(345, 345), c(1, 1 + 22 * 0.08)), 0.8)
+})
+
+test_that("DD-G-5: when the sites cannot reach the target, the message describes each group", {
+  # Group 1: 5 sites / 0.05 = at most 100 independent people; group 2:
+  # 10 / 0.1 = 100. 100 per group give 50.81911 percent power.
+  expect_error(design_difference(0.1, 0.2, n_sites = c(5, 10), icc = c(0.05, 0.1)),
+               "Target power of 80 percent cannot be reached with 5 sites in group 1 and 10 in group 2, with ICC = 0.05 in group 1 and 0.1 in group 2. The highest power these sites can give is 50.81911 percent. Increase `n_sites`, lower the ICC, or lower the target power.",
+               fixed = TRUE)
+  expect_equal(power_of(0.1, 0.2, c(100, 100), c(1, 1)), 0.5081911, tolerance = 1e-6)
+  # Limits that differ between the groups: 5 / 0.05 = 100 and 20 / 0.05 = 400
+  expect_error(design_difference(0.1, 0.2, n_sites = c(5, 20), icc = 0.05),
+               "Target power of 80 percent cannot be reached with 5 sites in group 1 and 20 in group 2, with ICC = 0.05. The highest power these sites can give is 66.95124 percent.",
+               fixed = TRUE)
+  expect_equal(power_of(0.1, 0.2, c(100, 400), c(1, 1)), 0.6695124, tolerance = 1e-6)
+  # 0 versus 1 with one site of ICC 1: each group counts as 1 person, the
+  # measured difference never varies, and the test never finds it
+  expect_error(design_difference(0, 1, n_sites = 1, icc = c(1, 0.9)),
+               "Target power of 80 percent cannot be reached with 1 site per group, with ICC = 1 in group 1 and 0.9 in group 2. The highest power this site can give is less than 0.0001 percent.",
+               fixed = TRUE)
+})
+
+test_that("DD-G-6: a group that reaches its whole population before the target stops with the highest power", {
+  # Group 1 has 120 people: with 10 sites it is fully tested at 12 per site,
+  # and then the power is 76.72635 percent
+  expect_error(design_difference(0.1, 0.2, n_sites = c(10, 10), icc = 0.05, fpc_N = c(120, 1e6)),
+               "Target power of 80 percent cannot be reached: group 1 has only 120 people (`fpc_N`), and testing all of them gives at most 76.72635 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  expect_equal(power_of(0.1, 0.2, c(120, 120), 1 + 11 * 0.05, c(120, 1e6)), 0.7672635, tolerance = 1e-6)
+  # The same with no sites: 60 people in group 1
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(60, 1e6)),
+               "Target power of 80 percent cannot be reached: group 1 has only 60 people (`fpc_N`), and testing all of them gives at most 67.95983 percent power. Check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  # Once group 2 is fully tested (4 per site x 5 sites = 20 people), only
+  # group 1 varies: 76.15632 percent, so 80 is out of reach
+  expect_error(design_difference(0.1, 0.3, n_sites = c(10, 5), icc = 0.1, fpc_N = c(1e4, 20)),
+               "Target power of 80 percent cannot be reached: group 2 has only 20 people (`fpc_N`), and testing all of them gives at most 76.15632 percent power.",
+               fixed = TRUE)
+  expect_equal(power_of(0.1, 0.3, c(40, 20), 1 + 3 * 0.1, c(1e4, 20)), 0.7615632, tolerance = 1e-6)
+  # A group of 1 person: "that person", not "all of them"
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(1, 1e6)),
+               "Target power of 80 percent cannot be reached: group 1 has only 1 person (`fpc_N`), and testing that person gives at most 11.12376 percent power. Check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  # And with n_per_site: 30 per site, group 2 has 60 people
+  expect_error(design_difference(0.1, 0.2, n_per_site = 30, icc = 0.05, fpc_N = c(1e6, 60)),
+               "Target power of 80 percent cannot be reached: group 2 has only 60 people (`fpc_N`), and testing all of them gives at most",
+               fixed = TRUE)
+})
+
+test_that("DD-G-7: the warnings and errors about sites name each group when the groups differ", {
+  # Too many sites: 155 and 309 people needed, 1 at each site
+  expect_warning(res <- design_difference(0.1, 0.2, n_sites = c(300, 600)),
+                 "With these prevalences and this power, the study needs 155 people in group 1 and 309 in group 2, fewer than the 300 and 600 sites given (`n_sites`). The design uses 155 and 309 sites, with 1 person at each.",
+                 fixed = TRUE)
+  expect_identical(c(res$n_sites1, res$n_sites2, res$n_per_site1, res$deff2), c(155, 309, 1, 1))
+  # Sites larger than either group needs
+  expect_error(design_difference(0.1, 0.5, n_per_site = c(100, 200)),
+               "`n_per_site` (100 and 200) is larger than the number of people needed in each group (15 and 30), so one site per group would be more than enough. Use a smaller `n_per_site`, or set `n_sites = 1` to find how many people one site needs.",
+               fixed = TRUE)
+  # Reachable only because of the population
+  expect_warning(design_difference(0.1, 0.2, n_sites = c(4, 8), icc = c(0.1, 0.2), fpc_N = c(800, 1600)),
+                 "With 4 sites in group 1 and 8 in group 2, and ICC = 0.1 in group 1 and 0.2 in group 2, the target power can only be reached because of the finite-population correction: the design tests 646 of the 800 people in group 1 and 1292 of the 1600 in group 2 (162 per site). Check that `fpc_N` is right, or use more sites.",
+                 fixed = TRUE)
+  # Rounding up past one group's population
+  w <- character(0)
+  withCallingHandlers(design_difference(0.1, 0.4, n_sites = c(10, 30), icc = 0.3, fpc_N = c(14, 20000)),
+                      warning = function(x) { w <<- c(w, conditionMessage(x)); invokeRestart("muffleWarning") })
+  expect_identical(w, "The rounded design for group 1 (10 sites x 2 = 20) exceeds its `fpc_N` = 14: the required n of 11 is close to a census of that group. Consider surveying the whole group instead.")
+  # Sites or people per site above one group's population
+  expect_error(design_difference(0.1, 0.2, n_sites = c(10, 50), icc = 0.05, fpc_N = c(5000, 40)),
+               "`n_sites` for group 2 (50) exceeds `fpc_N` for group 2 (40): you cannot have more sites than people in the population.",
+               fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, n_per_site = c(10, 50), icc = 0.05, fpc_N = c(5000, 40)),
+               "`n_per_site` for group 2 (50) exceeds `fpc_N` for group 2 (40): a site cannot have more people than there are in the whole population.",
+               fixed = TRUE)
+})
+
+test_that("DD-G-8: two populations each shrink their own group", {
+  # 3 and 30 sites, ICC 0.02: populations of 1000 and 20000
+  res <- design_difference(0.1, 0.2, n_sites = c(3, 30), icc = 0.02, fpc_N = c(1000, 20000))
+  expect_identical(c(res$n_per_site1, res$n_per_group1, res$n_per_group2), c(77, 230, 2293))
+  # A smaller population for group 1 needs fewer people per site
+  res2 <- design_difference(0.1, 0.2, n_sites = c(3, 30), icc = 0.02, fpc_N = c(500, 20000))
+  expect_identical(c(res2$n_per_site1, res2$n_per_group1, res2$n_per_group2), c(57, 169, 1686))
+  d <- 1 + 56 * 0.02
+  expect_gte(power_of(0.1, 0.2, c(171, 1710), d, c(500, 20000)), 0.8)
+  expect_lt(power_of(0.1, 0.2, c(168, 1680), d - 0.02, c(500, 20000)), 0.8)
+})
+
 # ---------------------------------------------------------------------------
 # Return value (DD-R-)
 # ---------------------------------------------------------------------------
 
 test_that("DD-R-1: return list contains all expected fields, in order", {
   expect_named(design_difference(0.1, 0.2),
-               c("n_per_group", "n", "n_eff", "n_sites", "n_per_site",
+               c("n_per_group1", "n_per_group2", "n", "n_eff1", "n_eff2",
+                 "n_sites1", "n_sites2", "n_per_site1", "n_per_site2",
                  "prevalence1", "prevalence2", "apparent_prev1", "apparent_prev2",
                  "difference", "difference_app", "power", "alternative", "conf_level", "sensitivity",
-                 "specificity", "icc", "deff", "fpc_N"),
+                 "specificity", "icc", "deff1", "deff2", "fpc_N"),
                ignore.order = FALSE)
 })
 
@@ -818,5 +1009,10 @@ test_that("DD-R-2: inputs are echoed back as supplied", {
                list(prevalence1 = 0.2, prevalence2 = 0.1, power = 0.9, alternative = "greater",
                     conf_level = 0.9, sensitivity = 0.9, specificity = 0.95, icc = 0.05,
                     fpc_N = 5000))
-  expect_equal(res$n, 2 * res$n_per_group)
+  expect_equal(res$n, 2 * res$n_per_group1)
+  # Two values are echoed as given
+  res <- design_difference(0.2, 0.1, n_sites = c(20, 40), icc = c(0.02, 0.05),
+                           fpc_N = c(5000, 9000))
+  expect_identical(res$icc, c(0.02, 0.05))
+  expect_identical(res$fpc_N, c(5000, 9000))
 })
