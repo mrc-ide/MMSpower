@@ -36,8 +36,8 @@ negative. Default 1 (the test never gives a false positive). Set below
 
 \item{icc}{Optional. Intra-cluster correlation, in [0, 1]. If \code{NULL}
 (default), ICC is estimated from the data. Set to \code{0} for no
-clustering. Only relevant when \code{x} and \code{n} have more than one
-element. Values below about 1.5e-8 are treated as 0.}
+clustering. It is also used when \code{x} and \code{n} are single values (one
+site). Values below about 1.5e-8 are treated as 0.}
 
 \item{fpc_N}{Optional positive integer. Total population size for a
 finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
@@ -75,10 +75,9 @@ is \code{NULL}.}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
 \item{icc_used}{ICC used in the calculation. If \code{icc = NULL}, it is
-the value estimated from the data. If \code{icc} was supplied, it is
-that value, unless the supplied value was below about 1.5e-8 or was
-ignored (a single cluster, or every cluster has only one person), then
-it is 0.}
+the value estimated from the data (0 with a single cluster, or one
+person per cluster). If \code{icc} was supplied, it is that value,
+unless it was below about 1.5e-8, then it is 0.}
 \item{deff}{Design effect applied (1 when there is no clustering)}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
 }
@@ -139,9 +138,10 @@ where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
 intra-cluster correlation (ICC).
 
 \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly. A
-value below about 1.5e-8 is treated as 0. The ICC is ignored (with a
-warning) and \eqn{D_{eff} = 1} when there is a single cluster, or when
-every cluster has only one person, so no two people share a site.
+value below about 1.5e-8 is treated as 0. This holds for a single cluster
+too: people at the same site tend to be alike, so one site tells you less
+about the whole population than the same number of people sampled
+separately. With one person per cluster, \eqn{D_{eff} = 1}.
 
 \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
 clusters and an average cluster size above 1, the design effect is
@@ -157,7 +157,8 @@ kept between 0 and 1; \eqn{D_{eff}} is then recomputed from that
 mutually consistent. If nobody tests positive, or everybody does, the
 expected variance is 0 and \eqn{D_{eff} = 1}. \eqn{D_{eff} = 1} also
 when there is a single cluster (no variation between sites to measure)
-or every cluster has only one person (no two people share a site).
+or every cluster has only one person (no two people share a site). If
+everyone tested comes from one site, supply \code{icc}.
 
 \strong{3. Effective sample size.}
 

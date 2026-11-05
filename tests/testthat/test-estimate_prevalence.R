@@ -326,29 +326,34 @@ test_that("EP-C-9: 100 sites (simulated, fixed seed) give the expected icc and d
   expect_equal(res$moe,        0.019201, tolerance = 1e-4)
 })
 
-test_that("EP-C-10: a supplied icc with one site is ignored (with a warning); a tiny icc counts as 0", {
+test_that("EP-C-10: a supplied icc is used with one site; one person per site gives deff 1; a tiny icc counts as 0", {
+  # One site of 50 with icc 0.05: deff = 1 + (50 - 1) * 0.05 = 3.45,
+  # n_eff = 50 / 3.45 = 14.49, moe = 1.959964 * sqrt(0.3 * 0.7 / 14.49)
+  # = 0.235930 (0.127020 without icc). No warning.
+  expect_silent(res <- estimate_prevalence(x = 15, n = 50, icc = 0.05))
+  expect_equal(res$icc_used, 0.05)
+  expect_equal(res$deff,     3.45)
+  expect_equal(res$n_eff,    50 / 3.45)
+  expect_equal(res$moe,      0.235930, tolerance = 1e-5)
+  expect_equal(estimate_prevalence(x = 15, n = 50)$moe, 0.127020, tolerance = 1e-5)
+
   no_icc <- estimate_prevalence(x = 8, n = 50)
 
-  # One site: there is no clustering to adjust for, so icc = 0.05 cannot be used
-  expect_warning(
-    res <- estimate_prevalence(x = 8, n = 50, icc = 0.05),
-    "`icc` = 0.05 was ignored: there is only one cluster, or every cluster has only one person, so there is no clustering to adjust for. `icc_used` is reported as 0.",
-    fixed = TRUE
-  )
-  expect_equal(res$icc_used, 0)
-  expect_equal(res$deff,     1)
-  expect_equal(res$moe,      no_icc$moe)
+  # One person per site: deff = 1 + (1 - 1) * 0.05 = 1, icc reported as given
+  expect_silent(pp <- suppressMessages(
+    estimate_prevalence(x = c(0, 1, 0, 1, 1), n = c(1, 1, 1, 1, 1), icc = 0.05)))
+  expect_equal(c(pp$icc_used, pp$deff), c(0.05, 1))
 
-  # icc = 0 means no clustering, so there is nothing to warn about, and the
-  # result is the same as with no icc at all
+  # icc = 0 means no clustering: the same as no icc at all
   expect_silent(zero <- estimate_prevalence(x = 8, n = 50, icc = 0))
   expect_equal(zero$deff, 1)
   expect_equal(zero$moe,  no_icc$moe)
 
   # Any icc below about 0.000000015 counts as 0. A value like 1e-12 is
   # almost always leftover rounding from another calculation, not real
-  # clustering: no warning with one site, and deff stays exactly 1 with ten.
-  expect_silent(estimate_prevalence(x = 8, n = 50, icc = 1e-12))
+  # clustering: deff stays exactly 1, with one site or ten.
+  expect_silent(one_tiny <- estimate_prevalence(x = 8, n = 50, icc = 1e-12))
+  expect_equal(c(one_tiny$icc_used, one_tiny$deff), c(0, 1))
   tiny <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 1e-12)
   expect_equal(tiny$icc_used, 0)
   expect_equal(tiny$deff,     1)
@@ -844,4 +849,18 @@ test_that("EP-T-2: the clustered design from design_precision gives back the tar
   no_icc <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47))
   expect_equal(c(no_icc$icc_used, no_icc$deff), c(0, 1))
   expect_equal(no_icc$moe, 0.041429, tolerance = 1e-4)   # not 0.05
+})
+
+test_that("EP-T-3: a one-site design from design_precision gives back the target moe when icc is supplied", {
+  # design_precision(0.3, 0.1, n_sites = 1, icc = 0.01) -> one site of 414
+  # (deff 1 + 413 * 0.01 = 5.13). 124 positives (0.2995) with the same icc:
+  # moe = 1.959964 * sqrt(0.2995 * 0.7005 / (414 / 5.13)) = 0.099935
+  res <- estimate_prevalence(x = 124, n = 414, icc = 0.01)
+  expect_equal(res$deff, 5.13)
+  expect_equal(res$moe,  0.099935, tolerance = 1e-5)   # target 0.1
+  # Without icc the one site counts as 414 independent people and the
+  # interval is far narrower than planned
+  no_icc <- estimate_prevalence(x = 124, n = 414)
+  expect_equal(no_icc$deff, 1)
+  expect_lt(no_icc$moe, 0.05)
 })
