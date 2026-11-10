@@ -269,11 +269,17 @@ design_difference <- function(prevalence1,
   huge <- function(v) if (v < 1e16) num(v) else format(v, digits = 15)
   # How a bad value of a one-or-two-value argument is shown: "(got 1.5)"
   # for one value, "(found icc[2] = 1.5)" for the first bad one of two.
-  got <- function(v, nm, bad) {
+  got <- function(v, nm, bad, hint = "") {
     i <- which(bad)[1]
-    if (length(v) == 1) paste0("(got ", num(v), ")")
-    else paste0("(found ", nm, "[", i, "] = ", num(v[i]), ")")
+    if (length(v) == 1) paste0("(got ", num(v), hint, ")")
+    else paste0("(found ", nm, "[", i, "] = ", num(v[i]), hint, ")")
   }
+  # A value like 100 * 0.57, stored as 56.99999999999999, prints as 57;
+  # say why it is rejected (same hint as test_difference and estimate_cost).
+  near_int <- function(v, nm)
+    if (is.finite(v) && v != round(v) &&
+        abs(v - round(v)) <= 8 * .Machine$double.eps * abs(v))
+      paste0(", which is not exactly an integer; use round(", nm, ")") else ""
 
   # Check for NA, NaN and Inf before the range checks below.
   if (!is.finite(prevalence1))
@@ -368,7 +374,7 @@ design_difference <- function(prevalence1,
     bad[!bad] <- v[!bad] < 1 | v[!bad] != floor(v[!bad])
     if (any(bad))
       stop("`", nm, "` must be one or two finite positive integers ",
-           got(v, nm, bad), ". ", what, tail)
+           got(v, nm, bad, near_int(v[which(bad)[1]], nm)), ". ", what, tail)
   }
   check_counts(n_sites, "n_sites",
                "`n_sites` is the number of sites in each group: one value for both groups, or c(group 1, group 2).")
