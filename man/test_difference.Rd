@@ -15,189 +15,262 @@ test_difference(
   conf_level = 0.95,
   icc = NULL,
   fpc_N = NULL,
-  ci_method = "wald"
+  ci_method = "score"
 )
 }
 \arguments{
-\item{x1}{Integer vector of positive counts per cluster/site in group 1
-(a single number if group 1 is one site).}
+\item{x1}{Vector of integer counts of people who tested positive in
+group 1, one per site (a single number if group 1 is one site).}
 
-\item{n1}{Integer vector of total samples per cluster/site in group 1
+\item{n1}{Vector of integer totals tested in group 1, one per site
 (same length as \code{x1}).}
 
-\item{x2, n2}{As \code{x1} / \code{n1}, for group 2.}
+\item{x2}{Vector of integer counts of people who tested positive in
+group 2, one per site (a single number if group 2 is one site).}
 
-\item{alternative}{Direction of the alternative hypothesis: \code{"two.sided"}
-(default), \code{"greater"} (Ha: group 1 > group 2), or \code{"less"}.}
+\item{n2}{Vector of integer totals tested in group 2, one per site
+(same length as \code{x2}).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1. Assumed
-equal across groups.}
+\item{alternative}{Direction of the test: \code{"two.sided"} (default),
+\code{"greater"} (group 1 higher) or \code{"less"} (group 1 lower).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]; default 1. Assumed
-equal across groups.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
+who truly have the condition that the test detects as positive.
+Default 1 (the test never misses a case). Assumed the same in both
+groups.}
 
-\item{conf_level}{Confidence level for the reported CI on the difference;
-also sets the significance level as alpha = 1 - conf_level. Default 0.95.}
+\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
+who truly do not have the condition that the test correctly reads as
+negative. Default 1 (the test never gives a false positive). Assumed the
+same in both groups.}
 
-\item{icc}{Optional intra-cluster correlation. \code{NULL} (default) =
-estimate separately for each group from its own clusters. \code{0} =
-force SRS (no clustering adjustment). A positive scalar is applied to
-both groups.}
+\item{conf_level}{Confidence level for the interval on the difference, in
+[0.5, 1); default 0.95. The significance level of the test is
+1 - \code{conf_level}.}
 
-\item{fpc_N}{Optional finite-population size. \code{NULL} (default) = no
-FPC. A single value is used as the population size of \emph{each} group;
-a length-2 vector gives \code{c(group1, group2)}.}
+\item{icc}{Optional. Intra-cluster correlation (ICC): how alike people in
+the same site are, from 0 (not at all) to 1 (identical). If
+\code{NULL} (default), it is estimated separately for each group
+from its own sites. Otherwise give one number used for both groups, or
+two, \code{c(group 1, group 2)}. Each is used exactly as given, however
+small: with very large sites even a tiny ICC changes the design effect.
+It is also used for a group with only one site (see Details). Set to
+\code{0} for no clustering.}
 
-\item{ci_method}{Confidence-interval method for the difference:
-\code{"wald"} (default) or \code{"newcombe"} (Newcombe 1998 hybrid-score
-interval, recommended for small samples or prevalences near 0/1). This
-affects only the reported interval, not the hypothesis test, which
-always uses the pooled-variance z-statistic.}
+\item{fpc_N}{Optional. Population size for a finite-population
+correction: one positive integer used for each group, or two,
+\code{c(group 1, group 2)}. Each must be larger than the number tested
+in its group. \code{NULL} (default) means no finite-population
+correction.}
+
+\item{ci_method}{Method for the interval on the difference:
+\code{"score"} (default), whose interval leaves out 0 exactly when
+the test finds a difference; \code{"newcombe"} (Newcombe's hybrid
+score interval, built from a Wilson interval for each group); or
+\code{"wald"} (the measured difference plus or minus z standard
+errors). \code{"newcombe"} and \code{"wald"} can occasionally leave
+out 0 when the test finds no difference, or include 0 when it does,
+and \code{"wald"} can be too narrow with small groups (see Details).
+It changes only the interval, not the test.}
 }
 \value{
-A named list:
-\item{difference}{Rogan-Gladen corrected prevalence difference
-(group 1 - group 2) on the true scale, computed as
-\code{difference_app / (Se + Sp - 1)} and clamped to \link{-1, 1}. This
-is the quantity the confidence interval is centred on; it can differ
-slightly from \code{prevalence1 - prevalence2} when a per-group
-estimate is clamped.}
-\item{difference_app}{Apparent-scale difference
-(\eqn{\hat{p}_1 - \hat{p}_2}).}
-\item{statistic}{Pooled-variance z-statistic (apparent scale).}
+A named list with the following fields, in the order returned:
+\item{difference}{Estimated true difference, group 1 minus group 2,
+between -1 and 1.}
+\item{difference_app}{Measured difference,
+\code{apparent_prev1 - apparent_prev2}: the difference the test is
+done on. Equals \code{difference} when \code{sensitivity} and
+\code{specificity} are both 1.}
+\item{statistic}{The z-statistic.}
 \item{p_value}{p-value for the chosen \code{alternative}.}
-\item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
-\item{alternative}{Alternative hypothesis as supplied.}
-\item{prevalence1, prevalence2}{Per-group Rogan-Gladen corrected point
-estimates, each clamped to \link{0, 1}.}
-\item{apparent_prev1, apparent_prev2}{Per-group apparent prevalences.}
-\item{ci_lower, ci_upper}{Confidence interval on the true-scale
-difference at \code{conf_level}, matched to \code{alternative}:
-\code{ci_upper} is \code{1} for \code{"greater"}, \code{ci_lower} is
-\code{-1} for \code{"less"}.}
-\item{ci_method}{CI method used (as supplied).}
-\item{n_total1, n_total2}{Total samples per group.}
-\item{n_eff1, n_eff2}{Per-group \emph{realised} effective sample size
-before the FPC (\code{n_total / deff}). Note this is a different
-quantity from \code{design_difference()}'s \code{n_eff}, which is the
-SRS-equivalent per-group size the design \emph{requires}.}
-\item{n_eff_adj1, n_eff_adj2}{Per-group effective sample size the test
-and CI use (\code{n_eff} divided by the squared FPC factor; equals
-\code{n_eff} when \code{fpc_N} is \code{NULL}).}
-\item{conf_level}{Confidence level as supplied.}
-\item{sensitivity, specificity}{As supplied.}
-\item{icc_used1, icc_used2}{Per-group ICC applied (estimated or supplied).}
-\item{deff1, deff2}{Per-group design effect applied.}
-\item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}.}
+\item{reject}{\code{TRUE} if \code{p_value} is below
+1 - \code{conf_level}.}
+\item{alternative}{Direction of the test, as supplied.}
+\item{prevalence1, prevalence2}{Estimated true prevalence in each group
+(Rogan-Gladen corrected, between 0 and 1).}
+\item{apparent_prev1, apparent_prev2}{Measured prevalence in each
+group.}
+\item{ci_lower, ci_upper}{Confidence interval for the true difference;
+\code{ci_upper} is 1 for \code{"greater"} and \code{ci_lower} is -1
+for \code{"less"}.}
+\item{ci_method}{Interval method, as supplied.}
+\item{n_total1, n_total2}{Number of people tested in each group.}
+\item{n_eff1, n_eff2}{Effective sample size of each group before the
+finite-population correction: \code{n_total / deff}.}
+\item{n_eff_adj1, n_eff_adj2}{Effective sample size each group
+contributes to the test and interval, after the finite-population
+correction (equals \code{n_eff} when \code{fpc_N} is \code{NULL}).}
+\item{conf_level}{Confidence level, as supplied (as a plain number).}
+\item{sensitivity, specificity}{As supplied (as plain numbers).}
+\item{icc_used1, icc_used2}{ICC used for each group. If
+\code{icc = NULL}, it is the value estimated from that group's data
+(0 for a group with one site, or one person per site). If \code{icc}
+was supplied, it is that group's value.}
+\item{deff1, deff2}{Design effect used for each group (1 with no
+clustering).}
+\item{fpc_N}{\code{fpc_N}, as supplied (as plain numbers), or
+\code{NULL}.}
 }
 \description{
-Analysis function: given observed positive counts in two groups, tests
-whether their true prevalence differs. Returns a z-statistic, p-value,
-reject / fail-to-reject decision, the estimated prevalence difference, and
-a confidence interval on that difference.
+Analysis function: given the number of positives and the number tested in
+two groups, tests whether their true prevalence differs. Returns the
+estimated difference with a confidence interval, the z-statistic, the
+p-value and whether the difference is significant. It is the analysis
+twin of \code{design_difference()}.
 
-The test is run on the apparent-prevalence scale (observed positives),
-which -- when sensitivity and specificity are equal across groups -- is
-equivalent to testing the true-prevalence difference. Point estimates and
-the confidence interval are transformed back to the true scale via the
-Rogan-Gladen correction. Clustering is handled per group with a Kish
-design effect, mirroring \code{test_threshold()}.
+The test compares the measured (apparent) prevalences, the share who
+test positive. Because sensitivity and specificity are assumed the same
+in both groups, the measured prevalences differ exactly when the true
+ones do, in the same direction, so the p-value does not depend on
+sensitivity or specificity. Only the reported difference and its
+interval are corrected for an imperfect test (Rogan-Gladen correction).
+Clustering is handled with a design effect for each group.
 
-This is the analysis complement to \code{design_difference()}.
-
-\strong{Hypothesis} (\eqn{p_1}, \eqn{p_2} are the true prevalences):
+\strong{Hypotheses} (\eqn{p_1}, \eqn{p_2} are the true prevalences):
 \describe{
-\item{\code{"two.sided"} (default)}{H0: \eqn{p_1 = p_2} vs
-Ha: \eqn{p_1 \ne p_2}.}
-\item{\code{"greater"}}{H0: \eqn{p_1 \le p_2} vs Ha: \eqn{p_1 > p_2}.}
-\item{\code{"less"}}{H0: \eqn{p_1 \ge p_2} vs Ha: \eqn{p_1 < p_2}.}
+\item{\code{"two.sided"} (default)}{H0: \eqn{p_1 = p_2} against
+H1: \eqn{p_1 \ne p_2}.}
+\item{\code{"greater"}}{H0: \eqn{p_1 \le p_2} against H1:
+\eqn{p_1 > p_2}.}
+\item{\code{"less"}}{H0: \eqn{p_1 \ge p_2} against H1: \eqn{p_1 < p_2}.}
 }
 }
 \details{
-\strong{Test statistic.} With \eqn{\hat{p}_{g}} the apparent prevalence in
-group \eqn{g} and \eqn{m_g} its effective sample size (total n divided by
-the design effect, then by the squared FPC factor):
+\strong{Design effect} (returned as \code{deff1} and \code{deff2}). With
+\code{icc} supplied, it is \eqn{1 + (\bar{n} - 1) ICC} for each group,
+where \eqn{\bar{n}} is the mean number of people per site. This holds
+for a group with a single site too: people at the same site tend to be
+alike, so one site tells you less about the whole group than the same
+number of people sampled separately. With \code{icc = NULL}, it is
+estimated for each group as in \code{estimate_prevalence()}: the observed
+variance of the site prevalences divided by the variance expected if
+everyone were independent, floored at 1, with the implied ICC kept
+between 0 and 1. An ICC cannot be estimated from a single site, so a group
+with one site then gets a design effect of 1; if its people all come from
+one site, supply \code{icc}. With one person per site the design effect
+is 1.
+
+An ICC estimated from only a few sites is uncertain, and the interval
+then tends to be too narrow. In simulations with a true ICC of 0.1, 50
+people per site and prevalences of 0.2 to 0.5, a 95 percent interval
+contained the true difference about 83 to 85 percent of the time with 2
+sites per group, 87 to 89 percent with 3 and 90 to 92 percent with 5.
+Supplying \code{icc} from other studies avoids this.
+
+\strong{Effective sample size.} For group \eqn{g}, \eqn{m_g} (returned as
+\code{n_eff_adj1} and \code{n_eff_adj2}) is the number
+tested divided by the design effect, then divided by the
+finite-population factor \eqn{(N - n)/(N - 1)} when \code{fpc_N} is
+given (\eqn{n} the number tested, \eqn{N} the population size).
+
+\strong{Test.} With \eqn{\hat{p}_g} the measured prevalence in group
+\eqn{g},
 
 \deqn{z = \frac{\hat{p}_1 - \hat{p}_2}
   {\sqrt{\bar{p}(1-\bar{p})\,(1/m_1 + 1/m_2)}}, \qquad
   \bar{p} = \frac{\hat{p}_1 m_1 + \hat{p}_2 m_2}{m_1 + m_2}.}
 
-\strong{Confidence interval.} Built on the apparent scale then divided by
-\eqn{(Se + Sp - 1)} to return to the true scale (the Rogan-Gladen offset
-cancels in a difference). \code{"wald"} uses the unpooled standard error;
-\code{"newcombe"} combines per-group Wilson intervals. The interval is
-\strong{matched to \code{alternative}}: a lower one-sided interval
-\eqn{[L, 1]} for \code{"greater"}, an upper one-sided interval
-\eqn{[-1, U]} for \code{"less"}, two-sided for \code{"two.sided"}, so
-the interval and the test point the same way. (\code{reject} and "0
-outside the CI" agree in direction; they are not exactly equivalent,
-because the test uses the pooled-variance SE and the \code{"wald"} CI
-the unpooled SE.) Bounds are clamped to \eqn{[-1, 1]}.
+With no clustering and no \code{fpc_N}, this is the same test as R's
+\code{prop.test(correct = FALSE)}.
 
-\strong{Design effect.} Estimated per group exactly as in
-\code{test_threshold()} / \code{estimate_prevalence()}: from the between-
-vs within-cluster variance when \code{icc = NULL}, or as
-\eqn{1 + (\bar{n} - 1)\,ICC} for a supplied \code{icc}. A group with fewer
-than two clusters (or clusters all of size 1) falls back to
-\eqn{D_{eff} = 1}.
-}
-\section{Equations and sources}{
+\strong{Interval.} Built on the measured scale, then divided by
+\eqn{Se + Sp - 1} to give an interval for the true difference (the rest
+of the Rogan-Gladen correction cancels in a difference). When
+\eqn{Se + Sp} is below 1.1 a warning is given: dividing by so small a
+number makes the difference and its interval very wide.
 
-Building blocks from the MMS-SD Study Design Workshop
-(\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the two-group test
-itself is \strong{not} covered there.
-\itemize{
-\item \emph{One-sample z-test for a proportion}
-\eqn{Z = (\hat p - p_0)/\sqrt{\hat p(1-\hat p)/n}} -- Module 3
-"Hypothesis testing", slide "Null hypothesis testing" (lecture
-slides p. 8). This function uses the \emph{two-sample}
-(pooled-variance) form, which the workshop does not cover; standard,
-e.g. Fleiss, Levin & Paik (2003), ch. 2.
-\item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and the
-\eqn{D_{eff} = \mathrm{Var}_{obs}/\mathrm{Var}_{SRS}} estimator --
-Module 5, slides "The Design Effect" / "Why is the ICC useful?"
-(pp. 4-5); applied per group.
-\item \emph{Wilson score interval} (used by \code{ci_method =
-    "newcombe"}) and the \emph{Newcombe} hybrid-score difference
-interval -- not in the workshop; Newcombe (1998).
-\item \emph{Rogan-Gladen correction} of the difference and its CI
-(divide by \eqn{Se + Sp - 1}) -- not in the workshop;
-Rogan & Gladen (1978).
-\item \emph{Finite-population correction} -- not in the workshop;
-Cochran (1977).
-}
-}
+\code{"score"} contains every difference \eqn{\delta} that the same kind
+of test would not reject. For each \eqn{\delta}, the two prevalences are
+estimated again under the condition \eqn{p_1 - p_2 = \delta}, giving
+\eqn{\tilde{p}_1, \tilde{p}_2}, and
 
+\deqn{z(\delta) = \frac{\hat{p}_1 - \hat{p}_2 - \delta}
+  {\sqrt{\tilde{p}_1(1-\tilde{p}_1)/m_1 + \tilde{p}_2(1-\tilde{p}_2)/m_2}}}
+
+is compared with the z value for \code{conf_level} (Mee, 1984). At
+\eqn{\delta = 0} this is exactly the test above, so the interval
+excludes 0 when, and only when, \code{reject} is \code{TRUE}. Miettinen
+and Nurminen (1985) multiply the variance by
+\eqn{(m_1 + m_2)/(m_1 + m_2 - 1)}; that factor is left out here so that
+the interval and the test always agree. \code{"newcombe"} combines a
+Wilson interval for each group and can disagree with \code{reject} near
+the significance cut-off.
+
+\code{"wald"} is \eqn{\hat{p}_1 - \hat{p}_2 \pm z \sqrt{\hat{p}_1(1 -
+\hat{p}_1)/m_1 + \hat{p}_2(1 - \hat{p}_2)/m_2}}. It can disagree with
+\code{reject}, as the test uses the pooled prevalence \eqn{\bar{p}} and
+this interval does not. With small groups it can be too narrow: with 20
+people per group and true prevalences of 0.05 and 0.10, a 95 percent
+interval contains the true difference only about 90 percent of the time
+(score 97, Newcombe 99).
+When each group's measured prevalence is 0 or 1 it has zero width, and a
+warning is given.
+
+The interval matches \code{alternative}: two-sided for
+\code{"two.sided"}, \eqn{[L, 1]} for \code{"greater"} and \eqn{[-1, U]}
+for \code{"less"}. Ends outside -1 to 1 are set to -1 or 1.
+
+\code{difference} is the measured difference divided by
+\eqn{Se + Sp - 1}, the value the interval is built around. It can differ
+from \code{prevalence1 - prevalence2} when a corrected group prevalence is
+set to 0 or 1.
+}
 \examples{
-# Two single sites: 8/100 vs 20/120
+# One count per group: 8 of 100 versus 20 of 120
 test_difference(x1 = 8, n1 = 100, x2 = 20, n2 = 120)
 
-# Clustered data, one-sided, imperfect test
+# Three sites per group, one-sided, imperfect diagnostic test. The sites
+# differ, so the estimated design effects are above 1 (about 2.6 and 3.3)
+# and p is 0.07; treating everyone as independent would give 0.007.
 test_difference(
-  x1 = c(2, 5, 3), n1 = c(50, 60, 40),
-  x2 = c(8, 11, 9), n2 = c(55, 70, 45),
+  x1 = c(1, 9, 3), n1 = c(50, 60, 40),
+  x2 = c(4, 18, 9), n2 = c(55, 70, 45),
   alternative = "less",
   sensitivity = 0.9, specificity = 0.97
 )
 
-# Newcombe interval on the difference
+# Newcombe or Wald interval instead of the default score interval
 test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, ci_method = "newcombe")
+test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, ci_method = "wald")
+
+# A different ICC for each group
+test_difference(
+  x1 = c(2, 5, 3), n1 = c(50, 60, 40),
+  x2 = c(8, 11, 9), n2 = c(55, 70, 45),
+  icc = c(0.02, 0.08)
+)
 }
 \references{
-MMS-SD Study Design Workshop, Modules 3 (hypothesis testing) and 5 (ICC /
-design effect). \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 
-Newcombe RG (1998). Interval estimation for the difference between
-independent proportions: comparison of eleven methods. Statistics in
-Medicine 17(8):873-890.
+Fleiss, J. L., Levin, B. & Paik, M. C. (2003) \emph{Statistical Methods for
+Rates and Proportions}, 3rd ed. Wiley. (Two-group z-test.)
 
-Fleiss JL, Levin B, Paik MC (2003). Statistical Methods for Rates and
-Proportions, 3rd ed. Wiley. (Two-sample z-test for proportions.)
+Mee, R. W. (1984) Confidence bounds for the difference between two
+probabilities. \emph{Biometrics} \strong{40}(4), 1175-1176.
 
-Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
-screening test. American Journal of Epidemiology 107(1):71-76.
+Miettinen, O. & Nurminen, M. (1985) Comparative analysis of two rates.
+\emph{Statistics in Medicine} \strong{4}(2), 213-226.
 
-Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+Farrington, C. P. & Manning, G. (1990) Test statistics and sample size
+formulae for comparative binomial trials with null hypothesis of
+non-zero risk difference or non-unity relative risk. \emph{Statistics in
+Medicine} \strong{9}(12), 1447-1454. (Prevalences estimated under a
+given difference.)
+
+Newcombe, R. G. (1998) Interval estimation for the difference between
+independent proportions: comparison of eleven methods. \emph{Statistics
+in Medicine} \strong{17}(8), 873-890.
+\doi{10.1002/(SICI)1097-0258(19980430)17:8<873::AID-SIM779>3.0.CO;2-I}
+
+Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
+
+Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
+(Finite-population correction.)
+
+Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
+of a screening test. \emph{American Journal of Epidemiology}
+\strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
 }
 \seealso{
 \code{\link{design_difference}}
