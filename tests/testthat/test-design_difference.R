@@ -740,6 +740,25 @@ test_that("DD-V-12: n_sites, n_per_site and fpc_N must be one or two positive in
   expect_error(design_difference(0.1, 0.2, fpc_N = c(5000, 100.5)),
                paste0("`fpc_N` must be one or two finite positive integers (found fpc_N[2] = 100.5). ", fpc_tail),
                fixed = TRUE)
+  # A value just off an integer by rounding (100 * 0.57 is stored as
+  # 56.99999999999999) prints as an integer, so the message says why
+  expect_error(design_difference(0.1, 0.2, n_sites = 100 * 0.57, icc = 0.05),
+               "`n_sites` must be one or two finite positive integers (got 57, which is not exactly an integer; use round(n_sites)).",
+               fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, n_per_site = c(10, 100 * 1.1), icc = 0.05),
+               "(found n_per_site[2] = 110, which is not exactly an integer; use round(n_per_site))",
+               fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, fpc_N = 1e5 * 1.1),
+               "(got 110000, which is not exactly an integer; use round(fpc_N))",
+               fixed = TRUE)
+  # No hint for a real decimal
+  expect_error(design_difference(0.1, 0.2, fpc_N = 100.5),
+               "(got 100.5). ", fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, fpc_N = 0.5),
+               "(got 0.5). ", fixed = TRUE)
+  # nor for a value off by more than rounding, however small next to it
+  expect_error(design_difference(0.1, 0.2, fpc_N = 1e6 + 0.0005),
+               "(got 1000000.0005). ", fixed = TRUE)
   # Above 2^53 R cannot tell whole numbers apart (and the arithmetic breaks
   # above about 1e150); 2^53 itself works
   expect_error(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 1e200),
