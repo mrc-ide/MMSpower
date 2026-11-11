@@ -429,17 +429,17 @@ test_that("EP-F-4: clustering and FPC together: both are applied", {
 
 test_that("EP-M-1: wald (the default) gives a symmetric interval", {
   res <- estimate_prevalence(x = 30, n = 100)
-  expect_equal(res$method,    "wald")
+  expect_equal(res$ci_method, "wald")
   expect_equal(res$moe_lower, res$moe)
   expect_equal(res$moe_upper, res$moe)
 })
 
 test_that("EP-M-2: clopper-pearson matches R's own binom.test, and is lopsided", {
   res <- suppressMessages(
-    estimate_prevalence(x = 30, n = 100, method = "clopper-pearson")
+    estimate_prevalence(x = 30, n = 100, ci_method = "clopper-pearson")
   )
   ref <- binom.test(30, 100)$conf.int                 # 0.212406, 0.399815
-  expect_equal(res$method,   "clopper-pearson")
+  expect_equal(res$ci_method, "clopper-pearson")
   expect_equal(c(res$ci_lower, res$ci_upper), c(ref[1], ref[2]))
   # moe is the average of the two sides; moe_lower / moe_upper are the sides
   expect_equal(res$moe,       0.093704, tolerance = 1e-4)
@@ -452,9 +452,9 @@ test_that("EP-M-3: agresti-coull matches the hand-check, and is lopsided", {
   # moe = 1.959964 * sqrt(0.30740 * 0.69260 / 103.84) = 0.088747
   # CI  = [0.218651, 0.396146] (centred on p~, not on 0.3)
   res <- suppressMessages(
-    estimate_prevalence(x = 30, n = 100, method = "agresti-coull")
+    estimate_prevalence(x = 30, n = 100, ci_method = "agresti-coull")
   )
-  expect_equal(res$method,    "agresti-coull")
+  expect_equal(res$ci_method, "agresti-coull")
   expect_equal(res$ci_lower,  0.218651, tolerance = 1e-4)
   expect_equal(res$ci_upper,  0.396146, tolerance = 1e-4)
   expect_equal(res$moe_lower, 0.081349, tolerance = 1e-4)
@@ -464,8 +464,8 @@ test_that("EP-M-3: agresti-coull matches the hand-check, and is lopsided", {
 test_that("EP-M-4: the method changes the interval, not the estimate", {
   # 15 / 80 = 0.1875 for all three
   wald <- estimate_prevalence(x = 15, n = 80)
-  cp   <- suppressMessages(estimate_prevalence(x = 15, n = 80, method = "clopper-pearson"))
-  ac   <- suppressMessages(estimate_prevalence(x = 15, n = 80, method = "agresti-coull"))
+  cp   <- suppressMessages(estimate_prevalence(x = 15, n = 80, ci_method = "clopper-pearson"))
+  ac   <- suppressMessages(estimate_prevalence(x = 15, n = 80, ci_method = "agresti-coull"))
   expect_equal(c(wald$prevalence, cp$prevalence, ac$prevalence), rep(0.1875, 3))
   expect_equal(c(wald$ci_lower, wald$ci_upper), c(0.101971, 0.273029), tolerance = 1e-4)
   expect_equal(c(cp$ci_lower,   cp$ci_upper),   c(0.108914, 0.290328), tolerance = 1e-4)
@@ -473,13 +473,13 @@ test_that("EP-M-4: the method changes the interval, not the estimate", {
 })
 
 test_that("EP-M-5: clopper-pearson and agresti-coull at 0 and at all-positive", {
-  cp0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, method = "clopper-pearson"))
+  cp0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, ci_method = "clopper-pearson"))
   expect_equal(c(cp0$ci_lower, cp0$ci_upper), c(0, 0.071122), tolerance = 1e-4)
 
-  cpn <- suppressMessages(estimate_prevalence(x = 50, n = 50, method = "clopper-pearson"))
+  cpn <- suppressMessages(estimate_prevalence(x = 50, n = 50, ci_method = "clopper-pearson"))
   expect_equal(c(cpn$ci_lower, cpn$ci_upper), c(0.928878, 1), tolerance = 1e-4)
 
-  ac0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, method = "agresti-coull"))
+  ac0 <- suppressMessages(estimate_prevalence(x = 0,  n = 50, ci_method = "agresti-coull"))
   expect_equal(c(ac0$ci_lower, ac0$ci_upper), c(0, 0.085216), tolerance = 1e-4)
 })
 
@@ -487,7 +487,7 @@ test_that("EP-M-6: clopper-pearson with an imperfect test corrects both endpoint
   # (0.212406 - 0.05) / 0.85 = 0.191066; (0.399815 - 0.05) / 0.85 = 0.411547
   res <- suppressMessages(
     estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95,
-                        method = "clopper-pearson")
+                        ci_method = "clopper-pearson")
   )
   expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
   expect_equal(res$ci_lower,   0.191066, tolerance = 1e-4)
@@ -498,7 +498,7 @@ test_that("EP-M-7: clopper-pearson with clustering gives a wider interval", {
   # icc 0.05 -> deff 1.45 -> CP computed on n_eff = 68.97 instead of 100.
   # Without clustering it is EP-M-2's 0.212406 to 0.399815.
   cl <- suppressMessages(estimate_prevalence(x = rep(3, 10), n = rep(10, 10),
-                                             icc = 0.05, method = "clopper-pearson"))
+                                             icc = 0.05, ci_method = "clopper-pearson"))
   expect_equal(c(cl$ci_lower, cl$ci_upper), c(0.195497, 0.422331), tolerance = 1e-4)
 })
 
@@ -514,8 +514,8 @@ test_that("EP-M-8: the lopsided-interval message is for wald only", {
   # agresti-coull, which are lopsided by design (EP-M-2 and EP-M-3 show
   # their two sides differ for these same data)
   expect_no_message(estimate_prevalence(x = 30, n = 100))
-  expect_no_message(estimate_prevalence(x = 30, n = 100, method = "clopper-pearson"))
-  expect_no_message(estimate_prevalence(x = 30, n = 100, method = "agresti-coull"))
+  expect_no_message(estimate_prevalence(x = 30, n = 100, ci_method = "clopper-pearson"))
+  expect_no_message(estimate_prevalence(x = 30, n = 100, ci_method = "agresti-coull"))
 })
 
 
@@ -547,50 +547,50 @@ test_that("EP-V-2: text in x or n is rejected, naming the class", {
 test_that("EP-V-3: empty x and n are rejected", {
   # The smallest valid input is one site: x = 1, n = 1 (EP-C-3).
   expect_error(estimate_prevalence(x = numeric(0), n = numeric(0)),
-               "`x` and `n` must each contain at least one value.", fixed = TRUE)
+               "`x` and `n` must each contain at least one value. Supply at least one site's count and total.", fixed = TRUE)
 })
 
 test_that("EP-V-4: NA, NaN or Inf inside x or n is rejected, naming its position", {
   # Valid x and n: every test from EP-1 on (e.g. x = 30, n = 100).
   expect_error(estimate_prevalence(x = c(1, NA_real_), n = c(10, 10)),
-               "`x` contains a missing or infinite value (found x[2] = NA).",
+               "`x` contains a missing or infinite value (found x[2] = NA). The number of positives at each site must be a finite non-negative integer.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = c(NaN, 1), n = c(10, 10)),
-               "`x` contains a missing or infinite value (found x[1] = NaN).",
+               "`x` contains a missing or infinite value (found x[1] = NaN). The number of positives at each site must be a finite non-negative integer.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, NA, 10)),
-               "`n` contains a missing or infinite value (found n[2] = NA).",
+               "`n` contains a missing or infinite value (found n[2] = NA). The number tested at each site must be a finite positive integer.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10, Inf)),
-               "`n` contains a missing or infinite value (found n[3] = Inf).",
+               "`n` contains a missing or infinite value (found n[3] = Inf). The number tested at each site must be a finite positive integer.",
                fixed = TRUE)
 })
 
 test_that("EP-V-5: x and n of different lengths are rejected", {
   # Equal lengths are valid: e.g. 10 sites in EP-C-1.
   expect_error(estimate_prevalence(x = c(3, 5), n = 10),
-               "`x` and `n` must have the same length (got length(x) = 2, length(n) = 1).",
+               "`x` and `n` must have the same length (got length(x) = 2, length(n) = 1). Each value of `x` is the number of positives at one site, and each value of `n` is the number tested at that site.",
                fixed = TRUE)
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10)),
-               "`x` and `n` must have the same length (got length(x) = 3, length(n) = 2).",
+               "`x` and `n` must have the same length (got length(x) = 3, length(n) = 2). Each value of `x` is the number of positives at one site, and each value of `n` is the number tested at that site.",
                fixed = TRUE)
 })
 
 test_that("EP-V-6: a negative count in x is rejected, naming its position", {
   # x = 0 is allowed (no positives): see EP-5.
   expect_error(estimate_prevalence(x = c(1, -1, 2), n = c(10, 10, 10)),
-               "`x` must be non-negative (found x[2] = -1).", fixed = TRUE)
+               "`x` must be non-negative (found x[2] = -1). Counts cannot be negative.", fixed = TRUE)
   # -0.5 is both negative and not an integer: the negative check comes first
   expect_error(estimate_prevalence(x = -0.5, n = 10),
-               "`x` must be non-negative (found x[1] = -0.5).", fixed = TRUE)
+               "`x` must be non-negative (found x[1] = -0.5). Counts cannot be negative.", fixed = TRUE)
 })
 
 test_that("EP-V-7: a zero or negative n is rejected, naming its position", {
   # n = 1 is allowed (a site of one person): see EP-C-3.
   expect_error(estimate_prevalence(x = c(1, 0, 2), n = c(10, 0, 10)),
-               "`n` must be positive for every cluster (found n[2] = 0).", fixed = TRUE)
+               "`n` must be positive for every site (found n[2] = 0). Each site must have tested at least one person.", fixed = TRUE)
   expect_error(estimate_prevalence(x = 1, n = -5),
-               "`n` must be positive for every cluster (found n[1] = -5).", fixed = TRUE)
+               "`n` must be positive for every site (found n[1] = -5). Each site must have tested at least one person.", fixed = TRUE)
 })
 
 test_that("EP-V-8: a fraction in x or n is rejected, naming its position", {
@@ -601,16 +601,27 @@ test_that("EP-V-8: a fraction in x or n is rejected, naming its position", {
   expect_error(estimate_prevalence(x = c(1, 2, 3), n = c(10, 10.5, 10)),
                "`n` must contain integers, not decimals (found n[2] = 10.5).",
                fixed = TRUE)
+  # A value within rounding of a whole number gets a hint to use round()
+  expect_error(estimate_prevalence(x = 3, n = 100 * 1.1),
+               "`n` must contain integers, not decimals (found n[1] = 110, which is not exactly an integer; use round(n)).",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 0.57 * 100, n = 100),
+               "`x` must contain integers, not decimals (found x[1] = 57, which is not exactly an integer; use round(x)).",
+               fixed = TRUE)
+  # A real fraction gets no hint, however large the number
+  expect_error(estimate_prevalence(x = 3, n = 1e10 + 0.5),
+               "`n` must contain integers, not decimals (found n[1] = 10000000000.5).",
+               fixed = TRUE)
 })
 
 test_that("EP-V-9: more positives than people tested is rejected, naming the position", {
   expect_error(estimate_prevalence(x = 60, n = 50),
-               "`x` cannot exceed `n` (found x[1] = 60 > n[1] = 50).", fixed = TRUE)
+               "`x` cannot exceed `n` (found x[1] = 60 > n[1] = 50). The number of positives cannot be more than the number tested at that site.", fixed = TRUE)
   expect_error(estimate_prevalence(x = c(3, 12), n = c(10, 10)),
-               "`x` cannot exceed `n` (found x[2] = 12 > n[2] = 10).", fixed = TRUE)
+               "`x` cannot exceed `n` (found x[2] = 12 > n[2] = 10). The number of positives cannot be more than the number tested at that site.", fixed = TRUE)
   # One more than n is the smallest value that is rejected
   expect_error(estimate_prevalence(x = 11, n = 10),
-               "`x` cannot exceed `n` (found x[1] = 11 > n[1] = 10).", fixed = TRUE)
+               "`x` cannot exceed `n` (found x[1] = 11 > n[1] = 10). The number of positives cannot be more than the number tested at that site.", fixed = TRUE)
   # x = n is allowed (everyone positive): see EP-5
 })
 
@@ -804,16 +815,27 @@ test_that("EP-V-20: fpc_N smaller than, or equal to, the number tested is reject
   # One more than the number tested works: see EP-F-2
 })
 
-test_that("EP-V-21: method must be one of the three names", {
-  expect_error(estimate_prevalence(x = 30, n = 100, method = "exact"),
-               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got 'exact').",
+test_that("EP-V-21: ci_method must be one of the three names", {
+  expect_error(estimate_prevalence(x = 30, n = 100, ci_method = "exact"),
+               "`ci_method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got 'exact').",
                fixed = TRUE)
-  expect_error(estimate_prevalence(x = 30, n = 100, method = c("wald", "clopper-pearson")),
-               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `character`, length 2).",
+  expect_error(estimate_prevalence(x = 30, n = 100, ci_method = c("wald", "clopper-pearson")),
+               "`ci_method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `character`, length 2).",
                fixed = TRUE)
-  expect_error(estimate_prevalence(x = 30, n = 100, method = 1),
-               "`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `numeric`, length 1).",
+  expect_error(estimate_prevalence(x = 30, n = 100, ci_method = 1),
+               "`ci_method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' (got class `numeric`, length 1).",
                fixed = TRUE)
+})
+
+test_that("EP-V-22: n above 2^53 is rejected, and numbers in messages are printed in full", {
+  expect_error(estimate_prevalence(x = 1, n = 2^53 + 2),
+               "`n` contains a value larger than 2^53 = 9007199254740992, the largest whole number R can store exactly (found n[1] = 9007199254740994). No real site tests this many people.",
+               fixed = TRUE)
+  expect_error(estimate_prevalence(x = 1, n = 1e200), "(found n[1] = 1e+200)", fixed = TRUE)
+  expect_no_error(suppressMessages(estimate_prevalence(x = 1, n = 2^53)))
+  # Printed in full whatever the scipen option
+  old <- options(scipen = -9); on.exit(options(old), add = TRUE)
+  expect_error(estimate_prevalence(x = 1, n = 100000.5), "(found n[1] = 100000.5)", fixed = TRUE)
 })
 
 
@@ -824,7 +846,7 @@ test_that("EP-V-21: method must be one of the three names", {
 test_that("EP-R-1: return list contains all expected fields, in order", {
   res <- estimate_prevalence(x = 30, n = 100)
   expect_named(res, c("prevalence", "ci_lower", "ci_upper", "moe",
-                      "moe_lower", "moe_upper", "method",
+                      "moe_lower", "moe_upper", "ci_method",
                       "n_total", "n_eff", "n_eff_adj", "conf_level",
                       "sensitivity", "specificity", "icc_used", "deff", "fpc_N"),
                ignore.order = FALSE)

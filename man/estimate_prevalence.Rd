@@ -12,15 +12,15 @@ estimate_prevalence(
   conf_level = 0.95,
   icc = NULL,
   fpc_N = NULL,
-  method = "wald"
+  ci_method = "wald"
 )
 }
 \arguments{
 \item{x}{Vector of integer counts of people who tested positive, one per
-cluster/site.}
+site (a single number for one site).}
 
-\item{n}{Vector of integer totals tested, one per cluster/site (same
-length as \code{x}).}
+\item{n}{Vector of integer totals tested, one per site (same length as
+\code{x}).}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
 who truly have the condition that the test detects as positive.
@@ -43,7 +43,7 @@ site). Values below about 1.5e-8 are treated as 0.}
 finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
 (default) = no finite-population correction applied.}
 
-\item{method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
+\item{ci_method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
 \code{"agresti-coull"}. See Description. Clopper-Pearson and Agresti-Coull
 produce asymmetric intervals. A Wald interval becomes asymmetric when an
 end is moved to 0 or 1, and the function prints a message when that
@@ -63,7 +63,7 @@ equal only when the interval is symmetric; otherwise report them both
 to lower limit}
 \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
 to upper limit}
-\item{method}{CI method used (as supplied)}
+\item{ci_method}{CI method used (as supplied)}
 \item{n_total}{Total number of people tested, \code{sum(n)}}
 \item{n_eff}{Effective independent sample size before the
 finite-population correction: \code{n_total / deff}}
@@ -75,8 +75,8 @@ is \code{NULL}.}
 \item{sensitivity}{Sensitivity (as supplied)}
 \item{specificity}{Specificity (as supplied)}
 \item{icc_used}{ICC used in the calculation. If \code{icc = NULL}, it is
-the value estimated from the data (0 with a single cluster, or one
-person per cluster). If \code{icc} was supplied, it is that value,
+the value estimated from the data (0 with a single site, or one
+person per site). If \code{icc} was supplied, it is that value,
 unless it was below about 1.5e-8, then it is 0.}
 \item{deff}{Design effect applied (1 when there is no clustering)}
 \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
@@ -106,7 +106,7 @@ correction), clustered sampling (Kish design effect), and
 finite-population corrections.
 
 If \code{icc} is not supplied, it is estimated from the data (the observed
-variance between clusters compared with the variance expected if every
+variance between sites compared with the variance expected if every
 person were independent). Setting \code{icc = 0} treats every person as
 independent; if people at the same site tend to be similar, this gives an
 interval that is too narrow.
@@ -119,7 +119,7 @@ method, and finally the Rogan-Gladen correction for an imperfect test.
 Each step's equation follows, with when and why it is used.
 
 \strong{1. Apparent prevalence.} The pooled proportion of test
-positives across all clusters,
+positives across all sites,
 
 \deqn{\hat{p} = \frac{\sum_i x_i}{\sum_i n_i}}
 
@@ -127,25 +127,25 @@ Every CI method below operates on \eqn{\hat{p}}. It is corrected for
 test imperfection only at step 6, so the correction applies identically
 to the point estimate and to both interval endpoints.
 
-\strong{2. Design effect (Kish).} Observations within a cluster are
+\strong{2. Design effect (Kish).} Observations within a site are
 positively correlated, so a clustered sample carries less information
 than the same number of independent people. The Kish (1965) design
 effect scales the variance by
 
 \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
 
-where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
+where \eqn{\bar{n}} is the mean number of people per site and \eqn{\rho} the
 intra-cluster correlation (ICC).
 
 \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly, also
-for a single cluster: people at the same site tend to be alike, so one
+for a single site: people at the same site tend to be alike, so one
 site tells you less about the whole population than the same number of
 people sampled separately. A value below about 1.5e-8 is treated as 0.
-With one person per cluster, \eqn{D_{eff} = 1}.
+With one person per site, \eqn{D_{eff} = 1}.
 
 \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
-clusters and an average cluster size above 1, the design effect is
-estimated as the ratio of the observed between-cluster variance of the
+sites and an average of more than one person per site, the design effect
+is estimated as the ratio of the observed between-site variance of the
 site proportions to the variance expected under simple random sampling,
 
 \deqn{\widehat{D_{eff}} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
@@ -156,8 +156,8 @@ kept between 0 and 1; \eqn{D_{eff}} is then recomputed from that
 \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
 mutually consistent. If nobody tests positive, or everybody does, the
 expected variance is 0 and \eqn{D_{eff} = 1}. \eqn{D_{eff} = 1} also
-when there is a single cluster (no variation between sites to measure)
-or every cluster has only one person (no two people share a site). If
+when there is a single site (no variation between sites to measure)
+or every site has only one person (no two people share a site). If
 everyone tested comes from one site, supply \code{icc}.
 
 \strong{3. Effective sample size.}
@@ -276,7 +276,7 @@ estimate_prevalence(
 )
 
 # Clopper-Pearson interval
-estimate_prevalence(x = 3, n = 30, method = "clopper-pearson")
+estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
 
 # Imperfect diagnostic test
 estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)

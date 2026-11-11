@@ -25,15 +25,15 @@
 #' finite-population corrections.
 #'
 #' If `icc` is not supplied, it is estimated from the data (the observed
-#' variance between clusters compared with the variance expected if every
+#' variance between sites compared with the variance expected if every
 #' person were independent). Setting `icc = 0` treats every person as
 #' independent; if people at the same site tend to be similar, this gives an
 #' interval that is too narrow.
 #'
 #' @param x Vector of integer counts of people who tested positive, one per
-#'   cluster/site.
-#' @param n Vector of integer totals tested, one per cluster/site (same
-#'   length as `x`).
+#'   site (a single number for one site).
+#' @param n Vector of integer totals tested, one per site (same length as
+#'   `x`).
 #' @param sensitivity Diagnostic sensitivity in (0, 1]: the share of people
 #'   who truly have the condition that the test detects as positive.
 #'   Default 1 (the test never misses a case). Set below 1 to correct for
@@ -50,7 +50,7 @@
 #' @param fpc_N Optional positive integer. Total population size for a
 #'   finite-population correction; must be larger than `sum(n)`. `NULL`
 #'   (default) = no finite-population correction applied.
-#' @param method CI method: `"wald"` (default), `"clopper-pearson"`, or
+#' @param ci_method CI method: `"wald"` (default), `"clopper-pearson"`, or
 #'   `"agresti-coull"`. See Description. Clopper-Pearson and Agresti-Coull
 #'   produce asymmetric intervals. A Wald interval becomes asymmetric when an
 #'   end is moved to 0 or 1, and the function prints a message when that
@@ -64,7 +64,7 @@
 #' Each step's equation follows, with when and why it is used.
 #'
 #' \strong{1. Apparent prevalence.} The pooled proportion of test
-#' positives across all clusters,
+#' positives across all sites,
 #'
 #' \deqn{\hat{p} = \frac{\sum_i x_i}{\sum_i n_i}}
 #'
@@ -72,25 +72,25 @@
 #' test imperfection only at step 6, so the correction applies identically
 #' to the point estimate and to both interval endpoints.
 #'
-#' \strong{2. Design effect (Kish).} Observations within a cluster are
+#' \strong{2. Design effect (Kish).} Observations within a site are
 #' positively correlated, so a clustered sample carries less information
 #' than the same number of independent people. The Kish (1965) design
 #' effect scales the variance by
 #'
 #' \deqn{D_{eff} = 1 + (\bar{n} - 1)\,\rho}
 #'
-#' where \eqn{\bar{n}} is the mean cluster size and \eqn{\rho} the
+#' where \eqn{\bar{n}} is the mean number of people per site and \eqn{\rho} the
 #' intra-cluster correlation (ICC).
 #'
 #' \emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly, also
-#' for a single cluster: people at the same site tend to be alike, so one
+#' for a single site: people at the same site tend to be alike, so one
 #' site tells you less about the whole population than the same number of
 #' people sampled separately. A value below about 1.5e-8 is treated as 0.
-#' With one person per cluster, \eqn{D_{eff} = 1}.
+#' With one person per site, \eqn{D_{eff} = 1}.
 #'
 #' \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
-#' clusters and an average cluster size above 1, the design effect is
-#' estimated as the ratio of the observed between-cluster variance of the
+#' sites and an average of more than one person per site, the design effect
+#' is estimated as the ratio of the observed between-site variance of the
 #' site proportions to the variance expected under simple random sampling,
 #'
 #' \deqn{\widehat{D_{eff}} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
@@ -101,8 +101,8 @@
 #' \eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
 #' mutually consistent. If nobody tests positive, or everybody does, the
 #' expected variance is 0 and \eqn{D_{eff} = 1}. \eqn{D_{eff} = 1} also
-#' when there is a single cluster (no variation between sites to measure)
-#' or every cluster has only one person (no two people share a site). If
+#' when there is a single site (no variation between sites to measure)
+#' or every site has only one person (no two people share a site). If
 #' everyone tested comes from one site, supply \code{icc}.
 #'
 #' \strong{3. Effective sample size.}
@@ -243,7 +243,7 @@
 #'     to lower limit}
 #'   \item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
 #'     to upper limit}
-#'   \item{method}{CI method used (as supplied)}
+#'   \item{ci_method}{CI method used (as supplied)}
 #'   \item{n_total}{Total number of people tested, \code{sum(n)}}
 #'   \item{n_eff}{Effective independent sample size before the
 #'     finite-population correction: \code{n_total / deff}}
@@ -255,8 +255,8 @@
 #'   \item{sensitivity}{Sensitivity (as supplied)}
 #'   \item{specificity}{Specificity (as supplied)}
 #'   \item{icc_used}{ICC used in the calculation. If \code{icc = NULL}, it is
-#'     the value estimated from the data (0 with a single cluster, or one
-#'     person per cluster). If \code{icc} was supplied, it is that value,
+#'     the value estimated from the data (0 with a single site, or one
+#'     person per site). If \code{icc} was supplied, it is that value,
 #'     unless it was below about 1.5e-8, then it is 0.}
 #'   \item{deff}{Design effect applied (1 when there is no clustering)}
 #'   \item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
@@ -274,7 +274,7 @@
 #' )
 #'
 #' # Clopper-Pearson interval
-#' estimate_prevalence(x = 3, n = 30, method = "clopper-pearson")
+#' estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
 #'
 #' # Imperfect diagnostic test
 #' estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
@@ -289,9 +289,22 @@ estimate_prevalence <- function(x,
                                 conf_level  = 0.95,
                                 icc         = NULL,
                                 fpc_N       = NULL,
-                                method      = "wald") {
+                                ci_method   = "wald") {
+
+  # Numbers in messages are printed in full (100000, not 1e+05), whatever
+  # the `digits` and `scipen` options.
+  num <- function(v) format(v, scientific = FALSE, digits = 15)
+  # ...except numbers far beyond any real study, shown as 1e+200.
+  huge <- function(v) if (v < 1e16) num(v) else format(v, digits = 15)
+  # A value within rounding of a whole number (such as 100 * 1.1, stored as
+  # 110.00000000000001) prints as that whole number, so say why it fails.
+  near_int <- function(v, nm)
+    if (is.finite(v) && v != round(v) &&
+        abs(v - round(v)) <= 8 * .Machine$double.eps * abs(v))
+      paste0(", which is not exactly an integer; use round(", nm, ")") else ""
 
   # ---- validate x and n ----
+  # The same checks and messages as test_difference() and test_threshold().
   if (is.logical(x) || is.logical(n))
     stop("`x` and `n` must be numeric, not logical (got class `",
          class(x)[1], "` for x, `", class(n)[1], "` for n). ",
@@ -302,51 +315,58 @@ estimate_prevalence <- function(x,
          "`", class(n)[1], "` for n).")
   if (length(x) == 0 || length(n) == 0)
     stop("`x` and `n` must each contain at least one value. ",
-         "Supply at least one cluster's count and total.")
+         "Supply at least one site's count and total.")
   # For each check below, `i` is the position of the first bad element.
   if (!all(is.finite(x))) {
     i <- which(!is.finite(x))[1]
     stop("`x` contains a missing or infinite value (found x[", i, "] = ",
-         x[i], "). The number of positives at each cluster must be a finite ",
-         "non-negative integer.")
+         num(x[i]), "). The number of positives at each site must be a ",
+         "finite non-negative integer.")
   }
   if (!all(is.finite(n))) {
     i <- which(!is.finite(n))[1]
     stop("`n` contains a missing or infinite value (found n[", i, "] = ",
-         n[i], "). The number tested at each cluster must be a finite positive ",
-         "integer.")
+         num(n[i]), "). The number tested at each site must be a finite ",
+         "positive integer.")
   }
   if (length(x) != length(n))
     stop("`x` and `n` must have the same length ",
          "(got length(x) = ", length(x), ", length(n) = ", length(n), "). ",
-         "Each value of `x` is the number of positives at one cluster, and ",
-         "each value of `n` is the number tested at that cluster.")
+         "Each value of `x` is the number of positives at one site, and ",
+         "each value of `n` is the number tested at that site.")
   if (any(x < 0)) {
     i <- which(x < 0)[1]
-    stop("`x` must be non-negative (found x[", i, "] = ", x[i], "). ",
+    stop("`x` must be non-negative (found x[", i, "] = ", num(x[i]), "). ",
          "Counts cannot be negative.")
   }
   if (any(n <= 0)) {
     i <- which(n <= 0)[1]
-    stop("`n` must be positive for every cluster (found n[", i, "] = ", n[i], "). ",
-         "Each cluster must have tested at least one person.")
+    stop("`n` must be positive for every site (found n[", i, "] = ",
+         num(n[i]), "). Each site must have tested at least one person.")
   }
   if (any(x != floor(x))) {
     i <- which(x != floor(x))[1]
-    stop("`x` must contain integers, not decimals ",
-         "(found x[", i, "] = ", x[i], ").")
+    stop("`x` must contain integers, not decimals (found x[", i, "] = ",
+         num(x[i]), near_int(x[i], "x"), ").")
   }
   if (any(n != floor(n))) {
     i <- which(n != floor(n))[1]
-    stop("`n` must contain integers, not decimals ",
-         "(found n[", i, "] = ", n[i], ").")
+    stop("`n` must contain integers, not decimals (found n[", i, "] = ",
+         num(n[i]), near_int(n[i], "n"), ").")
   }
   if (any(x > n)) {
     i <- which(x > n)[1]
-    stop("`x` cannot exceed `n` (found x[", i, "] = ", x[i],
-         " > n[", i, "] = ", n[i], "). ",
-         "The number of positives cannot be more than the number tested at ",
-         "that cluster.")
+    stop("`x` cannot exceed `n` (found x[", i, "] = ", num(x[i]),
+         " > n[", i, "] = ", num(n[i]), "). The number of positives cannot ",
+         "be more than the number tested at that site.")
+  }
+  # Above 2^53 R cannot store every integer exactly, and no real site tests
+  # this many people.
+  if (any(n > 2^53)) {
+    i <- which(n > 2^53)[1]
+    stop("`n` contains a value larger than 2^53 = 9007199254740992, ",
+         "the largest whole number R can store exactly (found n[", i,
+         "] = ", huge(n[i]), "). No real site tests this many people.")
   }
 
   # ---- validate single-value parameters ----
@@ -368,13 +388,13 @@ estimate_prevalence <- function(x,
     stop("`icc` must be a single number in [0, 1] (got class `",
          class(icc)[1], "`, length ", length(icc), "). ",
          "To estimate ICC from the data, leave `icc = NULL`.")
-  if (!is.character(method) || length(method) != 1)
-    stop("`method` must be one of ",
+  if (!is.character(ci_method) || length(ci_method) != 1)
+    stop("`ci_method` must be one of ",
          "'wald', 'clopper-pearson', or 'agresti-coull' (got class `",
-         class(method)[1], "`, length ", length(method), ").")
-  if (!method %in% c("wald", "clopper-pearson", "agresti-coull"))
-    stop("`method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' ",
-         "(got '", method, "').")
+         class(ci_method)[1], "`, length ", length(ci_method), ").")
+  if (!ci_method %in% c("wald", "clopper-pearson", "agresti-coull"))
+    stop("`ci_method` must be one of 'wald', 'clopper-pearson', or 'agresti-coull' ",
+         "(got '", ci_method, "').")
 
   # Check for NA, NaN and Inf before the range checks below.
   if (!is.finite(sensitivity))
@@ -439,7 +459,7 @@ estimate_prevalence <- function(x,
   if (!is.null(icc) && icc < sqrt(.Machine$double.eps))
     icc <- 0
 
-  n_clusters <- length(n)
+  n_sites <- length(n)
   n_total    <- sum(n)
 
   if (!is.null(fpc_N) && fpc_N < n_total)
@@ -457,12 +477,12 @@ estimate_prevalence <- function(x,
   # -----------------------------------------------------------------
   # Design effect and ICC (Kish formula)
   # -----------------------------------------------------------------
-  n_bar <- mean(n)   # mean cluster size
+  n_bar <- mean(n)   # mean number of people per site
 
   if (is.null(icc)) {
-    if (n_clusters < 2 || n_bar == 1) {
-      # Single cluster (no between-site variation to measure) or every
-      # cluster has one person (no clustering).
+    if (n_sites < 2 || n_bar == 1) {
+      # A single site (no between-site variation to measure) or every
+      # site has one person (no clustering).
       icc_used <- 0
       deff     <- 1
     } else {
@@ -480,8 +500,8 @@ estimate_prevalence <- function(x,
       deff     <- 1 + (n_bar - 1) * icc_used  # keep pair mutually consistent
     }
   } else {
-    # A supplied icc is used as given, also with a single cluster: people
-    # at one site still resemble each other. With one person per cluster
+    # A supplied icc is used as given, also with a single site: people
+    # at one site still resemble each other. With one person per site
     # this gives deff = 1.
     icc_used <- icc
     deff     <- 1 + (n_bar - 1) * icc_used
@@ -504,12 +524,12 @@ estimate_prevalence <- function(x,
   n_eff_adj <- n_eff / (fpc^2)
   alpha     <- 1 - conf_level
 
-  if (method == "wald") {
+  if (ci_method == "wald") {
     se        <- sqrt(p_hat * (1 - p_hat) / n_eff_adj)
     ci_lo_app <- max(p_hat - z * se, 0)
     ci_hi_app <- min(p_hat + z * se, 1)
 
-  } else if (method == "clopper-pearson") {
+  } else if (ci_method == "clopper-pearson") {
     # Positives scaled to n_eff_adj (not always an integer).
     x_eff <- p_hat * n_eff_adj
 
@@ -566,7 +586,7 @@ estimate_prevalence <- function(x,
   # Only for "wald": its interval is normally symmetric, so one with an end
   # moved to 0 or 1 is lopsided unexpectedly. Clopper-Pearson and
   # Agresti-Coull are asymmetric by design, and the help page says so.
-  if (method == "wald" && moe > 0 && abs(moe_lower - moe_upper) > eps)
+  if (ci_method == "wald" && moe > 0 && abs(moe_lower - moe_upper) > eps)
     message("An end of the Wald interval was moved to 0 or 1, so the ",
             "interval is asymmetric: moe_lower = ", round(moe_lower, 4),
             ", moe_upper = ", round(moe_upper, 4),
@@ -580,7 +600,7 @@ estimate_prevalence <- function(x,
     moe         = moe,
     moe_lower   = moe_lower,
     moe_upper   = moe_upper,
-    method      = method,
+    ci_method   = ci_method,
     n_total     = n_total,
     n_eff       = n_eff,
     n_eff_adj   = n_eff_adj,
