@@ -18,5 +18,5 @@ knitr::opts_chunk$set(
 library(MMSpower)
 ```
 ```{r} 
-hello_mmspower()
+design_precision(prevalence = 0.3, moe = 0.05)
 ```
