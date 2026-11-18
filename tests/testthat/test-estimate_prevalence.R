@@ -228,18 +228,20 @@ test_that("EP-C-2: icc estimated from the data (8-site example)", {
   # Observed variance of the site prevalences = 0.042917.
   # Expected variance if people were independent, using the overall
   # prevalence 87 / 550 = 0.158182: mean(0.158182 * 0.841818 / n) = 0.002101.
-  # deff = 0.042917 / 0.002101 = 20.43; icc = (20.43 - 1) / (68.75 - 1) = 0.2867
+  # deff = 0.042917 / 0.002101 = 20.43; icc = (20.43 - 1) / (68.75 - 1) = 0.2867;
+  # size-weighted mean site size 40700 / 550 = 74, so deff = 1 + 73 * 0.2867 = 21.93,
+  # n_eff = 550 / 21.93 = 25.08
   res <- estimate_prevalence(
     x = c(0, 4, 0, 22, 25, 16, 12, 8),
     n = c(60, 80, 70, 100, 40, 60, 50, 90)
   )
   expect_equal(res$n_total,    550)
   expect_equal(res$prevalence, 0.158182, tolerance = 1e-4)
-  expect_equal(res$deff,       20.425830, tolerance = 1e-4)
+  expect_equal(res$deff,       21.931152, tolerance = 1e-4)
   expect_equal(res$icc_used,   0.286728,  tolerance = 1e-4)
-  expect_equal(res$n_eff,      26.926691, tolerance = 1e-4)
-  expect_equal(res$ci_lower,   0.020352,  tolerance = 1e-4)
-  expect_equal(res$ci_upper,   0.296012,  tolerance = 1e-4)
+  expect_equal(res$n_eff,      25.078482, tolerance = 1e-4)
+  expect_equal(res$ci_lower,   0.015363,  tolerance = 1e-4)
+  expect_equal(res$ci_upper,   0.301000,  tolerance = 1e-4)
 })
 
 test_that("EP-C-3: sites of 1 person each (or a single person) give icc = 0, deff = 1", {
@@ -743,7 +745,7 @@ test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 a
     res <- suppressMessages(
       estimate_prevalence(x = 55, n = 100, sensitivity = 0.59, specificity = 0.5)
     ),
-    "`sensitivity` + `specificity` = 1.09, which is very close to 1. Correcting for this much test error makes the prevalence estimate and its confidence interval very wide",
+    "`sensitivity` + `specificity` = 1.09, which is below 1.1. Correcting for this much test error makes the prevalence estimate and its confidence interval very wide",
     fixed = TRUE
   )
   expect_equal(c(res$ci_lower, res$ci_upper), c(0, 1))
@@ -756,7 +758,7 @@ test_that("EP-V-16: sensitivity + specificity above 1 but below 1.1 warns, 1.1 a
   # The sum is shown in full, so a value just above 1 does not look like 1
   expect_warning(suppressMessages(
     estimate_prevalence(x = 55, n = 100, sensitivity = 0.5000001, specificity = 0.5)),
-    "`sensitivity` + `specificity` = 1.0000001, which is very close to 1.",
+    "`sensitivity` + `specificity` = 1.0000001, which is below 1.1.",
     fixed = TRUE)
 })
 
