@@ -14,153 +14,149 @@ test_trend(
   conf_level = 0.95,
   icc = NULL,
   fpc_N = NULL,
-  ci_method = "wls"
+  method = "cochran-armitage"
 )
 }
 \arguments{
-\item{x}{Integer vector of positive counts. One entry per timepoint, or
-one entry per cluster-by-timepoint (in which case give repeated
-\code{time} values).}
+\item{x}{Vector of integer counts of people who tested positive: one per
+timepoint, or one per site and timepoint (give the timepoint of each in
+\code{time}).}
 
-\item{n}{Integer vector of sample sizes, same length as \code{x}.}
+\item{n}{Vector of integer totals tested, the same length as \code{x}.}
 
-\item{time}{Numeric vector of timepoint coordinates, same length as
-\code{x} (e.g. calendar years or survey rounds). If \code{NULL}
-(default), \code{seq_along(x)} is used -- only sensible when there is
-one entry per timepoint.}
+\item{time}{Numeric vector giving the timepoint of each value of \code{x}
+(e.g. calendar years or survey rounds). If \code{NULL} (default),
+\code{1, 2, ...} is used, which only makes sense with one value per
+timepoint.}
 
-\item{alternative}{Direction of the alternative hypothesis:
-\code{"two.sided"} (default), \code{"greater"} (increasing), or
-\code{"less"} (decreasing).}
+\item{alternative}{Direction of the test: \code{"two.sided"} (default),
+\code{"greater"} (increasing) or \code{"less"} (decreasing).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
+who truly have the condition that the test detects as positive.
+Default 1 (the test never misses a case).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]; default 1.}
+\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
+who truly do not have the condition that the test correctly reads as
+negative. Default 1 (the test never gives a false positive).}
 
-\item{conf_level}{Confidence level for the CI on the slope; also sets the
-significance level as alpha = 1 - conf_level. Default 0.95.}
+\item{conf_level}{Confidence level for the interval on the slope, in
+[0.5, 1); default 0.95. The significance level of the test is
+1 - \code{conf_level}.}
 
-\item{icc}{Optional intra-cluster correlation. \code{NULL} (default) =
-estimate from the data when any timepoint has two or more clusters
-(rows), otherwise treat as 0. \code{0} = force SRS. A positive scalar
-is used directly \emph{only} when the data has a cluster structure
-(some timepoint has >= 2 rows); with one row per timepoint there is no
-cluster size to form a design effect from, so it is ignored and
-\code{deff = 1} (as in \code{test_threshold()}).}
+\item{icc}{Optional. Intra-cluster correlation, in [0, 1]. If \code{NULL}
+(default), it is estimated from the timepoints with two or more sites.
+Set to \code{0} for no clustering. It is only used when some timepoint
+has two or more sites; otherwise it is ignored (with a warning). Values
+below about 1.5e-8 are treated as 0.}
 
-\item{fpc_N}{Optional finite-population size \strong{per timepoint}.
-\code{NULL} (default) = no FPC.}
+\item{fpc_N}{Optional positive integer. Population size \strong{per
+timepoint}, for a finite-population correction; must be larger than the
+number tested at every timepoint. \code{NULL} (default) = no
+finite-population correction applied.}
 
-\item{ci_method}{Reserved for future methods; currently only
-\code{"wls"} (weighted least squares) is implemented.}
+\item{method}{Method for the test and the interval on the slope. Only
+\code{"cochran-armitage"} is available.}
 }
 \value{
-A named list:
-\item{slope}{Rogan-Gladen corrected slope (true prevalence change per
-unit time).}
-\item{slope_app}{Apparent-scale slope.}
-\item{statistic}{z-statistic for the slope.}
+A named list with the following fields, in the order returned:
+\item{slope}{Estimated change in true prevalence per unit of time.}
+\item{slope_app}{Estimated change in measured prevalence per unit of
+time.}
+\item{statistic}{The z-statistic.}
 \item{p_value}{p-value for the chosen \code{alternative}.}
-\item{reject}{Logical: \code{TRUE} if \code{p_value < 1 - conf_level}.}
+\item{reject}{\code{TRUE} if \code{p_value} is below
+1 - \code{conf_level}.}
 \item{alternative}{As supplied.}
-\item{ci_lower, ci_upper}{Confidence interval on the true-scale slope
-at \code{conf_level}, matched to \code{alternative}: \code{ci_upper}
-is \code{Inf} for \code{"greater"}, \code{ci_lower} is \code{-Inf}
-for \code{"less"}. So \code{reject} agrees with whether 0 lies
-outside the interval.}
+\item{ci_lower, ci_upper}{Confidence interval for the true slope;
+\code{ci_upper} is \code{Inf} for \code{"greater"} and \code{ci_lower}
+is \code{-Inf} for \code{"less"}.}
 \item{prevalence_start_est, prevalence_end_est}{Fitted true prevalence
-at the earliest and latest observed timepoint, clamped to \link{0, 1}.}
-\item{times}{Sorted unique timepoints.}
-\item{apparent_prev}{Apparent prevalence at each unique timepoint.}
-\item{x_by_time, n_by_time}{Pooled positives and totals per timepoint.}
-\item{n_timepoints}{Number of unique timepoints.}
-\item{n_total}{Total samples.}
+at the first and last timepoint, between 0 and 1.}
+\item{times}{The timepoints, sorted.}
+\item{apparent_prev}{Measured prevalence at each timepoint.}
+\item{x_by_time, n_by_time}{Positives and number tested at each
+timepoint.}
+\item{n_timepoints}{Number of timepoints.}
+\item{n_total}{Total number of people tested.}
 \item{conf_level}{As supplied.}
 \item{sensitivity, specificity}{As supplied.}
-\item{icc_used}{ICC applied (estimated or supplied).}
-\item{deff}{Design effect applied to the weights.}
+\item{icc_used}{ICC used. If \code{icc = NULL}, it is the value
+estimated from the data. If \code{icc} was supplied, it is that value,
+unless it was below about 1.5e-8 or was ignored (no timepoint with two
+or more sites), then it is 0.}
+\item{deff}{Design effect applied at every timepoint (1 with no
+clustering).}
 \item{fpc_N}{As supplied, or \code{NULL}.}
-\item{method}{\code{"wls"}.}
+\item{method}{\code{"cochran-armitage"}.}
 }
 \description{
-Analysis function: given observed positive counts at several timepoints
-(optionally with multiple clusters per timepoint), fits a weighted
-least-squares line to the apparent prevalences and tests whether the
-slope differs from zero. Returns the slope estimate on the true-prevalence
-scale, a confidence interval, a z-statistic, a p-value, and a
-reject / fail-to-reject decision.
+Analysis function: given the number of positives and the number tested at
+several timepoints (optionally at several sites per timepoint), fits a
+straight line to the measured prevalences and tests whether its slope
+differs from zero. Returns the estimated change in true prevalence per
+unit of time with a confidence interval, the z-statistic, the p-value
+and whether the trend is significant. It is the analysis twin of
+\code{design_trend()}.
 
-The fit is done on the apparent scale with inverse-variance (binomial)
-weights; the slope and its CI are divided by \eqn{(Se + Sp - 1)} to return
-to the true scale. Clustering is folded in as a single design-effect
-inflation of the weights, mirroring \code{test_threshold()} /
-\code{test_difference()}.
+The line is fitted to the measured (apparent) prevalences, weighting each
+timepoint by the number of people tested there, and the slope is tested
+with the Cochran-Armitage trend test. The slope and its interval are then
+divided by \eqn{Se + Sp - 1} to give the trend in true prevalence.
+Clustering is allowed for with one design effect applied to every
+timepoint.
 
-This is the analysis complement to \code{design_trend()}.
-
-\strong{Hypothesis} (\eqn{\beta} is the true-prevalence slope):
+\strong{Hypotheses} (\eqn{\beta} is the slope of true prevalence):
 \describe{
-\item{\code{"two.sided"} (default)}{H0: \eqn{\beta = 0} vs
-Ha: \eqn{\beta \ne 0}.}
-\item{\code{"greater"}}{H0: \eqn{\beta \le 0} vs Ha: \eqn{\beta > 0}
-(an increasing trend).}
-\item{\code{"less"}}{H0: \eqn{\beta \ge 0} vs Ha: \eqn{\beta < 0}.}
+\item{\code{"two.sided"} (default)}{H0: \eqn{\beta = 0} against
+H1: \eqn{\beta \ne 0}.}
+\item{\code{"greater"}}{H0: \eqn{\beta \le 0} against H1:
+\eqn{\beta > 0} (an increasing trend).}
+\item{\code{"less"}}{H0: \eqn{\beta \ge 0} against H1:
+\eqn{\beta < 0} (a decreasing trend).}
 }
 }
 \details{
-\strong{Model.} Counts are aggregated to unique timepoints
-\eqn{(t_j, X_j, N_j)}, giving apparent prevalences
-\eqn{\hat p_j = X_j / N_j} with variance \eqn{\hat p_j (1 - \hat p_j)/N_j}
-(a \eqn{(X_j + 0.5)/(N_j + 1)} plug-in is used for the weight when
-\eqn{X_j} is 0 or \eqn{N_j}). The weighted least-squares slope and its
-variance are
+\strong{Line.} The counts are added up within each timepoint, giving
+\eqn{X_j} positives of \eqn{N_j} tested at time \eqn{t_j}, and measured
+prevalence \eqn{\hat p_j = X_j / N_j}. Each timepoint is weighted by its
+number tested divided by the design effect, \eqn{w_j = N_j / D_{eff}}
+(with \code{fpc_N}, also divided by the finite-population factor
+\eqn{(N - N_j)/(N - 1)}). The slope is
 
-\deqn{\hat\beta_{app} = \frac{\sum_j w_j (t_j - \bar t_w)\,\hat p_j}
-  {\sum_j w_j (t_j - \bar t_w)^2}, \qquad
-  \mathrm{Var}(\hat\beta_{app}) = \frac{1}{\sum_j w_j (t_j - \bar t_w)^2},}
+\deqn{\hat\beta_{app} = \frac{\sum_j w_j (t_j - \bar t)\,\hat p_j}
+  {\sum_j w_j (t_j - \bar t)^2},}
 
-with weights \eqn{w_j = 1 / \mathrm{Var}(\hat p_j)} divided by the design
-effect and, if requested, by the squared FPC factor
-\eqn{(N_{pop} - N_j)/(N_{pop} - 1)}. The z-statistic is
-\eqn{\hat\beta_{app} / \sqrt{\mathrm{Var}(\hat\beta_{app})}}; the true-scale
-slope and CI follow by dividing by \eqn{(Se + Sp - 1)}. The CI is
-matched to \code{alternative}: one-sided \eqn{[L, \infty)} for
-\code{"greater"}, \eqn{(-\infty, U]} for \code{"less"}, two-sided for
-\code{"two.sided"}, so \code{reject} agrees with whether 0 is outside it.
+where \eqn{\bar t} is the weighted mean time.
 
-\strong{Design effect.} With \code{icc = NULL}, a Kish design effect is
-estimated from the between-cluster spread within each timepoint that has
-at least two clusters, averaged, and applied as
-\eqn{1 + (\bar n - 1)\,\widehat{ICC}} where \eqn{\bar n} is the mean
-cluster size. This is a single uniform inflation -- a full mixed-model
-treatment of cluster-by-time structure is future work.
+\strong{Test.} If prevalence is not changing, every timepoint has the
+same prevalence, estimated by the weighted mean \eqn{\bar p} of the
+\eqn{\hat p_j}. The slope then has variance
+\eqn{\bar p (1 - \bar p) / \sum_j w_j (t_j - \bar t)^2}, and the
+z-statistic is \eqn{\hat\beta_{app}} divided by the square root of this
+variance. This is the Cochran-Armitage trend test. Without sites and
+\code{fpc_N} it gives the same p-value as R's \code{prop.trend.test()}.
+
+\strong{Interval.} For a possible slope \eqn{\beta}, take the line with
+that slope through \eqn{\bar p} at \eqn{\bar t}; where it goes below 0
+or above 1, 0 or 1 is used. Call its value at each timepoint \eqn{f_j}.
+The slope's variance if that line were true is
+\eqn{V(\beta) = \sum_j w_j (t_j - \bar t)^2 f_j (1 - f_j) /
+(\sum_j w_j (t_j - \bar t)^2)^2}. The interval holds the slopes with
+\eqn{(\hat\beta_{app} - \beta)^2 \le z^2 V(\beta)}, and its ends are
+found numerically. At \eqn{\beta = 0} this is the test above, so
+\code{reject} agrees with whether 0 is outside the interval. The slope
+and its interval are divided by \eqn{Se + Sp - 1} to give the trend in
+true prevalence. The interval matches \code{alternative}:
+\eqn{[L, \infty)} for \code{"greater"}, \eqn{(-\infty, U]} for
+\code{"less"} and two-sided for \code{"two.sided"}.
+
+\strong{Design effect.} With \code{icc = NULL}, an ICC is estimated within
+each timepoint that has two or more sites (as in
+\code{estimate_prevalence()}), and the estimates are averaged. The design
+effect \eqn{1 + (\bar n - 1) ICC}, with \eqn{\bar n} the mean number of
+people per site, is then applied to every timepoint.
 }
-\section{Equations and sources}{
-
-Building blocks from the MMS-SD Study Design Workshop
-(\url{https://mrc-ide.github.io/MMS-SD_workshop/}); the trend test
-itself is \strong{not} covered there.
-\itemize{
-\item The workshop poses "Has prevalence increased over the last 5
-years?" as a hypothesis-test question (Module 3 "Hypothesis
-testing", slide "Null hypothesis testing", lecture slides p. 8) but
-gives no method. This function fits a weighted least-squares line;
-the classical count-based alternative is the Cochran-Armitage trend
-test (Armitage 1955; Cochran 1954).
-\item \emph{Inverse-variance weights} \eqn{w_j = 1/\mathrm{Var}(\hat
-    p_j)} with \eqn{\mathrm{Var}(\hat p_j) = \hat p_j(1-\hat p_j)/N_j}
--- the binomial variance of a proportion, as in Module 1's Wald
-interval (lecture slides p. 11).
-\item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} and the
-\eqn{\mathrm{Var}_{obs}/\mathrm{Var}_{SRS}} estimator -- Module 5,
-slides "The Design Effect" / "Why is the ICC useful?" (pp. 4-5).
-\item \emph{Rogan-Gladen correction} of the slope and its CI (divide
-by \eqn{Se + Sp - 1}) -- not in the workshop; Rogan & Gladen (1978).
-\item \emph{Finite-population correction} -- not in the workshop;
-Cochran (1977).
-}
-}
-
 \examples{
 # Five annual rounds, one survey per round
 test_trend(
@@ -169,32 +165,35 @@ test_trend(
   time = 2019:2023
 )
 
-# Clustered: several sites per round
+# Clustered: two sites per round
 test_trend(
   x    = c(2, 3, 4, 5, 6, 8, 7, 10),
   n    = c(50, 45, 55, 50, 48, 52, 47, 51),
   time = c(1, 1, 2, 2, 3, 3, 4, 4)
 )
 
-# Imperfect test, one-sided (decline)
+# Imperfect diagnostic test, one-sided (a decline)
 test_trend(x = c(20, 15, 11, 7), n = rep(120, 4), time = 1:4,
            alternative = "less", sensitivity = 0.9, specificity = 0.97)
 }
 \references{
-MMS-SD Study Design Workshop, Modules 1 (Wald interval), 3 (hypothesis
-testing) and 5 (ICC / design effect).
-\url{https://mrc-ide.github.io/MMS-SD_workshop/}
+MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 
-Armitage P (1955). Tests for linear trends in proportions and
-frequencies. Biometrics 11(3):375-386.
+Armitage, P. (1955) Tests for linear trends in proportions and
+frequencies. \emph{Biometrics} \strong{11}(3), 375-386. \doi{10.2307/3001775}
 
-Cochran WG (1954). Some methods for strengthening the common chi-square
-tests. Biometrics 10(4):417-451.
+Cochran, W. G. (1954) Some methods for strengthening the common
+chi-square tests. \emph{Biometrics} \strong{10}(4), 417-451.
+\doi{10.2307/3001616}
 
-Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
-screening test. American Journal of Epidemiology 107(1):71-76.
+Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
 
-Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
+Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
+(Finite-population correction.)
+
+Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
+of a screening test. \emph{American Journal of Epidemiology}
+\strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
 }
 \seealso{
 \code{\link{design_trend}}
