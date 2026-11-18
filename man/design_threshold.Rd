@@ -8,14 +8,13 @@ design_threshold(
   threshold,
   prevalence,
   power = 0.8,
-  alternative = "greater",
+  alternative = c("greater", "less", "two.sided"),
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
   n_sites = NULL,
   n_per_site = NULL,
-  icc = 0,
-  fpc_N = NULL
+  icc = 0
 )
 }
 \arguments{
@@ -27,86 +26,52 @@ threshold). This is the value \code{test_threshold()} tests against.}
 (0, 1). It must be above \code{threshold} for
 \code{alternative = "greater"} and below it for \code{"less"}.}
 
-\item{power}{Target power, between 1 - \code{conf_level} and 1; default
-0.80. Values below 0.5 give a warning.}
+\item{power}{Target power, in (0, 1); default 0.80.}
 
 \item{alternative}{Which side of the threshold to look for, the same as
 in the \code{test_threshold()} call. \code{"greater"} (default) looks
 for a prevalence above the threshold, \code{"less"} for one below it,
 and \code{"two.sided"} for either.}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case).}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (the test
+never misses a case).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive).}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1 (the test
+never gives a false positive). \code{sensitivity + specificity} must
+exceed 1.}
 
-\item{conf_level}{Confidence level, in [0.5, 1); default 0.95. The
+\item{conf_level}{Confidence level, in (0, 1); default 0.95. The
 significance level of the test is 1 - \code{conf_level}.}
 
-\item{n_sites}{Optional positive integer. Fixes the number of sites; the
-function solves for the number of people per site. Cannot be used
-together with \code{n_per_site}.}
+\item{n_sites}{Optional whole number. Fixes the number of sites; the
+function solves for the number of people per site. Cannot be used with
+\code{n_per_site}.}
 
-\item{n_per_site}{Optional positive integer. Fixes the number of people
-per site; the function solves for the number of sites. Cannot be used
-together with \code{n_sites}. If one site already has more people than
-needed, the function stops with an error; use \code{n_sites = 1} to find
-how many people that one site needs.}
+\item{n_per_site}{Optional whole number. Fixes the number of people per
+site; the function solves for the number of sites. Cannot be used with
+\code{n_sites}.}
 
-\item{icc}{Intra-cluster correlation (ICC): how alike people in the same
-site are, from 0 (not at all) to 1 (identical). Default 0 (no
+\item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
 clustering). An \code{icc} above 0 needs \code{n_sites} or
-\code{n_per_site}, and the value given is then used exactly, however
-small. Without sites, a tiny value below about 1.5e-8, such as one left
-over from rounding in an earlier calculation, is treated as 0.}
-
-\item{fpc_N}{Optional. Population size for a finite-population
-correction: a positive integer. \code{NULL} (default) means no
-finite-population correction.}
+\code{n_per_site}.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{n}{Total number of people needed: the smallest number from which
-every larger number also reaches the target power (see Details). With
-sites, \code{n_sites * n_per_site}.}
-\item{n_first}{The smallest total number of people that reaches the
-target power. Some numbers between \code{n_first} and \code{n} fall
-below it.}
-\item{n_eff}{The number of people needed with no sites and no
-\code{fpc_N}, worked out the same way as \code{n}. Clustering raises
-\code{n} above it and \code{fpc_N} can lower \code{n} below it. With
-sites, only whole sites are checked, so with a small ICC \code{n} can
-also come out a little below it.}
-\item{n_sites}{Number of sites: solved for when \code{n_per_site} is
-given, echoed when \code{n_sites} is given. If the study needs fewer
-people than there are sites, fewer sites are used, with 1 person at
-each, and a warning says so. \code{NULL} with no clustering.}
-\item{n_per_site}{People per site: solved for when \code{n_sites} is
-given, echoed when \code{n_per_site} is given. \code{NULL} with no
-clustering.}
-\item{threshold}{The threshold, as supplied.}
-\item{prevalence}{The true prevalence, as supplied.}
-\item{apparent_prev}{The prevalence the test would measure.}
-\item{threshold_app}{The threshold on the measured scale.}
-\item{power}{Target power, as supplied.}
-\item{alternative}{Which side of the threshold was looked for, as
-supplied.}
-\item{conf_level}{Confidence level, as supplied.}
-\item{sensitivity}{Sensitivity, as supplied.}
-\item{specificity}{Specificity, as supplied.}
-\item{icc}{ICC, as supplied.}
+A list with:
+\item{n}{Total number of people needed. With sites,
+\code{n_sites * n_per_site}.}
+\item{n_sites}{Number of sites (\code{NULL} with no clustering).}
+\item{n_per_site}{People per site (\code{NULL} with no clustering).}
 \item{deff}{Design effect of the returned design,
 \code{1 + (n_per_site - 1) * icc} (1 with no clustering).}
-\item{fpc_N}{\code{fpc_N}, as supplied, or \code{NULL}.}
+\item{n_eff}{Number of independent people needed: the exact answer
+with no clustering.}
 }
 \description{
 Design function: given a decision threshold and the true prevalence
 expected in the population, returns the number of people needed for
-\code{test_threshold()} to show that the prevalence is above (or below)
-the threshold with the target power.
+\code{test_threshold()} (with its default exact binomial test) to show
+that the prevalence is above (or below) the threshold with the target
+power.
 
 Three designs are supported:
 \describe{
@@ -119,40 +84,54 @@ people needed per site.}
 }
 }
 \details{
-\strong{Exact power.} The power of a design is the chance that
-\code{test_threshold()}, which uses an exact binomial test, finds the
-difference when the true prevalence is \code{prevalence}. It is worked out
-from the binomial distribution itself, for every possible number of
-positives, not from a normal approximation.
+\strong{Exact power.} The power of a design is the chance that the exact
+binomial test in \code{test_threshold()} rejects when the true prevalence
+is \code{prevalence}. For \eqn{n} people and \code{alternative =
+"greater"}, the test rejects when the number of positives \eqn{X} is at
+least the critical count \eqn{k}, the smallest count with
+\eqn{P(X \ge k \mid \theta_{app}) < \alpha}; the power is then
+\eqn{P(X \ge k \mid p_{app})}. \code{"less"} is the mirror image, and
+\code{"two.sided"} adds the two tails, each at \eqn{\alpha / 2}. This is
+worked out from the binomial distribution itself, not from a normal
+approximation, which can undersize the study badly at low prevalence.
 
-\strong{Why two numbers.} With an exact test, power does not always go up
-when people are added: the counts are whole numbers, so the cut-off for a
-significant result jumps, and power goes up and down in a saw-tooth.
+\strong{Saw-tooth power and the choice of n.} With an exact test, power
+does not always go up when people are added: counts are whole numbers,
+so the critical count jumps, and power goes up and down in a saw-tooth.
 For example, with \code{threshold = 0.10}, \code{prevalence = 0.05},
 \code{alternative = "less"} and 95 percent confidence, 179 people give
 81.3 percent power, 182 to 190 people all give less than 80 percent, and
-every number from 203 on gives at least 80 percent. \code{n} is the safe
-number (203): the smallest number from which every larger number also
-reaches the target power, so a few extra people never drop the study
-below it. \code{n_first} is the smallest number that reaches it (179).
-
-\strong{Sites and population size.} These enter as in
-\code{test_threshold()}: the effective size is \eqn{n / D_{eff}}, with the
-design effect \eqn{D_{eff} = 1 + (n_{per site} - 1) ICC}, and with
-\code{fpc_N} (the population size \eqn{N}) it is divided further by
-\eqn{(N - n)/(N - 1)}. With \code{n_per_site} fixed the search is over
-the number of sites; with \code{n_sites} fixed it is over the number of
-people per site. The power assumes the analysis uses the same ICC.
-With sites the power is approximate: in simulations of 12 designs with a
-target of 0.80, \code{test_threshold()} reached 0.78 to 0.82 with the ICC
-supplied, and as low as 0.74 when the ICC was estimated from the data
-(\code{icc = NULL}).
+every number from 203 on gives at least 80 percent. The function returns
+the larger number (203): the smallest \eqn{n} from which every larger
+\eqn{n} also reaches the target power. This is the safe choice, as a few
+extra (or a few lost) people never drop the study below the target.
+Sample sizes up to 10,000 are checked; a design needing more than that
+without clustering stops with an error.
 
 \strong{Imperfect test.} The test is worked out on the measured scale: a
 true prevalence \eqn{p} is measured as
 \eqn{p_{app} = p \cdot Se + (1-p)(1-Sp)}, and the same for the threshold.
 The measured gap is the true gap times \eqn{Se + Sp - 1}, so an imperfect
 test needs more people.
+
+\strong{Clustering.} The exact search above gives \eqn{n_0}, the number
+of independent people needed (returned as \code{n_eff}). Clustering is
+then allowed for with the design effect, as in
+\code{design_precision()}: with \code{n_per_site} fixed,
+\eqn{n = n_0 \cdot D_{eff}} with \eqn{D_{eff} = 1 + (n_{per site} - 1)
+ICC}; with \code{n_sites} fixed,
+
+\deqn{n = \frac{n_0 \cdot n_{sites} \cdot (1-ICC)}{n_{sites} - n_0 \cdot ICC}}
+
+which exists only when \eqn{n_{sites} > n_0 \cdot ICC} (each site is
+worth at most \eqn{1/ICC} independent people, however many are sampled
+there); otherwise the function stops. The number of sites (or people per
+site) is then rounded up, and \code{n} is \code{n_sites * n_per_site}.
+Scaling the exact unclustered answer by the design effect is an
+approximation: the effective sample size \eqn{n / D_{eff}} of the
+returned design is at least \eqn{n_0}, but need not sit on the
+saw-tooth exactly where \eqn{n_0} does. The power assumes the analysis
+uses the same ICC.
 }
 \examples{
 # Show that prevalence is above a 5 percent threshold when it is really
@@ -172,14 +151,7 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
 \references{
 MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 
-Clopper, C. J. & Pearson, E. S. (1934) The use of confidence or fiducial
-limits illustrated in the case of the binomial. \emph{Biometrika}
-\strong{26}(4), 404-413. \doi{10.1093/biomet/26.4.404}
-
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
-
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}
