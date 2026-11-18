@@ -2,6 +2,7 @@
 
 export(design_difference)
 export(design_precision)
+export(estimate_prevalence)
 export(design_threshold)
 export(hello_mmspower)
 export(test_difference)
