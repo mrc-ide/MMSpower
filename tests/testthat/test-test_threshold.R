@@ -588,6 +588,8 @@ test_that("TH-V-4: sensitivity and specificity: type, NaN and Inf, and range", {
     "`specificity` must be in (0, 1] (got 1.1). `specificity` is a diagnostic probability and cannot be greater than 1.")
   e(test_threshold(30, 100, 0.2, specificity = 0),
     "`specificity` must be in (0, 1] (got 0). A specificity of 0 means everyone who truly does not have the condition tests positive.")
+  e(test_threshold(30, 100, 0.2, specificity = -0.5),
+    "`specificity` must be in (0, 1] (got -0.5). `specificity` is a diagnostic probability and cannot be negative.")
 })
 
 test_that("TH-V-5: sensitivity + specificity of 1 or less is rejected; below 1.1 warns, after all checks", {

@@ -401,6 +401,9 @@ test_that("DT-V-1: threshold and prevalence must be strictly between 0 and 1", {
   expect_error(design_threshold(0.05, 1.2),
                "`prevalence` must be in (0, 1) (got 1.2). `prevalence` is a fraction of the population and cannot be greater than 1.",
                fixed = TRUE)
+  expect_error(design_threshold(0.05, -0.1),
+               "`prevalence` must be in (0, 1) (got -0.1). `prevalence` is a fraction of the population and cannot be negative.",
+               fixed = TRUE)
   # Large values are printed in full, not as 1e+05
   expect_error(design_threshold(1e5, 0.10), "`threshold` must be in (0, 1) (got 100000).", fixed = TRUE)
 })
@@ -523,6 +526,12 @@ test_that("DT-V-7: sensitivity and specificity range checks give the right messa
   expect_error(design_threshold(0.05, 0.10, sensitivity = 0),
                "`sensitivity` must be in (0, 1] (got 0). A sensitivity of 0 means everyone who truly has the condition tests negative.",
                fixed = TRUE)
+  expect_error(design_threshold(0.05, 0.10, sensitivity = -0.5),
+               "`sensitivity` must be in (0, 1] (got -0.5). `sensitivity` is a diagnostic probability and cannot be negative.",
+               fixed = TRUE)
+  expect_error(design_threshold(0.05, 0.10, specificity = 1.5),
+               "`specificity` must be in (0, 1] (got 1.5). `specificity` is a diagnostic probability and cannot be greater than 1.",
+               fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, specificity = -0.5),
                "`specificity` must be in (0, 1] (got -0.5). `specificity` is a diagnostic probability and cannot be negative.",
                fixed = TRUE)
@@ -586,6 +595,9 @@ test_that("DT-V-12: n_sites, n_per_site and fpc_N must be single positive intege
                "`n_sites` must be a single finite positive integer (got 2.5). `n_sites` is the number of sites.", fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, n_sites = c(2, 3), icc = 0.05),
                "`n_sites` must be a single finite positive integer (got length = 2).", fixed = TRUE)
+  expect_error(design_threshold(0.05, 0.10, n_per_site = c(10, 20)),
+               "`n_per_site` must be a single finite positive integer (got length = 2). `n_per_site` is the fixed number of people sampled per site.",
+               fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, n_sites = "10", icc = 0.05),
                "`n_sites` must be a single finite positive integer (got class `character`).", fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, n_per_site = 0, icc = 0.05),
@@ -620,6 +632,10 @@ test_that("DT-V-12: n_sites, n_per_site and fpc_N must be single positive intege
                fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, n_sites = 1e17, icc = 0.05),
                "`n_sites` (1e+17) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real study has this many sites.",
+               fixed = TRUE)
+  # Just above 2^53 but below 1e16: printed in full
+  expect_error(design_threshold(0.05, 0.10, n_sites = 9.1e15, icc = 0.05),
+               "`n_sites` (9100000000000000) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real study has this many sites.",
                fixed = TRUE)
   expect_error(design_threshold(0.05, 0.10, n_per_site = 1e17, icc = 0.05),
                "`n_per_site` (1e+17) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real site has this many people.",
