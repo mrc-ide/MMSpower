@@ -670,7 +670,7 @@ test_that("DD-V-8: sensitivity + specificity of 1 or less is rejected, including
 test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showing the full sum", {
   expect_warning(
     res <- design_difference(0.1, 0.5, sensitivity = 0.55, specificity = 0.5),
-    paste0("`sensitivity` + `specificity` = 1.05, which is very close to 1. The test then barely tells apart people ",
+    paste0("`sensitivity` + `specificity` = 1.05, which is below 1.1. The test then barely tells apart people ",
            "with and without the condition, so the required n is very large, and small changes in the assumed ",
            "sensitivity or specificity will change n a lot."),
     fixed = TRUE)
@@ -679,7 +679,7 @@ test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showin
   # need more than a trillion people per group, which stops (see DD-10)
   expect_error(
     expect_warning(design_difference(0.1, 0.5, sensitivity = 0.5000001, specificity = 0.5),
-                   "= 1.0000001, which is very close to 1.", fixed = TRUE),
+                   "= 1.0000001, which is below 1.1.", fixed = TRUE),
     "more than a trillion", fixed = TRUE)
   # The warning comes only after every check has passed: not before an
   # unrelated error
@@ -689,7 +689,7 @@ test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showin
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.61, specificity = 0.5))
   # The cutoff: 1.09 warns, 1.10 does not
   expect_warning(design_difference(0.1, 0.5, sensitivity = 0.59, specificity = 0.5),
-                 "= 1.09, which is very close to 1.", fixed = TRUE)
+                 "= 1.09, which is below 1.1.", fixed = TRUE)
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.6, specificity = 0.5))
   # A sum of 1.1 that rounding puts a hair below it (0.15 + 0.95) does not warn
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.15, specificity = 0.95))

@@ -501,7 +501,7 @@ design_difference <- function(prevalence1,
   # does not warn.
   if (correction < 0.1 - 1e-12)
     warning("`sensitivity` + `specificity` = ", num(sensitivity + specificity),
-            ", which is very close to 1. The test then barely tells apart ",
+            ", which is below 1.1. The test then barely tells apart ",
             "people with and without the condition, so the required n is very ",
             "large, and small changes in the assumed sensitivity or ",
             "specificity will change n a lot.")
