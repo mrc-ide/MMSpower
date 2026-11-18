@@ -237,11 +237,7 @@ estimate_prevalence <- function(x,
   ci_app <- pmin(pmax(ci_app, 0), 1)
 
   # Rogan-Gladen correction to the true-prevalence scale, kept in [0, 1]
-  ci_true <- .rogan_gladen(ci_app, sensitivity, specificity)
-  if (ci_true[2] < 0 || ci_true[1] > 1)
-    warning("The corrected interval lies entirely outside [0, 1], so the data ",
-            "do not fit the assumed sensitivity and specificity.", call. = FALSE)
-  ci_true    <- pmin(pmax(ci_true, 0), 1)
+  ci_true    <- .correct_ci(ci_app, sensitivity, specificity)
   prevalence <- min(max(.rogan_gladen(p_hat, sensitivity, specificity), 0), 1)
 
   list(

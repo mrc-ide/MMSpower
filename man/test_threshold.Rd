@@ -8,21 +8,20 @@ test_threshold(
   x,
   n,
   threshold,
-  alternative = "greater",
+  alternative = c("greater", "less", "two.sided"),
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  fpc_N = NULL,
-  ci_method = "clopper-pearson"
+  method = c("exact", "wald")
 )
 }
 \arguments{
-\item{x}{Vector of integer counts of people who tested positive, one per
-site (a single number for one site).}
+\item{x}{Vector of whole-number counts of people who tested positive, one
+per site (a single number for one site).}
 
-\item{n}{Vector of integer totals tested, one per site (same length as
-\code{x}).}
+\item{n}{Vector of whole-number totals tested, one per site (same length
+as \code{x}).}
 
 \item{threshold}{Decision threshold for the true prevalence, strictly
 between 0 and 1 (for example 0.05 for the WHO pfhrp2/3 deletion
@@ -32,78 +31,49 @@ threshold).}
 prevalence above the threshold), \code{"less"} (below it) or
 \code{"two.sided"} (different from it).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case).}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (the test
+never misses a case).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive).}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1 (the test
+never gives a false positive). \code{sensitivity + specificity} must
+exceed 1.}
 
-\item{conf_level}{Confidence level for the interval on the true
-prevalence, in [0.5, 1); default 0.95. The significance level of the
-test is 1 - \code{conf_level}.}
+\item{conf_level}{Confidence level for the interval, in (0, 1); default
+0.95. The significance level of the test is 1 - \code{conf_level}.}
 
-\item{icc}{Optional. Intra-cluster correlation (ICC): how alike people in
-the same site are, from 0 (not at all) to 1 (identical). If
-\code{NULL} (default), it is estimated from the sites. A number is
-used exactly as given, however small: with very large sites even a
-tiny ICC changes the design effect. It is also used with only one site
-(see Details). Set to \code{0} for no clustering.}
+\item{icc}{Optional. Intra-cluster correlation (ICC), in [0, 1]. If
+\code{NULL} (default), it is estimated from the sites. Set to \code{0}
+for no clustering. A supplied value is also used with only one site
+(see Details).}
 
-\item{fpc_N}{Optional. Population size for a finite-population
-correction: a positive integer, larger than the total number tested.
-\code{NULL} (default) means no finite-population correction.}
-
-\item{ci_method}{Method for the interval on the true prevalence:
-\code{"clopper-pearson"} (default), the interval that matches the
-exact test, so that \code{reject} is \code{TRUE} exactly when
-\code{threshold} is outside it; \code{"agresti-coull"} (a Wald interval
-after adding the same number of extra positives and negatives); or
-\code{"wald"} (the measured prevalence plus or minus z standard
-errors). \code{"agresti-coull"} and \code{"wald"} can occasionally leave
-out the threshold when the test does not reject, or include it when it
-does, and \code{"wald"} can be too narrow with small samples or a
-prevalence near 0 (see Details). It changes only the interval, not the
-test.}
+\item{method}{\code{"exact"} (default): exact binomial test with the
+Clopper-Pearson interval. \code{"wald"}: Wald z-test with the Wald
+interval. Each interval is its own test turned around, so
+\code{reject} is \code{TRUE} exactly when \code{threshold} is outside
+the interval, whichever method is used.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{statistic}{Effective number of positives the exact test uses: the
-measured prevalence times \code{n_eff_adj}. It equals \code{sum(x)}
-when the design effect is 1 and \code{fpc_N} is \code{NULL}.}
+A list with:
 \item{p_value}{p-value for the chosen \code{alternative}.}
 \item{reject}{\code{TRUE} if \code{p_value} is below
 1 - \code{conf_level}.}
-\item{threshold}{Decision threshold, as supplied.}
-\item{alternative}{Direction of the test, as supplied.}
 \item{prevalence}{Estimated true prevalence (Rogan-Gladen corrected,
 between 0 and 1).}
 \item{ci_lower, ci_upper}{Confidence interval for the true prevalence;
 \code{ci_upper} is 1 for \code{"greater"} and \code{ci_lower} is 0
 for \code{"less"}.}
-\item{ci_method}{Interval method, as supplied.}
-\item{n_total}{Total number of people tested, \code{sum(n)}.}
-\item{n_eff}{Effective sample size before the finite-population
-correction: \code{n_total / deff}.}
-\item{n_eff_adj}{Effective sample size the test and interval use, after
-the finite-population correction (equals \code{n_eff} when
-\code{fpc_N} is \code{NULL}).}
-\item{conf_level}{Confidence level, as supplied.}
-\item{sensitivity, specificity}{As supplied.}
-\item{icc_used}{ICC used: the value supplied or, if \code{icc = NULL},
-the value estimated from the data (0 with one site, or one person per
-site).}
+\item{n_eff}{Effective sample size, \code{sum(n) / deff}.}
+\item{icc}{ICC used: as supplied, or estimated from the data.}
 \item{deff}{Design effect used (1 with no clustering).}
-\item{fpc_N}{\code{fpc_N}, as supplied, or \code{NULL}.}
 }
 \description{
 Analysis function: given the number of positives and the number tested
 at one or more sites, tests whether the true prevalence is above (or
-below) a decision threshold, with an exact binomial test. Returns the
-p-value, whether the result is significant, and a confidence interval
-for the true prevalence that agrees with the test. It is the analysis
-twin of \code{design_threshold()}.
+below) a decision threshold, with an exact binomial test (default) or a
+Wald z-test. Returns the p-value, whether the result is significant, and
+the confidence interval for the true prevalence that matches the test:
+Clopper-Pearson for the exact test, Wald for the Wald test. It is the
+analysis twin of \code{design_threshold()}.
 
 With a perfect diagnostic test, the share of people who test positive is
 the prevalence, and it is compared with the threshold directly. With an
@@ -141,85 +111,75 @@ the right choice.}
 \details{
 \strong{Design effect} (returned as \code{deff}). It is
 \eqn{1 + (n_w - 1) ICC}, where \eqn{n_w = \sum n^2 / \sum n} is the
-mean number of people per site, weighted by site size (the plain mean
-when all sites are the same size). With \code{icc} supplied (for example from earlier
-surveys), that value is used. Supply \code{icc} with one site only when
-the site stands for a wider population, such as a district; if the site
-itself is the population of interest, leave \code{icc = NULL}. With
-\code{icc = NULL}, the design effect is worked out from the data as in
-\code{estimate_prevalence()}: the variance of the site prevalences
-divided by the variance expected if everyone were independent. This
-needs at least two sites; with one site the design effect is set to 1.
-The ICC that goes with it (returned as \code{icc_used}) is kept between
-0 and 1, so the design effect is between 1 and \eqn{n_w}. With one
-person per site the design effect is 1.
+mean number of people per site, weighted by site size. With \code{icc}
+supplied (for example from earlier surveys), that value is used. Supply
+\code{icc} with one site only when the site stands for a wider
+population, such as a district; if the site itself is the population of
+interest, leave \code{icc = NULL}. With \code{icc = NULL}, the ICC is
+estimated from the data as in \code{estimate_prevalence()}; this needs
+at least two sites, and with one site the design effect is 1.
 
-\strong{Effective sample size.} \eqn{m} (returned as \code{n_eff_adj})
-is the number tested divided by the design effect, then divided by the
-finite-population factor \eqn{(N - n)/(N - 1)} when \code{fpc_N} is
-given (\eqn{n} the number tested, \eqn{N} the population size). The
-number of positives is scaled the same way, to \eqn{\hat{p} m}
-(returned as \code{statistic}), where \eqn{\hat{p} = \sum x / \sum n}
-is the measured prevalence.
+\strong{Effective sample size.} \eqn{m} (returned as \code{n_eff}) is the
+number tested divided by the design effect. The number of positives is
+scaled the same way, to \eqn{\hat{p} m}, where
+\eqn{\hat{p} = \sum x / \sum n} is the measured prevalence. Neither need
+be a whole number: the binomial tail probabilities are worked out
+through the beta distribution, which equals \code{pbinom()} for whole
+numbers.
 
-\strong{Test.} Suppose the true prevalence is exactly at the threshold. For
-\code{"greater"}, the p-value is the chance of at least as many positives
-as observed; for \code{"less"}, the chance of at most as many. The
-threshold is first converted to the measured scale:
-\eqn{threshold \times Se + (1 - threshold)(1 - Sp)}. With one site and no
-\code{fpc_N}, the one-sided p-values are exactly those of R's
-\code{binom.test()}.
+\strong{Exact test} (\code{method = "exact"}). Suppose the true
+prevalence is exactly at the threshold. For \code{"greater"}, the p-value
+is the chance of at least as many positives as observed; for
+\code{"less"}, the chance of at most as many. The threshold is first
+converted to the measured scale, \eqn{\theta_{app} = \theta \cdot Se +
+(1 - \theta)(1 - Sp)}. With one site and a design effect of 1, the
+one-sided p-values are exactly those of R's \code{binom.test()}.
 
-\strong{Two-sided p-value.} Twice the smaller of the two one-sided
-p-values, at most 1. This matches the two-sided Clopper-Pearson
-interval (the "central" two-sided exact test; Fay 2010, R Journal 2(1)).
-It is cautious: the false alarm rate is at most
-1 - \code{conf_level}, and often well below it. It can differ from
-\code{binom.test()}, which adds up all counts that are less likely than
-the one observed.
+\strong{Wald test} (\code{method = "wald"}). The normal approximation,
 
-\strong{Interval.} The interval is matched to \code{alternative}:
-\eqn{[L, 1]} for \code{"greater"}, \eqn{[0, U]} for \code{"less"}, and
-the two-sided interval for \code{"two.sided"}. The Clopper-Pearson
-interval (default) holds the thresholds the test would not reject,
-so \code{reject} is \code{TRUE} exactly when \code{threshold} is outside
-it. It is built on the measured scale and then corrected for an
-imperfect test, with ends below 0 or above 1 set to 0 or 1.
+\deqn{z = \frac{\hat{p} - \theta_{app}}{\sqrt{\hat{p}(1 - \hat{p}) / m}}}
 
-\code{"agresti-coull"} adds \eqn{z^2/2} positives and \eqn{z^2/2}
-negatives (about 1.92 of each for a two-sided 95 percent interval) and
-then works out a Wald interval. It can disagree with \code{reject}
-near the threshold.
+with the standard error worked out at the measured prevalence
+\eqn{\hat{p}}. The one-sided p-values are the normal tail areas above
+and below \eqn{z}. It can be too optimistic for small samples or a
+prevalence near 0; with no positives (or all positive) the standard
+error is 0, and any threshold on the other side counts as rejected.
 
-\code{"wald"} is \eqn{\hat{p} \pm z \sqrt{\hat{p}(1 - \hat{p})/m}}. It
-can disagree with \code{reject}, and with a prevalence near 0 it can be
-too narrow: with 100 people and a true prevalence of 5 percent, a
-two-sided 95 percent interval contains the true prevalence only about 88
-percent of the time (Clopper-Pearson 98, Agresti-Coull 97). When the
-interval has zero width, a warning is given. That happens at a measured
-prevalence of 0 unless \code{alternative} is \code{"greater"}, and at 1
-unless it is \code{"less"}.
+\strong{Two-sided p-value.} For both methods, twice the smaller of the
+two one-sided p-values, at most 1. For the exact test this is the
+"central" two-sided exact test (Fay 2010), the one that matches the
+two-sided Clopper-Pearson interval. It is cautious: the false alarm rate
+is at most 1 - \code{conf_level}, and often well below it. It can differ
+from \code{binom.test()}, which adds up all counts that are less likely
+than the one observed.
 
-If the whole corrected interval lies below 0, both ends are set to 0 and
-the interval has zero width (likewise above 1). This happens when there
-are fewer positives than false positives alone would produce at the
-given specificity (or more positives than the sensitivity allows). The
-function warns that this zero width is not real precision.
+\strong{Interval.} The interval is the test turned around: it holds the
+thresholds the test would not reject, so \code{reject} is \code{TRUE}
+exactly when \code{threshold} is outside it. It is matched to
+\code{alternative}: \eqn{[L, 1]} for \code{"greater"}, \eqn{[0, U]} for
+\code{"less"}, and the two-sided interval (\eqn{\alpha/2} in each tail)
+for \code{"two.sided"}. For the exact test it is the Clopper-Pearson
+interval,
 
-When \eqn{Se + Sp} is below 1.1 a warning is given: the correction divides by
-\eqn{Se + Sp - 1}, so the prevalence and its interval become very wide.
+\deqn{L = B^{-1}(\alpha;\; x_{eff},\; m - x_{eff} + 1), \qquad
+      U = B^{-1}(1 - \alpha;\; x_{eff} + 1,\; m - x_{eff})}
 
-\strong{When to use DRpower instead.} This function allows for imperfect
-diagnostic tests (sensitivity and specificity below 1), a finite
-population (\code{fpc_N}), and questions about prevalence below the
-threshold or different from it. With the ICC supplied, it keeps the
-chance of a false alarm at or below the significance level. With
-\code{icc = NULL} and few sites of very different sizes, the ICC is
-poorly estimated and the false alarm rate can be well above it (13 to 28
-percent at a 5 percent level in simulation); with an ICC estimated from
-few sites it also has low power. For pfhrp2/3 deletion surveys with several sites
-and an unknown ICC, where the question is whether prevalence is above
-the threshold, consider DRpower
+with \eqn{x_{eff} = \hat{p} m} and \eqn{B^{-1}} the beta quantile
+function; for the Wald test it is \eqn{\hat{p} \pm z_{1-\alpha}
+\sqrt{\hat{p}(1 - \hat{p}) / m}} (\eqn{\alpha/2} in place of \eqn{\alpha}
+for two-sided). It is built on the measured scale and then corrected for
+an imperfect test, with ends kept within [0, 1]; if the whole
+corrected interval lies outside [0, 1], the function warns that the
+data do not fit the assumed sensitivity and specificity.
+
+\strong{When to use DRpower instead.} With the ICC supplied, this
+function keeps the chance of a false alarm at or below the significance
+level. With \code{icc = NULL} and few sites of very different sizes, the
+ICC is poorly estimated and the false alarm rate can be well above it
+(13 to 28 percent at a 5 percent level in simulation); with an ICC
+estimated from few sites it also has low power. For pfhrp2/3 deletion
+surveys with several sites and an unknown ICC, where the question is
+whether prevalence is above the threshold, consider DRpower
 (\url{https://mrc-ide.github.io/DRpower/}). It estimates prevalence and
 ICC together and has more power, especially with few sites, but more
 false alarms when prevalence is close to the threshold.
@@ -242,6 +202,9 @@ test_threshold(x = 12, n = 100, threshold = 0.10,
 
 # One site, a clear result: the interval lies above the threshold
 test_threshold(x = 15, n = 100, threshold = 0.05)
+
+# Wald test and interval instead of the exact test
+test_threshold(x = 15, n = 100, threshold = 0.05, method = "wald")
 }
 \references{
 MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
@@ -250,18 +213,11 @@ Clopper, C. J. & Pearson, E. S. (1934) The use of confidence or fiducial
 limits illustrated in the case of the binomial. \emph{Biometrika}
 \strong{26}(4), 404-413. \doi{10.1093/biomet/26.4.404}
 
-Agresti, A. & Coull, B. A. (1998) Approximate is better than "exact" for
-interval estimation of binomial proportions. \emph{The American
-Statistician} \strong{52}(2), 119-126. \doi{10.2307/2685469}
-
 Fay, M. P. (2010) Two-sided exact tests and matching confidence intervals
 for discrete data. \emph{The R Journal} \strong{2}(1), 53-58.
 \doi{10.32614/RJ-2010-008}
 
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
-
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}

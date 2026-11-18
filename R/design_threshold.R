@@ -590,26 +590,6 @@ design_threshold <- function(threshold,
   )
 }
 
-# ---- exact binomial tails, also used by test_threshold() ----
-# Counts may be fractional (people divided by the design effect). For whole
-# numbers these are exactly pbinom(); for fractions they are the usual
-# smooth extension through the beta distribution (as in Clopper-Pearson).
-
-# P(X >= x) for X ~ Binomial(m, p)
-.binom_upper <- function(x, m, p) {
-  out <- stats::pbeta(p, pmax(x, 1e-300), pmax(m - x + 1, 1e-300))
-  out[x <= 0] <- 1
-  out
-}
-
-# P(X <= x) for X ~ Binomial(m, p)
-.binom_lower <- function(x, m, p) {
-  out <- stats::pbeta(p, pmax(x + 1, 1e-300), pmax(m - x, 1e-300),
-                      lower.tail = FALSE)
-  out[x >= m] <- 1
-  out
-}
-
 # Exact power of test_threshold() for designs of total size n (vector) with
 # design effect d (vector), as test_threshold() would run it with the same
 # icc and fpc_N: effective size m = n / d (times the FPC factor), each

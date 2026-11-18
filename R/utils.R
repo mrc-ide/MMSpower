@@ -122,7 +122,39 @@
   list(n_sites = n_sites, n_per_site = n_per_site, n = n_sites * n_per_site)
 }
 
+# ---- exact binomial tails ----
+# Counts may be fractional (people divided by the design effect). For whole
+# numbers these are exactly pbinom(); for fractions they are the usual
+# smooth extension through the beta distribution (as in Clopper-Pearson).
+
+# P(X >= x) for X ~ Binomial(m, p)
+.binom_upper <- function(x, m, p) {
+  out <- stats::pbeta(p, pmax(x, 1e-300), pmax(m - x + 1, 1e-300))
+  out[x <= 0] <- 1
+  out
+}
+
+# P(X <= x) for X ~ Binomial(m, p)
+.binom_lower <- function(x, m, p) {
+  out <- stats::pbeta(p, pmax(x + 1, 1e-300), pmax(m - x, 1e-300),
+                      lower.tail = FALSE)
+  out[x >= m] <- 1
+  out
+}
+
 # ---- intervals ----
+
+# Interval c(lower, upper) on the apparent-prevalence scale -> true scale
+# (Rogan-Gladen), kept within [0, 1]. Warns when the whole corrected
+# interval lies outside [0, 1]: the data then do not fit the assumed test
+# accuracy (e.g. fewer positives than false positives alone would give).
+.correct_ci <- function(ci_app, sensitivity, specificity) {
+  ci <- .rogan_gladen(ci_app, sensitivity, specificity)
+  if (ci[2] < 0 || ci[1] > 1)
+    warning("The corrected interval lies entirely outside [0, 1], so the data ",
+            "do not fit the assumed sensitivity and specificity.", call. = FALSE)
+  pmin(pmax(ci, 0), 1)
+}
 
 # Wilson score confidence interval for a proportion.
 # Returns list(lower, upper).

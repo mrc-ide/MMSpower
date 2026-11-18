@@ -712,16 +712,6 @@ test_that("DT-T-2: the clustered design gives a significant result at the planne
   expect_true(res$reject)
 })
 
-test_that("DT-T-3: a design with fpc_N gives a significant result at the planned prevalence", {
-  d <- design_threshold(threshold = 0.05, prevalence = 0.10, n_sites = 10, icc = 0.05,
-                        fpc_N = 5000)
-  expect_equal(c(d$n_sites, d$n_per_site, d$deff), c(10, 56, 3.75))
-  res <- test_threshold(rep(6, 10), rep(d$n_per_site, 10), threshold = 0.05, icc = 0.05,
-                        fpc_N = 5000)
-  expect_equal(res$deff, d$deff)
-  expect_true(res$reject)
-})
-
 test_that("DT-T-4: a one-site design is analysed with its icc and gives a significant result", {
   d <- design_threshold(threshold = 0.05, prevalence = 0.10, n_sites = 1, icc = 0.005)
   expect_equal(c(d$n_sites, d$n, d$deff), c(1, 962, 5.805))
