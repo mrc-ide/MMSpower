@@ -210,6 +210,15 @@ test_that("DD-C-3: too few sites for the target power is rejected, giving the ma
   # A maximum close to 0 (2e-16 percent) is not printed as 2.011586e-16
   expect_error(design_difference(0.001, 0.999, n_sites = 1, icc = 1),
                "The highest power this site can give is less than 0.0001 percent.", fixed = TRUE)
+  # "less than 0.0001" starts below 0.0001 percent. With one site and ICC 1
+  # each group counts as one person, and the highest power is
+  # pnorm((difference - 1.959964 * sqrt(0.5)) / sqrt(2 * p * (1 - p))):
+  # 0.003 versus 0.997 gives 0.00005 percent, 0.004 versus 0.996 gives 0.00051
+  expect_equal(100 * pnorm((0.994 - qnorm(0.975) * sqrt(0.5)) / sqrt(2 * 0.003 * 0.997)), 0.00005, tolerance = 0.2)
+  expect_error(design_difference(0.003, 0.997, n_sites = 1, icc = 1),
+               "The highest power this site can give is less than 0.0001 percent.", fixed = TRUE)
+  expect_error(design_difference(0.004, 0.996, n_sites = 1, icc = 1),
+               "The highest power this site can give is 0.0005101804 percent.", fixed = TRUE)
   # Closer still: 7 digits would show 80, so more are shown (79.999999)
   expect_error(
     design_difference(0.10, 0.20, n_sites = 9, icc = 0.045234448280423757),
@@ -491,6 +500,28 @@ test_that("DD-V-2: power at or below the false-alarm rate is rejected; below 0.5
   expect_equal(res$n_per_group1, ceiling(stats::power.prop.test(p1 = 0.1, p2 = 0.2, power = 0.3)$n))
   expect_warning(design_difference(0.1, 0.2, power = 0.45), "is below 0.5", fixed = TRUE)
   expect_no_warning(design_difference(0.1, 0.2, power = 0.5))
+  # Below 0.5 is not allowed when the two groups differ in sites, people
+  # per site, ICC or population size: the formula is not reliable there
+  # (the first call used to crash, the second returned 1 and 2 people, which
+  # give 21.5 percent power). The error comes without the warning.
+  msg <- function(p) paste0("`power` below 0.5 (got ", p, ") cannot be used when the two groups differ in sites, people per site, ICC or population size: the sample size formula is not reliable there. Use a power of at least 0.5, or the same design in both groups.")
+  expect_no_warning(expect_error(design_difference(0.5, 1, power = 0.3, n_per_site = c(1, 100)), msg(0.3), fixed = TRUE))
+  expect_error(design_difference(0.5, 0, power = 0.3, n_sites = c(5, 30)), msg(0.3), fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, power = 0.3, n_sites = 30, icc = c(0.01, 0.05)), msg(0.3), fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, power = 0.3, fpc_N = c(500, 5000)), msg(0.3), fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, power = 0.4999, n_sites = c(20, 40), icc = c(0.02, 0.05)), msg(0.4999), fixed = TRUE)
+  # 0.5 itself works with groups that differ (88 and 175 people, 5 per site)
+  res <- expect_no_warning(design_difference(0.1, 0.2, power = 0.5, n_sites = c(20, 40), icc = c(0.02, 0.05)))
+  expect_equal(c(res$n_per_group1, res$n_per_group2, res$n_per_site1), c(88, 175, 5))
+  expect_equal(design_difference(0.5, 1, power = 0.5, n_per_site = c(1, 100))$n_sites1, 1)
+  # Two equal values are the same design in both groups: below 0.5 still
+  # works, with the warning, and gives the same result as one value (55)
+  expect_warning(res <- design_difference(0.1, 0.2, power = 0.3, n_sites = c(30, 30),
+                                          icc = c(0.05, 0.05), fpc_N = c(5000, 5000)),
+                 "`power` = 0.3 is below 0.5", fixed = TRUE)
+  expect_equal(res$n_per_group1, 55)
+  expect_equal(res$n_per_group1,
+               suppressWarnings(design_difference(0.1, 0.2, power = 0.3, n_sites = 30, icc = 0.05, fpc_N = 5000))$n_per_group1)
 })
 
 test_that("DD-V-3: alternative must be one of the three names", {
@@ -528,6 +559,12 @@ test_that("DD-V-4: the prevalences must point the way the alternative says, and 
                "`prevalence1` (0.1) and `prevalence2` (0.099999999) are equal, or nearly so", fixed = TRUE)
   expect_error(design_difference(0.1, 0.1 + 1e-9, alternative = "less"),
                "are equal, or nearly so", fixed = TRUE)
+  # 0.000000005 apart still counts as equal; 0.00000002 apart does not (it
+  # is stopped later, because it would need more than a trillion people)
+  expect_error(design_difference(0.2, 0.2 + 5e-9),
+               "`prevalence1` (0.2) and `prevalence2` (0.200000005) are equal, or nearly so", fixed = TRUE)
+  expect_error(design_difference(0.2, 0.2 + 2e-8),
+               "The required sample size is more than a trillion", fixed = TRUE)
   # An imperfect test can bring different prevalences almost together. The
   # two measured prevalences are shown with enough digits to differ
   expect_error(design_difference(0.1, 0.10000005, sensitivity = 0.55, specificity = 0.55),
@@ -633,7 +670,7 @@ test_that("DD-V-8: sensitivity + specificity of 1 or less is rejected, including
 test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showing the full sum", {
   expect_warning(
     res <- design_difference(0.1, 0.5, sensitivity = 0.55, specificity = 0.5),
-    paste0("`sensitivity` + `specificity` = 1.05, which is very close to 1. The test then barely tells apart people ",
+    paste0("`sensitivity` + `specificity` = 1.05, which is below 1.1. The test then barely tells apart people ",
            "with and without the condition, so the required n is very large, and small changes in the assumed ",
            "sensitivity or specificity will change n a lot."),
     fixed = TRUE)
@@ -642,7 +679,7 @@ test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showin
   # need more than a trillion people per group, which stops (see DD-10)
   expect_error(
     expect_warning(design_difference(0.1, 0.5, sensitivity = 0.5000001, specificity = 0.5),
-                   "= 1.0000001, which is very close to 1.", fixed = TRUE),
+                   "= 1.0000001, which is below 1.1.", fixed = TRUE),
     "more than a trillion", fixed = TRUE)
   # The warning comes only after every check has passed: not before an
   # unrelated error
@@ -652,7 +689,7 @@ test_that("DD-V-9: sensitivity + specificity above 1 but below 1.1 warns, showin
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.61, specificity = 0.5))
   # The cutoff: 1.09 warns, 1.10 does not
   expect_warning(design_difference(0.1, 0.5, sensitivity = 0.59, specificity = 0.5),
-                 "= 1.09, which is very close to 1.", fixed = TRUE)
+                 "= 1.09, which is below 1.1.", fixed = TRUE)
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.6, specificity = 0.5))
   # A sum of 1.1 that rounding puts a hair below it (0.15 + 0.95) does not warn
   expect_no_warning(design_difference(0.1, 0.5, sensitivity = 0.15, specificity = 0.95))
@@ -698,6 +735,12 @@ test_that("DD-V-11: icc above 0 with no sites, or both n_sites and n_per_site, i
                fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, n_sites = 10, n_per_site = 10, icc = 0.05),
                "Supply at most one of `n_sites` or `n_per_site`, not both.", fixed = TRUE)
+  # Without sites, an icc below about 0.000000015 counts as 0: 0.00000001
+  # gives the same 199 per group as icc = 0, and 0.00000002 is rejected
+  expect_equal(design_difference(0.1, 0.2, icc = 1e-8)$n_per_group1, 199)
+  expect_equal(design_difference(0.1, 0.2, icc = 1e-8)$n_per_group1, design_difference(0.1, 0.2)$n_per_group1)
+  expect_error(design_difference(0.1, 0.2, icc = 2e-8),
+               "`icc` is greater than 0 but no sites were given", fixed = TRUE)
 })
 
 test_that("DD-V-12: n_sites, n_per_site and fpc_N must be one or two positive integers, naming the problem", {
@@ -759,6 +802,12 @@ test_that("DD-V-12: n_sites, n_per_site and fpc_N must be one or two positive in
   # nor for a value off by more than rounding, however small next to it
   expect_error(design_difference(0.1, 0.2, fpc_N = 1e6 + 0.0005),
                "(got 1000000.0005). ", fixed = TRUE)
+  # "Rounding" means up to 8 of the smallest steps R can store at that
+  # size: 57 less 5 steps gets the hint, 57 less 12 steps does not
+  expect_error(design_difference(0.1, 0.2, n_sites = 57 * (1 - 5 * .Machine$double.eps), icc = 0.05),
+               "(got 56.9999999999999, which is not exactly an integer; use round(n_sites)).", fixed = TRUE)
+  expect_error(design_difference(0.1, 0.2, n_sites = 57 * (1 - 12 * .Machine$double.eps), icc = 0.05),
+               "(got 56.9999999999999). ", fixed = TRUE)
   # Above 2^53 R cannot tell whole numbers apart (and the arithmetic breaks
   # above about 1e150); 2^53 itself works
   expect_error(design_difference(0.1, 0.2, n_sites = 30, icc = 0.05, fpc_N = 1e200),
@@ -777,6 +826,11 @@ test_that("DD-V-12: n_sites, n_per_site and fpc_N must be one or two positive in
                fixed = TRUE)
   expect_error(design_difference(0.1, 0.2, n_per_site = 1e16, icc = 0.05),
                "`n_per_site` (1e+16) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real site has this many people.",
+               fixed = TRUE)
+  # n_per_site of exactly 2^53 is not stopped by this limit: it gets the
+  # ordinary message that one site is already more than enough
+  expect_error(design_difference(0.1, 0.2, n_per_site = 2^53),
+               "`n_per_site` (9007199254740992) is larger than the number of people needed per group (199), so one site would be more than enough.",
                fixed = TRUE)
   # With two values, the one that is too large is named
   expect_error(design_difference(0.1, 0.2, n_sites = c(30, 1e16), icc = 0.05),
@@ -931,6 +985,15 @@ test_that("DD-G-5: when the sites cannot reach the target, the message describes
                "Target power of 80 percent cannot be reached with 5 sites in group 1 and 20 in group 2, with ICC = 0.05. The highest power these sites can give is 66.95124 percent.",
                fixed = TRUE)
   expect_equal(power_of(0.1, 0.2, c(100, 400), c(1, 1)), 0.6695124, tolerance = 1e-6)
+  # The highest power is not always the one with unlimited people per site.
+  # 0.934 versus 0.998, 1 site (ICC 0.05) and 5 sites (ICC 1): unlimited
+  # people give 0.41 percent, but 1 person per site (1 and 5 people) gives
+  # 23.97802 percent, and that is the number shown
+  expect_error(design_difference(0.934, 0.998, power = 0.9, n_sites = c(1, 5), icc = c(0.05, 1)),
+               "Target power of 90 percent cannot be reached with 1 site in group 1 and 5 in group 2, with ICC = 0.05 in group 1 and 1 in group 2. The highest power these sites can give is 23.97802 percent.",
+               fixed = TRUE)
+  expect_equal(power_of(0.934, 0.998, c(1, 5), c(1, 1)), 0.2397802, tolerance = 1e-6)
+  expect_equal(power_of(0.934, 0.998, c(1 / 0.05, 5 / 1), c(1, 1)), 0.004110101, tolerance = 1e-6)
   # 0 versus 1 with one site of ICC 1: each group counts as 1 person, the
   # measured difference never varies, and the test never finds it
   expect_error(design_difference(0, 1, n_sites = 1, icc = c(1, 0.9)),
@@ -942,26 +1005,48 @@ test_that("DD-G-6: a group that reaches its whole population before the target s
   # Group 1 has 120 people: with 10 sites it is fully tested at 12 per site,
   # and then the power is 76.72635 percent
   expect_error(design_difference(0.1, 0.2, n_sites = c(10, 10), icc = 0.05, fpc_N = c(120, 1e6)),
-               "Target power of 80 percent cannot be reached: group 1 has only 120 people (`fpc_N`), and testing all of them gives at most 76.72635 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
+               "Target power of 80 percent cannot be reached: group 1 has only 120 people (`fpc_N`), and no design within that limit gives more than 76.72635 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
                fixed = TRUE)
   expect_equal(power_of(0.1, 0.2, c(120, 120), 1 + 11 * 0.05, c(120, 1e6)), 0.7672635, tolerance = 1e-6)
   # The same with no sites: 60 people in group 1
   expect_error(design_difference(0.1, 0.2, fpc_N = c(60, 1e6)),
-               "Target power of 80 percent cannot be reached: group 1 has only 60 people (`fpc_N`), and testing all of them gives at most 67.95983 percent power. Check `fpc_N`, or lower the target power.",
+               "Target power of 80 percent cannot be reached: group 1 has only 60 people (`fpc_N`), and no design within that limit gives more than 67.95983 percent power. Check `fpc_N`, or lower the target power.",
                fixed = TRUE)
   # Once group 2 is fully tested (4 per site x 5 sites = 20 people), only
   # group 1 varies: 76.15632 percent, so 80 is out of reach
   expect_error(design_difference(0.1, 0.3, n_sites = c(10, 5), icc = 0.1, fpc_N = c(1e4, 20)),
-               "Target power of 80 percent cannot be reached: group 2 has only 20 people (`fpc_N`), and testing all of them gives at most 76.15632 percent power.",
+               "Target power of 80 percent cannot be reached: group 2 has only 20 people (`fpc_N`), and no design within that limit gives more than 76.15632 percent power.",
                fixed = TRUE)
   expect_equal(power_of(0.1, 0.3, c(40, 20), 1 + 3 * 0.1, c(1e4, 20)), 0.7615632, tolerance = 1e-6)
-  # A group of 1 person: "that person", not "all of them"
+  # A group of 1 person: "person", not "people"
   expect_error(design_difference(0.1, 0.2, fpc_N = c(1, 1e6)),
-               "Target power of 80 percent cannot be reached: group 1 has only 1 person (`fpc_N`), and testing that person gives at most 11.12376 percent power. Check `fpc_N`, or lower the target power.",
+               "Target power of 80 percent cannot be reached: group 1 has only 1 person (`fpc_N`), and no design within that limit gives more than 11.12376 percent power. Check `fpc_N`, or lower the target power.",
                fixed = TRUE)
   # And with n_per_site: 30 per site, group 2 has 60 people
   expect_error(design_difference(0.1, 0.2, n_per_site = 30, icc = 0.05, fpc_N = c(1e6, 60)),
-               "Target power of 80 percent cannot be reached: group 2 has only 60 people (`fpc_N`), and testing all of them gives at most",
+               "Target power of 80 percent cannot be reached: group 2 has only 60 people (`fpc_N`), and no design within that limit gives more than",
+               fixed = TRUE)
+  # Testing everyone is not always best: group 1 (500 people, ICC 1) fully
+  # tested at 250 per site gives almost no power, but 1 per site gives
+  # 16.89432 percent (checked by hand for 1 to 250 per site)
+  expect_error(design_difference(0.525, 0.001, n_sites = 2, icc = 1, fpc_N = c(500, 1e6)),
+               "Target power of 80 percent cannot be reached: group 1 has only 500 people (`fpc_N`), and no design within that limit gives more than 16.89432 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  # The limit itself counts even when it is not a whole number per site,
+  # and nothing past it does: 101 people over 3 sites gives 53.12364
+  # percent with everyone tested, 51.79593 with 33 per site and 53.23285
+  # with 34 per site (more people than there are)
+  expect_error(design_difference(0.1, 0.2, n_sites = 3, icc = 0.05, fpc_N = c(101, 1e6)),
+               "Target power of 80 percent cannot be reached: group 1 has only 101 people (`fpc_N`), and no design within that limit gives more than 53.12364 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  # The best can sit between the 500 spread values: here at 410 per site,
+  # 28.03012 percent (checked by hand for every whole number up to 499)
+  expect_error(design_difference(0.907, 0.979, n_sites = c(2, 4), icc = c(0.5, 0.1), fpc_N = c(998, 1e7)),
+               "Target power of 80 percent cannot be reached: group 1 has only 998 people (`fpc_N`), and no design within that limit gives more than 28.03012 percent power. Use different `n_sites`, check `fpc_N`, or lower the target power.",
+               fixed = TRUE)
+  # A best power below 0.0001 percent
+  expect_error(design_difference(0.1, 0.2, fpc_N = c(2, 1e6), conf_level = 1 - 1e-12),
+               "Target power of 80 percent cannot be reached: group 1 has only 2 people (`fpc_N`), and no design within that limit gives 0.0001 percent power or more. Check `fpc_N`, or lower the target power.",
                fixed = TRUE)
 })
 
