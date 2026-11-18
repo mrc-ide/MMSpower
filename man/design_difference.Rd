@@ -25,7 +25,9 @@ design_difference(
 The two prevalences must differ; either can be 0 or 1.}
 
 \item{power}{Target power, between 1 - \code{conf_level} and 1; default
-0.80. Values below 0.5 give a warning.}
+0.80. Values below 0.5 give a warning, and are not allowed when the two
+groups differ in sites, people per site, ICC or population size (the
+sample size formula is not reliable there).}
 
 \item{alternative}{Which kind of difference to look for.
 \code{"two.sided"} (default) looks for any difference; \code{"greater"}

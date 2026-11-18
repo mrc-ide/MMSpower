@@ -28,7 +28,9 @@
 #' @param prevalence2 Expected true prevalence in group 2, in \[0, 1\].
 #'   The two prevalences must differ; either can be 0 or 1.
 #' @param power Target power, between 1 - \code{conf_level} and 1; default
-#'   0.80. Values below 0.5 give a warning.
+#'   0.80. Values below 0.5 give a warning, and are not allowed when the two
+#'   groups differ in sites, people per site, ICC or population size (the
+#'   sample size formula is not reliable there).
 #' @param alternative Which kind of difference to look for.
 #'   \code{"two.sided"} (default) looks for any difference; \code{"greater"}
 #'   looks for group 1 being higher (requires
@@ -443,6 +445,16 @@ design_difference <- function(prevalence1,
          "without clustering.")
   if (no_sites) icc_g <- c(0, 0)
 
+  # With a target below 0.5 and two groups that differ, the formula's power
+  # does not rise steadily with the sample size (it can be above the target
+  # with almost nobody tested), so no sample size can be trusted.
+  differ <- function(v) !is.null(v) && v[1] != v[2]
+  if (power < 0.5 && (differ(k_g) || differ(s_g) || differ(icc_g) || differ(N_g)))
+    stop("`power` below 0.5 (got ", num(power), ") cannot be used when the two ",
+         "groups differ in sites, people per site, ICC or population size: ",
+         "the sample size formula is not reliable there. Use a power of at ",
+         "least 0.5, or the same design in both groups.")
+
   # ---- direction of the test ----
   # Checked after "equal", so that the advice to switch the alternative is
   # only given when switching would work.
@@ -641,14 +653,23 @@ design_difference <- function(prevalence1,
     which.min(per)
   }
   stop_full <- function(how, x_cap, fix) {
-    g     <- first_full(how)
-    shown <- max_power_text(power_at(eff(x_cap, how)))
+    g <- first_full(how)
+    # Testing everyone is not always best: when the groups differ, a smaller
+    # design can give more power. So look at every whole x up to 1000, 500
+    # values spread from 1 to the limit, and the limit itself.
+    xs <- c(seq_len(min(floor(x_cap), 1000)),
+            if (x_cap > 1) unique(round(10^seq(0, log10(x_cap), length.out = 500))),
+            x_cap)
+    xs    <- xs[xs <= x_cap]
+    best  <- max(vapply(xs, function(x) power_at(eff(x, how)), 0))
+    shown <- max_power_text(best)
     stop("Target power of ", shown[1], " percent cannot be reached: group ", g,
          " has only ", num(N_g[g]),
-         if (N_g[g] == 1) " person (`fpc_N`), and testing that person"
-         else " people (`fpc_N`), and testing all of them",
-         " gives at most ", shown[2],
-         " percent power. ", fix)
+         if (N_g[g] == 1) " person" else " people",
+         " (`fpc_N`), and no design within that limit gives ",
+         if (shown[2] == "less than 0.0001") "0.0001 percent power or more"
+         else paste0("more than ", shown[2], " percent power"),
+         ". ", fix)
   }
 
   # ---- solve for the unknown ----
@@ -688,7 +709,13 @@ design_difference <- function(prevalence1,
     m_inf <- ifelse(icc_g == 0, Inf, k_g / icc_g)
     unreachable <- ratio(m_inf) >= 1
     if (is.null(N_g) && unreachable) {
-      shown <- max_power_text(power_at(m_inf))
+      # The highest power is usually the one with unlimited people per site.
+      # When the groups differ in sites or ICC it can instead peak at a
+      # small number of people per site and then fall, so look there too
+      # (500 site sizes from 1 to a billion).
+      xs    <- unique(round(10^seq(0, 9, length.out = 500)))
+      best  <- max(power_at(m_inf), vapply(xs, function(x) power_at(eff(x, how)), 0))
+      shown <- max_power_text(best)
       stop("Target power of ", shown[1], " percent cannot be ",
            "reached with ", design_text("with"),
            ". The highest power ",
