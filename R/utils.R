@@ -24,6 +24,24 @@
          call. = FALSE)
 }
 
+# Stop unless `x` (positives) and `n` (people tested) are equal-length
+# vectors of whole numbers, one per site, with 0 <= x <= n and n >= 1.
+.check_counts <- function(x, n, x_name = "x", n_name = "n") {
+  whole <- function(v) is.numeric(v) && length(v) > 0 && all(is.finite(v)) &&
+    all(v == round(v))
+  if (!whole(x) || !whole(n))
+    stop("`", x_name, "` and `", n_name, "` must be vectors of whole numbers.",
+         call. = FALSE)
+  if (length(x) != length(n))
+    stop("`", x_name, "` and `", n_name, "` must have the same length.",
+         call. = FALSE)
+  if (any(n < 1))
+    stop("Every value of `", n_name, "` must be at least 1.", call. = FALSE)
+  if (any(x < 0 | x > n))
+    stop("Every value of `", x_name, "` must be between 0 and `", n_name, "`.",
+         call. = FALSE)
+}
+
 # Checks shared by every function that takes a diagnostic test.
 .check_test <- function(sensitivity, specificity) {
   .check_number(sensitivity, "sensitivity", 0, 1, lower_open = TRUE)
@@ -61,6 +79,28 @@
 # Design effect (Kish) for sites of `n_per_site` people.
 .deff <- function(n_per_site, icc) {
   1 + (n_per_site - 1) * icc
+}
+
+# ICC and design effect for observed counts `x` out of `n`, one per site.
+# A supplied `icc` is used as given. With `icc = NULL` it is estimated from
+# the between-site variance of the site prevalences, compared with the
+# variance expected if everyone were independent; with one site, or one
+# person per site, there is nothing to estimate from and it is 0. The design
+# effect uses the size-weighted mean site size sum(n^2) / sum(n), which is
+# the plain mean when all sites are the same size. Returns list(icc, deff).
+.estimate_deff <- function(x, n, icc = NULL) {
+  n_w <- sum(n^2) / sum(n)
+  if (is.null(icc)) {
+    icc <- 0
+    if (length(n) > 1 && mean(n) > 1) {
+      p_hat   <- sum(x) / sum(n)
+      var_obs <- stats::var(x / n)
+      var_srs <- mean(p_hat * (1 - p_hat) / n)
+      if (var_srs > 0)
+        icc <- min(max((var_obs / var_srs - 1) / (mean(n) - 1), 0), 1)
+    }
+  }
+  list(icc = icc, deff = .deff(n_w, icc))
 }
 
 # Total sample size with `n_sites` fixed, given the unclustered size `n0`.
