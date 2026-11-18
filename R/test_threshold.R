@@ -143,6 +143,12 @@
 #' prevalence of 0 unless \code{alternative} is \code{"greater"}, and at 1
 #' unless it is \code{"less"}.
 #'
+#' If the whole corrected interval lies below 0, both ends are set to 0 and
+#' the interval has zero width (likewise above 1). This happens when there
+#' are fewer positives than false positives alone would produce at the
+#' given specificity (or more positives than the sensitivity allows). The
+#' function warns that this zero width is not real precision.
+#'
 #' When \eqn{Se + Sp} is below 1.1 a warning is given: the correction divides by
 #' \eqn{Se + Sp - 1}, so the prevalence and its interval become very wide.
 #'
@@ -590,6 +596,23 @@ test_threshold <- function(x,
   prevalence <- max(0, min(1, rg(p_hat)))
   ci_lower   <- max(0, min(1, rg(ci_lo_app)))
   ci_upper   <- max(0, min(1, rg(ci_hi_app)))
+
+  # A corrected interval entirely below 0 (or above 1) is cut to 0 to 0 (or
+  # 1 to 1), as in estimate_prevalence(). That zero width is not real
+  # precision, so warn (not again when the Wald warning above has been
+  # given). The small tolerance stops rounding errors from triggering it
+  # when the data sit exactly on 0 or 1 (e.g. x = 0 with specificity = 1).
+  eps     <- .Machine$double.eps^0.5
+  all_low <- rg(ci_hi_app) < -eps
+  all_hi  <- rg(ci_lo_app) > 1 + eps
+  if ((all_low || all_hi) && !(ci_method == "wald" && wald_zero_width))
+    warning("After correcting for test error, the estimate and both ends of ",
+            "the confidence interval are all set to ", if (all_low) 0 else 1,
+            ", because the corrected interval lies entirely ",
+            if (all_low) "below 0" else "above 1",
+            " for this sensitivity and specificity. The interval then has ",
+            "zero width, but that is not real precision. Check the assumed ",
+            "sensitivity and specificity.", call. = FALSE)
 
   list(
     statistic   = x_eff,

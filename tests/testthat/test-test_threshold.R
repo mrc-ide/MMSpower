@@ -614,8 +614,9 @@ test_that("TH-V-5: sensitivity + specificity of 1 or less is rejected; below 1.1
     "`sensitivity` + `specificity` = 1.01, which is below 1.1. Correcting for this much test error makes the estimated prevalence and its confidence interval very wide, and small changes in the assumed sensitivity or specificity will change them a lot.",
     fixed = TRUE)
   expect_true(is.finite(res$p_value))
-  # 1.1 that comes out a hair below by rounding does not warn
-  expect_silent(test_threshold(30, 100, 0.05, sensitivity = 0.15, specificity = 0.95))
+  # 1.1 that comes out a hair below by rounding does not warn (10 of 100:
+  # possible with these values, which give between 5 and 20 percent positive)
+  expect_silent(test_threshold(10, 100, 0.05, sensitivity = 0.15, specificity = 0.95))
   # A bad input gives just its error, without the warning first
   expect_no_warning(expect_error(
     test_threshold(30, 100, 0.05, sensitivity = 0.51, specificity = 0.50, fpc_N = 50),
@@ -794,4 +795,31 @@ test_that("TH-R-3: Wald and Agresti-Coull with no positives or everyone positive
   expect_warning(res <- test_threshold(0, 50, 0.05, ci_method = "wald", alternative = "less"),
                  "has zero width", fixed = TRUE)
   expect_equal(c(res$ci_lower, res$ci_upper), c(0, 0))
+})
+
+test_that("TH-R-4: a corrected interval entirely below 0 or above 1 warns that its zero width is not real precision", {
+  low <- "After correcting for test error, the estimate and both ends of the confidence interval are all set to 0, because the corrected interval lies entirely below 0 for this sensitivity and specificity. The interval then has zero width, but that is not real precision. Check the assumed sensitivity and specificity."
+  # 0 of 100 positive with specificity 0.9: the measured upper end 0.0295 is
+  # below the 0.1 that false positives alone give, so the corrected interval
+  # is below 0 and is cut to 0 to 0
+  for (meth in c("clopper-pearson", "agresti-coull")) {
+    expect_warning(r <- test_threshold(0, 100, 0.2, "less", specificity = 0.9, ci_method = meth), low, fixed = TRUE)
+    expect_equal(c(r$ci_lower, r$ci_upper), c(0, 0))
+  }
+  expect_warning(test_threshold(0, 100, 0.2, "two.sided", specificity = 0.9), low, fixed = TRUE)
+  # 100 of 100 with sensitivity 0.9: above 1, cut to 1 to 1
+  expect_warning(r <- test_threshold(100, 100, 0.5, sensitivity = 0.9),
+                 "are all set to 1, because the corrected interval lies entirely above 1", fixed = TRUE)
+  expect_equal(c(r$ci_lower, r$ci_upper), c(1, 1))
+  # Wald at a measured prevalence of 0: only the Wald warning, not both
+  expect_warning(test_threshold(0, 100, 0.2, "less", specificity = 0.9, ci_method = "wald"),
+                 "so the Wald interval has zero width", fixed = TRUE)
+  w <- character()
+  withCallingHandlers(test_threshold(0, 100, 0.2, "less", specificity = 0.9, ci_method = "wald"),
+                      warning = function(x) { w <<- c(w, conditionMessage(x)); invokeRestart("muffleWarning") })
+  expect_length(w, 1)
+  # A real interval: no warning (perfect test at 0 and n; 5 of 100 with Sp 0.9)
+  expect_no_warning(test_threshold(0, 100, 0.2, "less"))
+  expect_no_warning(test_threshold(100, 100, 0.5))
+  expect_no_warning(test_threshold(5, 100, 0.2, "less", specificity = 0.9))
 })

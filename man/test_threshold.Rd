@@ -200,6 +200,12 @@ interval has zero width, a warning is given. That happens at a measured
 prevalence of 0 unless \code{alternative} is \code{"greater"}, and at 1
 unless it is \code{"less"}.
 
+If the whole corrected interval lies below 0, both ends are set to 0 and
+the interval has zero width (likewise above 1). This happens when there
+are fewer positives than false positives alone would produce at the
+given specificity (or more positives than the sensitivity allows). The
+function warns that this zero width is not real precision.
+
 When \eqn{Se + Sp} is below 1.1 a warning is given: the correction divides by
 \eqn{Se + Sp - 1}, so the prevalence and its interval become very wide.
 
