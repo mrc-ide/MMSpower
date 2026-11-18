@@ -296,20 +296,22 @@ test_that("TD-14: the Wald interval is the measured difference plus or minus z s
 
 test_that("TD-15: the Wald and Newcombe intervals use each group's effective size, with clustering and fpc_N", {
   # Three sites per group, icc 0.05, fpc_N 500 and 600.
-  # Group 1: 10 of 150, deff 1 + (50 - 1) * 0.05 = 3.45,
-  #   m1 = 150 / 3.45 / ((500 - 150) / 499) = 61.987578
-  # Group 2: 28 of 170, deff 1 + (170 / 3 - 1) * 0.05 = 3.783333,
-  #   m2 = 170 / 3.783333 / ((600 - 170) / 599) = 62.593997
+  # Group 1: 10 of 150, size-weighted mean site size 7700 / 150 = 51.3333,
+  #   deff 1 + (51.3333 - 1) * 0.05 = 3.516667,
+  #   m1 = 150 / 3.516667 / ((500 - 150) / 499) = 60.81246
+  # Group 2: 28 of 170, size-weighted mean site size 9950 / 170 = 58.52941,
+  #   deff 1 + (58.52941 - 1) * 0.05 = 3.876471,
+  #   m2 = 170 / 3.876471 / ((600 - 170) / 599) = 61.09009
   x1 <- c(2, 5, 3); n1 <- c(50, 60, 40); x2 <- c(8, 11, 9); n2 <- c(55, 70, 45)
-  m1 <- 150 / 3.45 / ((500 - 150) / 499)
-  m2 <- 170 / (1 + (170 / 3 - 1) * 0.05) / ((600 - 170) / 599)
+  m1 <- 150 / (1 + (7700 / 150 - 1) * 0.05) / ((500 - 150) / 499)
+  m2 <- 170 / (1 + (9950 / 170 - 1) * 0.05) / ((600 - 170) / 599)
   p1 <- 10 / 150; p2 <- 28 / 170; z <- qnorm(0.975)
   # Wald: (p1 - p2) +/- z * sqrt(p1 (1 - p1) / m1 + p2 (1 - p2) / m2)
   res <- test_difference(x1, n1, x2, n2, icc = 0.05, fpc_N = c(500, 600), ci_method = "wald")
   expect_equal(c(res$n_eff_adj1, res$n_eff_adj2), c(m1, m2))
   expect_equal(c(res$ci_lower, res$ci_upper),
                (p1 - p2) + c(-1, 1) * z * sqrt(p1 * (1 - p1) / m1 + p2 * (1 - p2) / m2))
-  expect_equal(c(res$ci_lower, res$ci_upper), c(-0.208941, 0.012863), tolerance = 1e-5)
+  expect_equal(c(res$ci_lower, res$ci_upper), c(-0.210207, 0.014129), tolerance = 1e-5)
   # Newcombe: a Wilson interval for each group with m1 and m2 people,
   # written out here: centre (p + z^2 / (2 m)) / (1 + z^2 / m), half-width
   # z / (1 + z^2 / m) * sqrt(p (1 - p) / m + z^2 / (4 m^2))
@@ -323,7 +325,7 @@ test_that("TD-15: the Wald and Newcombe intervals use each group's effective siz
   expect_equal(c(res$ci_lower, res$ci_upper),
                c((p1 - p2) - sqrt((p1 - w1[1])^2 + (w2[2] - p2)^2),
                  (p1 - p2) + sqrt((w1[2] - p1)^2 + (p2 - w2[1])^2)))
-  expect_equal(c(res$ci_lower, res$ci_upper), c(-0.215729, 0.017644), tolerance = 1e-5)
+  expect_equal(c(res$ci_lower, res$ci_upper), c(-0.217261, 0.018941), tolerance = 1e-5)
 })
 
 test_that("TD-16: a higher conf_level gives a wider interval, for each method", {
@@ -358,13 +360,13 @@ test_that("TD-17: sensitivity = specificity = 0.999 gives almost the same result
 })
 
 test_that("TD-C-1: a supplied icc gives each group its own design effect", {
-  # Group 1: mean site size 50, deff = 1 + 49 * 0.05 = 3.45, n_eff = 150 / 3.45 = 43.48
-  # Group 2: mean site size 56.67, deff = 1 + 55.67 * 0.05 = 3.78, n_eff = 170 / 3.78 = 44.93
+  # Sizes 50, 60, 40: size-weighted mean 7700 / 150 = 51.33, deff = 1 + 50.33 * 0.05 = 3.5167, n_eff = 150 / 3.5167 = 42.65
+  # Sizes 55, 70, 45: size-weighted mean 9950 / 170 = 58.53, deff = 1 + 57.53 * 0.05 = 3.8765, n_eff = 170 / 3.8765 = 43.85
   res <- test_difference(c(2, 5, 3), c(50, 60, 40), c(8, 11, 9), c(55, 70, 45), icc = 0.05)
-  expect_equal(c(res$deff1, res$deff2),   c(3.45, 3.783333), tolerance = 1e-6)
-  expect_equal(c(res$n_eff1, res$n_eff2), c(43.478261, 44.933921), tolerance = 1e-6)
+  expect_equal(c(res$deff1, res$deff2),   c(3.516667, 3.876471), tolerance = 1e-6)
+  expect_equal(c(res$n_eff1, res$n_eff2), c(42.654028, 43.854320), tolerance = 1e-6)
   expect_equal(c(res$icc_used1, res$icc_used2), c(0.05, 0.05))
-  expect_equal(res$p_value, 0.150855, tolerance = 1e-4)
+  expect_equal(res$p_value, 0.155114, tolerance = 1e-4)
   # Without clustering the same data are significant (p = 0.0068)
   expect_true(test_difference(c(2, 5, 3), c(50, 60, 40), c(8, 11, 9), c(55, 70, 45), icc = 0)$reject)
 })
@@ -422,11 +424,11 @@ test_that("TD-C-3: a supplied icc is used for a group with one site; one person 
 test_that("TD-C-4: icc = 0 means no clustering; a tiny icc is used as given, without a warning", {
   base <- test_difference(c(2, 5, 3), c(50, 60, 40), c(8, 11, 9), c(55, 70, 45), icc = 0)
   expect_equal(c(base$deff1, base$deff2, base$icc_used1, base$icc_used2), c(1, 1, 0, 0))
-  # 1e-12 is used, not set to 0: deff = 1 + (50 - 1) * 1e-12, which changes
+  # 1e-12 is used, not set to 0: deff = 1 + (51.33 - 1) * 1e-12, which changes
   # nothing visible
   expect_silent(res <- test_difference(c(2, 5, 3), c(50, 60, 40), c(8, 11, 9), c(55, 70, 45), icc = 1e-12))
   expect_identical(res$icc_used1, 1e-12)
-  expect_identical(res$deff1, 1 + 49 * 1e-12)
+  expect_equal(res$deff1, 1 + (7700 / 150 - 1) * 1e-12)
   expect_equal(res$p_value, base$p_value)
   # With very large sites a tiny icc matters: sites of 10 million with
   # icc 1.4e-8 have deff 1 + (1e7 - 1) * 1.4e-8 = 1.14
@@ -442,9 +444,10 @@ test_that("TD-C-5: the estimated design effect with sites of different sizes", {
   # Group 1: 1 of 20, 20 of 50, 3 of 30. Overall prevalence 24 / 100 = 0.24;
   # observed variance of 0.05, 0.4, 0.1 is 0.0358333; expected variance
   # mean(0.24 * 0.76 / c(20, 50, 30)) = 0.0062827; deff = 5.70352,
-  # icc = (5.70352 - 1) / (33.333 - 1) = 0.145470
+  # icc = (5.70352 - 1) / (33.333 - 1) = 0.145470 (mean site size);
+  # deff = 1 + (n_w - 1) * icc, n_w = 4000 / 100 = 40, gives 6.382382
   res <- test_difference(c(1, 20, 3), c(20, 50, 30), c(5, 6, 4), c(40, 40, 40))
-  expect_equal(res$deff1, 5.70352292, tolerance = 1e-8)
+  expect_equal(res$deff1, 6.38238190, tolerance = 1e-7)
   expect_equal(res$icc_used1, 0.14546978, tolerance = 1e-7)
   # Group 2: site prevalences 0.125, 0.15, 0.1 vary less than chance, so
   # the design effect is floored at 1
@@ -458,12 +461,13 @@ test_that("TD-C-5: the estimated design effect with sites of different sizes", {
 
 test_that("TD-C-6: two icc values give each group its own ICC", {
   x1 <- c(2, 5, 3); n1 <- c(50, 60, 40); x2 <- c(8, 11, 9); n2 <- c(55, 70, 45)
-  # Group 1: 50 per site, 1 + 49 * 0.02 = 1.98. Group 2: 170 / 3 per site,
-  # 1 + (170 / 3 - 1) * 0.08 = 5.453333
+  # Group 1: size-weighted mean site size 7700 / 150 = 51.3333,
+  # 1 + (51.3333 - 1) * 0.02 = 2.006667. Group 2: 9950 / 170 = 58.52941,
+  # 1 + (58.52941 - 1) * 0.08 = 5.602353
   res <- test_difference(x1, n1, x2, n2, icc = c(0.02, 0.08))
-  expect_equal(c(res$deff1, res$deff2), c(1.98, 5.453333), tolerance = 1e-6)
+  expect_equal(c(res$deff1, res$deff2), c(2.006667, 5.602353), tolerance = 1e-6)
   expect_identical(c(res$icc_used1, res$icc_used2), c(0.02, 0.08))
-  expect_equal(res$p_value, 0.116531, tolerance = 1e-5)
+  expect_equal(res$p_value, 0.120294, tolerance = 1e-5)
   # Each group's design effect is the one a single value would give it
   expect_identical(res$deff1, test_difference(x1, n1, x2, n2, icc = 0.02)$deff1)
   expect_identical(res$deff2, test_difference(x1, n1, x2, n2, icc = 0.08)$deff2)
@@ -474,14 +478,14 @@ test_that("TD-C-6: two icc values give each group its own ICC", {
   expect_silent(res <- test_difference(8, 100, x2, n2, icc = c(0.05, 0.1)))
   expect_identical(c(res$icc_used1, res$icc_used2), c(0.05, 0.1))
   expect_equal(res$deff1, 5.95)
-  expect_equal(res$deff2, 1 + (170 / 3 - 1) * 0.1)
+  expect_equal(res$deff2, 1 + (9950 / 170 - 1) * 0.1)
 })
 
 test_that("TD-C-7: the order of the sites and their names do not change the result", {
-  # icc estimated from the sites (deff 4.34 and 3.69), so the sites matter
+  # icc estimated from the sites (deff 4.43 and 3.78), so the sites matter
   x1 <- c(1, 12, 3); n1 <- c(50, 60, 40); x2 <- c(8, 20, 4); n2 <- c(55, 70, 45)
   res <- test_difference(x1, n1, x2, n2)
-  expect_equal(c(res$deff1, res$deff2), c(4.343832, 3.686405), tolerance = 1e-6)
+  expect_equal(c(res$deff1, res$deff2), c(4.434821, 3.776299), tolerance = 1e-6)
   expect_identical(test_difference(rev(x1), rev(n1), x2[c(2, 3, 1)], n2[c(2, 3, 1)]), res)
   expect_identical(test_difference(c(A = 1, B = 12, C = 3), c(A = 50, B = 60, C = 40), x2, n2), res)
 })
@@ -683,10 +687,10 @@ test_that("TD-V-6: sensitivity, specificity, icc and conf_level outside their ra
   expect_error(test_difference(8, 100, 20, 120, icc = c(0.5, -0.2)),
                "`icc` must be in [0, 1] (found icc[2] = -0.2). `icc` is a correlation and cannot be negative. To estimate ICC from the data, leave `icc = NULL`.",
                fixed = TRUE)
-  # icc = 1 is allowed: with sites of 50 and 56.67 the design effects are
-  # 1 + 49 = 50 and 1 + 55.67 = 56.67
+  # icc = 1 is allowed: the design effects are the size-weighted mean site
+  # sizes, 7700 / 150 = 51.33 and 9950 / 170 = 58.53
   res <- test_difference(c(2, 5, 3), c(50, 60, 40), c(8, 11, 9), c(55, 70, 45), icc = 1)
-  expect_equal(c(res$deff1, res$deff2), c(50, 56.666667), tolerance = 1e-7)
+  expect_equal(c(res$deff1, res$deff2), c(51.333333, 58.529412), tolerance = 1e-7)
   # A conf_level one rounding step below 1 still gives proper intervals,
   # for both methods (z is about 8.3, not infinite)
   for (cm in c("score", "newcombe")) {
@@ -737,14 +741,14 @@ test_that("TD-V-7: sensitivity + specificity of 1 or less is rejected; below 1.1
   expect_error(test_difference(8, 100, 20, 120, sensitivity = 0.5, specificity = 0.5 + 1e-13),
                sum1("0.5", "0.5000000000001"), fixed = TRUE)
   expect_warning(test_difference(8, 100, 20, 120, sensitivity = 0.55, specificity = 0.5),
-                 "`sensitivity` + `specificity` = 1.05, which is very close to 1. Correcting for this much test error makes the estimated difference and its confidence interval very wide, and small changes in the assumed sensitivity or specificity will change them a lot.",
+                 "`sensitivity` + `specificity` = 1.05, which is below 1.1. Correcting for this much test error makes the estimated difference and its confidence interval very wide, and small changes in the assumed sensitivity or specificity will change them a lot.",
                  fixed = TRUE)
   expect_warning(test_difference(8, 100, 20, 120, sensitivity = 0.5000001, specificity = 0.5),
-                 "= 1.0000001, which is very close to 1.", fixed = TRUE)
+                 "= 1.0000001, which is below 1.1.", fixed = TRUE)
   expect_no_warning(test_difference(8, 100, 20, 120, sensitivity = 0.61, specificity = 0.5))
   # A sum truly above 1, however little, is not refused (only rounding counts)
   expect_warning(res <- test_difference(8, 100, 20, 120, sensitivity = 0.5, specificity = 0.500000001),
-                 "= 1.000000001, which is very close to 1.", fixed = TRUE)
+                 "= 1.000000001, which is below 1.1.", fixed = TRUE)
   expect_equal(c(res$ci_lower, res$ci_upper), c(-1, 1))
   # A sum of 1.1 that rounding puts a hair below it (0.15 + 0.95) does not warn
   expect_no_warning(test_difference(8, 100, 20, 120, sensitivity = 0.15, specificity = 0.95))

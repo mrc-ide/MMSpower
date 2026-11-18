@@ -69,19 +69,23 @@
 #'   It changes only the interval, not the test.
 #'
 #' @details
-#' \strong{Design effect} (returned as \code{deff1} and \code{deff2}). With
-#' \code{icc} supplied, it is \eqn{1 + (\bar{n} - 1) ICC} for each group,
-#' where \eqn{\bar{n}} is the mean number of people per site. This holds
-#' for a group with a single site too: people at the same site tend to be
-#' alike, so one site tells you less about the whole group than the same
-#' number of people sampled separately. With \code{icc = NULL}, it is
-#' estimated for each group as in \code{estimate_prevalence()}: the observed
+#' \strong{Design effect} (returned as \code{deff1} and \code{deff2}). For
+#' each group it is \eqn{1 + (n_w - 1) ICC}, where
+#' \eqn{n_w = \sum n^2 / \sum n} is the mean number of people per site,
+#' weighted by site size (the plain mean when all sites are the same size).
+#' With \code{icc} supplied (for example
+#' from earlier surveys), that value is used. Supply \code{icc} for a group
+#' with one site only when the site stands for a wider population, such as
+#' a district; if the site itself is the population of interest, leave
+#' \code{icc = NULL}. With \code{icc = NULL}, the ICC of each group is
+#' worked out from the data as in \code{estimate_prevalence()}: the
 #' variance of the site prevalences divided by the variance expected if
-#' everyone were independent, floored at 1, with the implied ICC kept
-#' between 0 and 1. An ICC cannot be estimated from a single site, so a group
-#' with one site then gets a design effect of 1; if its people all come from
-#' one site, supply \code{icc}. With one person per site the design effect
-#' is 1.
+#' everyone were independent, turned into an ICC with the mean site size.
+#' This needs at least two sites; a group with
+#' one site gets a design effect of 1. The ICC (returned
+#' as \code{icc_used1} and \code{icc_used2}) is kept between 0 and 1, so the
+#' design effect is between 1 and \eqn{n_w}. With one person per site
+#' the design effect is 1.
 #'
 #' An ICC estimated from only a few sites is uncertain, and the interval
 #' then tends to be too narrow. In simulations with a true ICC of 0.1, 50
@@ -467,7 +471,7 @@ test_difference <- function(x1, n1, x2, n2,
   if (correction < 0.1 - 1e-12)
     warn_later <- c(warn_later, paste0(
       "`sensitivity` + `specificity` = ", num(sensitivity + specificity),
-      ", which is very close to 1. Correcting for this much test error ",
+      ", which is below 1.1. Correcting for this much test error ",
       "makes the estimated difference and its confidence interval very ",
       "wide, and small changes in the assumed sensitivity or specificity ",
       "will change them a lot."))
@@ -477,6 +481,9 @@ test_difference <- function(x1, n1, x2, n2,
   # estimate_prevalence).
   group_deff <- function(x, n, icc_g) {
     n_bar <- mean(n)   # mean number of people per site
+    # Size-weighted mean site size: the pooled prevalence has variance
+    # proportional to 1 + (n_w - 1) * ICC; n_w = n_bar for equal sites.
+    n_w   <- sum(n^2) / sum(n)
     p_hat <- sum(x) / sum(n)
     if (is.null(icc_g)) {
       # A single site (no between-site variation to measure) or every
@@ -489,12 +496,12 @@ test_difference <- function(x1, n1, x2, n2,
       var_srs <- mean(p_hat * (1 - p_hat) / n)
       deff    <- if (var_srs > 0) max(var_obs / var_srs, 1) else 1
       icc_u   <- min(max((deff - 1) / (n_bar - 1), 0), 1)
-      list(icc_used = icc_u, deff = 1 + (n_bar - 1) * icc_u)
+      list(icc_used = icc_u, deff = 1 + (n_w - 1) * icc_u)
     } else {
       # A supplied ICC is used as given, also with one site: people at
       # one site still resemble each other. With one person per site this
       # gives deff = 1.
-      list(icc_used = icc_g, deff = 1 + (n_bar - 1) * icc_g)
+      list(icc_used = icc_g, deff = 1 + (n_w - 1) * icc_g)
     }
   }
   # One supplied value is used for both groups.
