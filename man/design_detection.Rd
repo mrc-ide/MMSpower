@@ -36,7 +36,9 @@ together with \code{n_per_site}.}
 
 \item{n_per_site}{Optional positive integer. Fixes the number of people
 per site; the function solves for the number of sites. Cannot be used
-together with \code{n_sites}.}
+together with \code{n_sites}. If one site already has more people than
+needed, the function stops with an error; use \code{n_sites = 1} to find
+how many people that one site needs.}
 
 \item{icc}{Intra-cluster correlation (ICC): how alike people in the same
 site are, from 0 (not at all) to 1 (identical). Default 0 (no

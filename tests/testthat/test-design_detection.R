@@ -172,6 +172,40 @@ test_that("DET-C-5: more sites than people needed with no clustering is rejected
   expect_equal(design_detection(0.05, n_sites = 31, icc = 0.05)$n, 62)
 })
 
+test_that("DET-C-10: one site with more people than needed is rejected", {
+  msg <- function(nps, needed)
+    paste0("`n_per_site` (", nps, ") is larger than the number of people needed (",
+           needed, "), so one site would be more than enough. Use a smaller ",
+           "`n_per_site`, or set `n_sites = 1` to find how many people one site needs.")
+  # icc 0: 32 people are needed (DET-1), so a site of 33 is too big; 32 is fine
+  expect_error(design_detection(0.05, n_per_site = 33), msg(33, 32), fixed = TRUE)
+  res <- design_detection(0.05, n_per_site = 32)
+  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(32, 1, 32))
+  # icc 0.05: one site of 81 reaches 80 percent, one site of 80 does not
+  expect_gte(1 - p0_direct(81, 0.05, 0.05), 0.80)
+  expect_lt(1 - p0_direct(80, 0.05, 0.05),  0.80)
+  expect_error(design_detection(0.05, n_per_site = 82, icc = 0.05), msg(82, 81),
+               fixed = TRUE)
+  res <- design_detection(0.05, n_per_site = 81, icc = 0.05)
+  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(81, 1, 81))
+  # A target exactly at the chance of one site of 81 still needs 81, not 82
+  expect_error(design_detection(0.05, 1 - p0_direct(81, 0.05, 0.05),
+                                n_per_site = 82, icc = 0.05), msg(82, 81),
+               fixed = TRUE)
+  # The number in the message is what n_sites = 1 gives
+  expect_equal(design_detection(0.05, n_sites = 1, icc = 0.05)$n_per_site, 81)
+  # ICC 1: one person per site already gives q = 0.5, above a 30 percent target
+  expect_error(design_detection(0.5, 0.3, n_per_site = 2, icc = 1), msg(2, 1),
+               fixed = TRUE)
+  # Population of 200 at 80 percent: 30 people are needed
+  expect_equal(design_detection(0.05, fpc_N = 200)$n, 30)
+  expect_error(design_detection(0.05, n_per_site = 31, fpc_N = 200), msg(31, 30),
+               fixed = TRUE)
+  expect_equal(design_detection(0.05, n_per_site = 30, fpc_N = 200)$n_sites, 1)
+  # In reverse, a large site is fine
+  expect_equal(design_detection(0.05, n = 30, n_per_site = 100)$n_sites, 1)
+})
+
 test_that("DET-C-6: icc = 0, or a tiny icc, with sites is the unclustered result spread over the sites", {
   for (icc in c(0, 1e-12)) {
     res <- design_detection(0.05, n_sites = 10, icc = icc)

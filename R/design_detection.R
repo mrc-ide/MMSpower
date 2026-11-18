@@ -33,7 +33,9 @@
 #'   together with \code{n_per_site}.
 #' @param n_per_site Optional positive integer. Fixes the number of people
 #'   per site; the function solves for the number of sites. Cannot be used
-#'   together with \code{n_sites}.
+#'   together with \code{n_sites}. If one site already has more people than
+#'   needed, the function stops with an error; use \code{n_sites = 1} to find
+#'   how many people that one site needs.
 #' @param icc Intra-cluster correlation (ICC): how alike people in the same
 #'   site are, from 0 (not at all) to 1 (identical). Default 0 (no
 #'   clustering). An \code{icc} above 0 needs \code{n_sites} or
@@ -420,6 +422,14 @@ design_detection <- function(prevalence,
   # Forward mode: solve for n.
   # ======================================================================
 
+  # One site larger than the number of people needed: it would be only
+  # partly sampled (as in design_threshold()).
+  stop_one_site <- function(needed)
+    stop("`n_per_site` (", num(n_per_site), ") is larger than the number of ",
+         "people needed (", num(needed), "), so one site would be more than ",
+         "enough. Use a smaller `n_per_site`, or set `n_sites = 1` to find ",
+         "how many people one site needs.")
+
   # ---- number of people with no clustering ----
   n_inf <- log(1 - detection_prob) / log(1 - q)
   # n_eff: people needed with no clustering and a very large population.
@@ -438,6 +448,15 @@ design_detection <- function(prevalence,
       log_p0_site <- .log_p0_site(n_per_site, q, icc)
       n_sites_out    <- ceiling(log_miss / log_p0_site)
       n_per_site_out <- n_per_site
+      # One site is enough: find the fewest people that one site needs.
+      if (n_sites_out == 1) {
+        lo <- 0; hi <- n_per_site
+        while (hi - lo > 1) {
+          mid <- floor((lo + hi) / 2)
+          if (.log_p0_site(mid, q, icc) <= log_miss) hi <- mid else lo <- mid
+        }
+        if (hi < n_per_site) stop_one_site(hi)
+      }
 
     } else {
       # Number of sites fixed: find the smallest number of people per site.
@@ -524,6 +543,7 @@ design_detection <- function(prevalence,
   }
 
   # ---- distribute across sites (icc 0) ----
+  if (!is.null(n_per_site) && n_per_site > n_total) stop_one_site(n_total)
   if (!is.null(n_per_site)) {
     n_sites_out    <- ceiling(n_total / n_per_site)
     n_per_site_out <- n_per_site
