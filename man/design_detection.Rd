@@ -2,14 +2,13 @@
 % Please edit documentation in R/design_detection.R
 \name{design_detection}
 \alias{design_detection}
-\title{Calculate sample size to detect at least one occurrence of a variant}
+\title{Calculate sample size to detect at least one case}
 \usage{
 design_detection(
   prevalence,
-  detection_prob = 0.95,
+  detection_prob = 0.8,
   n = NULL,
   sensitivity = 1,
-  specificity = 1,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0,
@@ -17,176 +16,178 @@ design_detection(
 )
 }
 \arguments{
-\item{prevalence}{Numeric in (0, 1). Minimum true prevalence of the
-variant to detect (the prevalence at which detection probability is
-evaluated).}
+\item{prevalence}{Expected true prevalence, in (0, 1): the lowest
+prevalence the study should be able to detect.}
 
-\item{detection_prob}{Numeric in (0, 1). Target probability of observing
-at least one positive; default 0.95. Ignored when \code{n} is supplied.}
+\item{detection_prob}{Target chance of finding at least one positive
+person, in (0, 1); default 0.80. Not used when \code{n} is supplied.}
 
-\item{n}{Optional positive integer. If supplied, the function solves the
-inverse problem: it reports the detection probability achieved by this
-total sample size and does not solve for \code{n}. When \code{n} is
-supplied, \code{detection_prob} is ignored.}
+\item{n}{Optional positive integer. If supplied, the function runs in
+reverse and reports the chance of finding at least one positive person
+among \code{n} people; \code{detection_prob} is then not used.}
 
-\item{sensitivity}{Numeric in (0, 1]. Diagnostic sensitivity; default 1.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
+who truly have the condition that the test detects as positive.
+Default 1 (the test never misses a case).}
 
-\item{specificity}{Numeric in (0, 1]. Diagnostic specificity; default 1.
-\strong{Currently validated but NOT used in the calculation} -- see the
-"Known limitation" section below.}
+\item{n_sites}{Optional positive integer. Fixes the number of sites; the
+function solves for the number of people per site. Cannot be used
+together with \code{n_per_site}.}
 
-\item{n_sites}{Optional positive integer. Fix the number of clusters; the
-function solves for the target samples per cluster
-(\code{n_per_site}). Cannot be used with \code{n_per_site}.}
+\item{n_per_site}{Optional positive integer. Fixes the number of people
+per site; the function solves for the number of sites. Cannot be used
+together with \code{n_sites}.}
 
-\item{n_per_site}{Optional positive integer. Fix the samples per cluster;
-the function solves for the number of clusters needed (\code{n_sites}).
-Cannot be used with \code{n_sites}.}
+\item{icc}{Intra-cluster correlation (ICC): how alike people in the same
+site are, from 0 (not at all) to 1 (identical). Default 0 (no
+clustering). An \code{icc} above 0 needs \code{n_sites} or
+\code{n_per_site}, and cannot be used together with \code{fpc_N}. A
+value below about 1.5e-8 is treated as 0: the calculation with sites
+loses accuracy there, and the answer is the same as with no clustering.}
 
-\item{icc}{Numeric in [0, 1]. Intra-cluster correlation; default 0
-(SRS). Requires one of \code{n_sites} or \code{n_per_site} when
-\code{icc > 0}.}
-
-\item{fpc_N}{Optional positive integer. Total population size for a
-finite-population correction. \code{NULL} (default) = no FPC.}
+\item{fpc_N}{Optional. Population size for a finite-population
+calculation: a positive integer. \code{NULL} (default) means the
+population is treated as very large. Only used with \code{icc} 0.}
 }
 \value{
-A named list. Always present:
-\item{n}{Total sample size required (forward mode) or as supplied
-(reverse mode).}
-\item{n_eff}{SRS-equivalent independent sample size. In forward mode:
-the base detection-formula n before the design effect and FPC,
-defined the same way as \code{n_eff} in \code{design_precision()} /
-\code{design_threshold()}. In reverse mode: the SRS-equivalent of the
-\emph{supplied} \code{n} after removing the design effect and FPC
-(i.e. the independent-sample size whose detection probability equals
-the reported one) -- a different quantity, not comparable across
-modes.}
-\item{detection_prob}{Target detection probability (forward mode) or the
-probability achieved by \code{n} (reverse mode).}
-\item{prevalence}{Minimum prevalence to detect, as supplied.}
-\item{q}{Per-sample true-positive probability used in the formula
-(\code{prevalence * sensitivity}).}
-\item{sensitivity}{Sensitivity as supplied.}
-\item{specificity}{Specificity as supplied (not used; see above).}
-\item{icc}{ICC as supplied.}
-\item{deff}{Design effect applied.}
-\item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}.}
-\item{mode}{\code{"solve_n"} or \code{"solve_detection_prob"}.}
-
-Present when clustering is specified:
-\item{n_sites}{If \code{n_per_site} supplied: clusters required. If
-\code{n_sites} supplied: echoed back. \code{NULL} for SRS.}
-\item{n_per_site}{If \code{n_sites} supplied: target samples per
-cluster. If \code{n_per_site} supplied: echoed back. \code{NULL} for
-SRS.}
+A named list with the following fields, in the order returned:
+\item{n}{Number of people needed (forward), or as supplied (reverse).
+With sites and an \code{icc} above 0, this is \code{n_sites *
+    n_per_site}.}
+\item{n_eff}{\eqn{n_0} with no finite-population calculation, rounded
+up: the number of people that would be needed with no clustering and
+a very large population. In reverse mode, the number of people with
+no clustering who would give the same chance of finding a case as the
+\code{n} people given, rounded up.}
+\item{n_sites}{Number of sites: solved for when \code{n_per_site} is
+given, echoed when \code{n_sites} is given. \code{NULL} with no
+clustering.}
+\item{n_per_site}{People per site: solved for when \code{n_sites} is
+given, echoed when \code{n_per_site} is given. \code{NULL} with no
+clustering. With \code{icc} 0 the design can collect more people than
+\code{n}, because the site numbers are rounded up.}
+\item{detection_prob}{Target chance of finding at least one positive
+person (forward), or the chance achieved with \code{n} people
+(reverse).}
+\item{prevalence}{The true prevalence, as supplied.}
+\item{q}{Chance that one person is a true case and tests positive,
+\code{prevalence * sensitivity}.}
+\item{n_cases}{Number of cases \eqn{D} assumed in the population when
+\code{fpc_N} is given; \code{NULL} otherwise.}
+\item{sensitivity}{Sensitivity, as supplied.}
+\item{icc}{ICC, as supplied.}
+\item{deff}{Design effect: 1 with no clustering. With sites and an
+\code{icc} above 0, \code{n} divided by the number of people with no
+clustering who would give the same chance of finding a case.}
+\item{fpc_N}{\code{fpc_N}, as supplied, or \code{NULL}.}
+\item{mode}{\code{"solve_n"} (forward) or \code{"solve_detection_prob"}
+(reverse).}
 }
 \description{
-Design function: given an expected (possibly rare) true prevalence,
-returns the minimum sample size needed so that the probability of
-observing at least one positive test result reaches a target
-(\code{detection_prob}). Supply \code{n} instead of \code{detection_prob}
-to run the calculation in reverse and report the detection probability a
-given sample size achieves.
+Design function: given the expected true prevalence of a (possibly rare)
+variant or condition, returns the number of people needed so that the
+chance of finding at least one positive person reaches a target
+(\code{detection_prob}). Supply \code{n} instead to run it in reverse: the
+function then reports the chance of finding at least one positive person
+with that many people.
 
-The same three design modes as \code{design_precision()} /
-\code{design_threshold()} are supported:
+Three designs are supported:
 \describe{
-\item{SRS (no clustering args)}{Returns total \code{n} only.}
-\item{Fixed cluster size (\code{n_per_site} supplied)}{Solves for the
-number of clusters needed.}
-\item{Fixed number of clusters (\code{n_sites} supplied)}{Solves for
-target samples per cluster via closed form.}
+\item{No clustering (neither \code{n_sites} nor \code{n_per_site})}{
+Returns the number of people.}
+\item{Fixed number of people per site (\code{n_per_site})}{Solves for
+the number of sites needed.}
+\item{Fixed number of sites (\code{n_sites})}{Solves for the number of
+people needed per site.}
 }
 }
 \details{
-\strong{Detection formula.} With a perfect test the number of positives
-in \code{n} independent samples is binomial, so the probability of at
-least one positive is \eqn{1 - (1 - q)^n} and the required SRS sample
-size is
+\strong{Sample size.} Each person tested is a true case that the test
+detects with probability \eqn{q = prevalence \times sensitivity}. The
+chance that none of \eqn{n} people tests positive is \eqn{(1 - q)^n}, so
+the chance of finding at least one is \eqn{1 - (1 - q)^n}, and the number
+of people needed is
 
-\deqn{n = \frac{\log(1 - detection\_prob)}{\log(1 - q)}.}
+\deqn{n_0 = \frac{\log(1 - detection\_prob)}{\log(1 - q)}}
 
-\code{q} is the probability that a single randomly drawn sample is a
-\emph{genuine} positive that the assay detects:
+rounded up. A false positive is not counted as finding a case, so
+specificity is not used.
 
-\deqn{q = prevalence \times sensitivity.}
+\strong{Clustering.} People at the same site tend to resemble each other,
+so cases bunch together: some sites have many and others none. To allow
+for this, the chance \eqn{q} is taken to vary from site to site, with
+average \eqn{q} and intra-cluster correlation ICC (a beta distribution, as
+in the DRpower package). The chance that none of \eqn{m} people at one
+site tests positive is then
 
-This is the standard basis used in surveillance / "freedom from disease"
-sample-size calculations (Cannon & Roe 1982; Cannon 2001): the
-calculation is about the chance of catching a \emph{true} occurrence, and
-specificity is handled separately (e.g. by confirmatory testing) rather
-than being allowed to shrink the required \code{n}.
+\deqn{P_0(m) = \frac{B(\alpha, \beta + m)}{B(\alpha, \beta)}, \qquad
+  \alpha = q \left(\frac{1}{ICC} - 1\right), \quad
+  \beta = (1 - q) \left(\frac{1}{ICC} - 1\right),}
 
-Clustering and the finite-population correction are then applied with the
-same closed-form logic as \code{design_threshold()} /
-\code{design_precision()}.
+where \eqn{B} is the beta function, and the chance of finding at least one
+case at \eqn{k} sites of \eqn{m} people is \eqn{1 - P_0(m)^k}. With
+\code{n_per_site} fixed, the function finds the smallest number of sites
+that reaches \code{detection_prob}; with \code{n_sites} fixed, the
+smallest number of people per site. With an ICC of 1 everyone at a site
+has the same result, so \eqn{P_0(m) = 1 - q} however many people each
+site has, and \eqn{k} sites can give at most \eqn{1 - (1 - q)^k}; the
+function stops if the target is above that. With an ICC below 1, more
+people per site always raise the chance, but slowly when the ICC is high.
+
+With \code{n_sites} fixed, one person per site already gives the chance
+of \code{n_sites} people with no clustering. If that is more than enough
+(\code{n_sites} above \eqn{n_0}), the function stops and asks for fewer
+sites.
+
+\strong{Finite population.} With \code{fpc_N} (the population size
+\eqn{N}), the population is taken to contain \eqn{D} cases, \eqn{N \times
+prevalence} rounded down, and people are drawn without replacement. The
+chance that none of \eqn{n} people tests positive is then
+
+\deqn{\sum_k \frac{\binom{D}{k}\binom{N-D}{n-k}}{\binom{N}{n}} (1 - Se)^k}
+
+(the hypergeometric distribution: \eqn{k} cases in the sample, each missed
+by the test with probability \eqn{1 - Se}), and \eqn{n_0} is the smallest
+\eqn{n} that reaches \code{detection_prob}. Testing everyone finds a case
+with probability \eqn{1 - (1 - Se)^D}, so a target above that cannot be
+reached. The calculation with clustering assumes a very large population,
+so \code{fpc_N} cannot be used together with an \code{icc} above 0.
 }
-\section{Equations and sources}{
-
-\itemize{
-\item \emph{"Detect at least one" sample size}
-\eqn{n = \log(1 - detection\_prob)/\log(1 - q)} -- the MMS-SD
-workshop refers to this as DRpower's
-\code{get_sample_size_presence()} (Module 6 "The DRpower tool";
-Module 7 "Designing a study for multiple end-points", slide "Choose
-the largest sample size!"). The geometric derivation itself is not
-in the workshop; standard surveillance form, Cannon & Roe (1982),
-Cannon (2001).
-\item \emph{Design effect} \eqn{D_{eff} = 1 + (\bar n - 1)\,r} --
-Module 5 "Dealing with over-dispersion in multi-cluster studies",
-slide "Why is the ICC useful?" (lecture slides p. 5).
-\item \emph{Per-sample probability} \eqn{q = prevalence \times
-    sensitivity} -- see the "Known limitation" section below; the
-apparent-prevalence alternative would be Rogan & Gladen (1978).
-\item \emph{Finite-population correction} -- not in the workshop;
-Cochran (1977), \emph{Sampling Techniques}.
-}
-}
-
-\section{Known limitation -- specificity is not yet used}{
-
-\strong{This is a deliberate v1 simplification that must be revisited.}
-\code{design_detection()} currently sets \eqn{q = prevalence \times
-sensitivity} and ignores \code{specificity} entirely. Two questions are
-unresolved and need a team decision:
-\enumerate{
-\item Whether "detection" should mean "detect a true occurrence"
-(current behaviour, \eqn{q = p \cdot Se}) or "observe any positive
-result" (the apparent-prevalence basis \eqn{q = p \cdot Se +
-    (1 - p)(1 - Sp)} used by every other function in this package via
-\code{.apparent_prev()}).
-\item If false positives are in scope, how a "detection" driven by a
-false positive should be reported / discounted.
-}
-Until this is settled, results with \code{specificity < 1} should be
-treated as provisional. See the README for the tracking note.
-}
-
 \examples{
-# How many samples to be 95\% sure of seeing >=1 positive when p = 0.02?
-design_detection(prevalence = 0.02)
+# How many people to have an 80 percent chance of finding at least one
+# case when the prevalence is 5 percent?
+design_detection(prevalence = 0.05)
 
-# Imperfect sensitivity inflates the requirement
-design_detection(prevalence = 0.02, sensitivity = 0.8)
+# A higher target needs more people
+design_detection(prevalence = 0.05, detection_prob = 0.95)
 
-# Reverse mode: what detection probability does n = 150 buy me?
-design_detection(prevalence = 0.02, n = 150)
+# Imperfect diagnostic test
+design_detection(prevalence = 0.05, sensitivity = 0.8)
 
-# Fixed cluster size: how many sites needed?
-design_detection(prevalence = 0.02, n_per_site = 20, icc = 0.05)
+# Reverse: the chance of finding a 1 percent variant with 139 people
+design_detection(prevalence = 0.01, n = 139)
+
+# Population of 200 people
+design_detection(prevalence = 0.05, fpc_N = 200)
+
+# Fixed number of people per site: how many sites?
+design_detection(prevalence = 0.05, n_per_site = 10, icc = 0.05)
+
+# Fixed number of sites: how many people per site?
+design_detection(prevalence = 0.01, n_sites = 5, icc = 0.1)
 }
 \references{
-MMS-SD Study Design Workshop, Modules 5 (ICC / design effect), 6 (the
-DRpower tool) and 7 (multiple end-points).
-\url{https://mrc-ide.github.io/MMS-SD_workshop/}
+MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 
-Cannon RM, Roe RT (1982). Livestock Disease Surveys: A Field Manual for
-Veterinarians. Australian Bureau of Animal Health.
+Verity, R. & Ruybal, S. DRpower: Study design and analysis for pfhrp2/3
+deletion prevalence studies. R package, version 1.0.4 (functions
+\code{get_power_presence()} and \code{get_sample_size_presence()}).
+\url{https://github.com/mrc-ide/DRpower}
 
-Cannon RM (2001). Sense and sensitivity -- designing surveys based on an
-imperfect test. Preventive Veterinary Medicine 49(3):141-163.
+Cannon, R. M. & Roe, R. T. (1982) \emph{Livestock Disease Surveys: A Field
+Manual for Veterinarians}. Australian Bureau of Animal Health.
 
-Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
-(Finite-population correction.)
+Cannon, R. M. (2001) Sense and sensitivity: designing surveys based on an
+imperfect test. \emph{Preventive Veterinary Medicine} \strong{49}(3),
+141-163. \doi{10.1016/S0167-5877(01)00184-2}
 }
