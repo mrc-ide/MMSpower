@@ -155,12 +155,3 @@
             "do not fit the assumed sensitivity and specificity.", call. = FALSE)
   pmin(pmax(ci, 0), 1)
 }
-
-# Wilson score confidence interval for a proportion.
-# Returns list(lower, upper).
-.wilson_ci <- function(p, n, z) {
-  denom  <- 1 + z^2 / n
-  center <- (p + z^2 / (2 * n)) / denom
-  margin <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / denom
-  list(lower = center - margin, upper = center + margin)
-}

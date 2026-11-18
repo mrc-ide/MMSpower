@@ -9,113 +9,77 @@ test_difference(
   n1,
   x2,
   n2,
-  alternative = "two.sided",
+  alternative = c("two.sided", "greater", "less"),
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  fpc_N = NULL,
-  ci_method = "score"
+  method = c("score", "wald")
 )
 }
 \arguments{
-\item{x1}{Vector of integer counts of people who tested positive in
+\item{x1}{Vector of whole-number counts of people who tested positive in
 group 1, one per site (a single number if group 1 is one site).}
 
-\item{n1}{Vector of integer totals tested in group 1, one per site
+\item{n1}{Vector of whole-number totals tested in group 1, one per site
 (same length as \code{x1}).}
 
-\item{x2}{Vector of integer counts of people who tested positive in
+\item{x2}{Vector of whole-number counts of people who tested positive in
 group 2, one per site (a single number if group 2 is one site).}
 
-\item{n2}{Vector of integer totals tested in group 2, one per site
+\item{n2}{Vector of whole-number totals tested in group 2, one per site
 (same length as \code{x2}).}
 
 \item{alternative}{Direction of the test: \code{"two.sided"} (default),
 \code{"greater"} (group 1 higher) or \code{"less"} (group 1 lower).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case). Assumed the same in both
-groups.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1. Assumed
+the same in both groups.}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive). Assumed the
-same in both groups.}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1. Assumed
+the same in both groups. \code{sensitivity + specificity} must exceed
+1.}
 
 \item{conf_level}{Confidence level for the interval on the difference, in
-[0.5, 1); default 0.95. The significance level of the test is
+(0, 1); default 0.95. The significance level of the test is
 1 - \code{conf_level}.}
 
-\item{icc}{Optional. Intra-cluster correlation (ICC): how alike people in
-the same site are, from 0 (not at all) to 1 (identical). If
-\code{NULL} (default), it is estimated separately for each group
-from its own sites. Otherwise give one number used for both groups, or
-two, \code{c(group 1, group 2)}. Each is used exactly as given, however
-small: with very large sites even a tiny ICC changes the design effect.
-It is also used for a group with only one site (see Details). Set to
-\code{0} for no clustering.}
+\item{icc}{Optional. Intra-cluster correlation (ICC), in [0, 1]. If
+\code{NULL} (default), it is estimated separately for each group from
+its own sites. Otherwise give one number used for both groups, or two,
+\code{c(group 1, group 2)}. A supplied value is also used for a group
+with only one site (see Details). Set to \code{0} for no clustering.}
 
-\item{fpc_N}{Optional. Population size for a finite-population
-correction: one positive integer used for each group, or two,
-\code{c(group 1, group 2)}. Each must be larger than the number tested
-in its group. \code{NULL} (default) means no finite-population
-correction.}
-
-\item{ci_method}{Method for the interval on the difference:
-\code{"score"} (default), whose interval leaves out 0 exactly when
-the test finds a difference; \code{"newcombe"} (Newcombe's hybrid
-score interval, built from a Wilson interval for each group); or
-\code{"wald"} (the measured difference plus or minus z standard
-errors). \code{"newcombe"} and \code{"wald"} can occasionally leave
-out 0 when the test finds no difference, or include 0 when it does,
-and \code{"wald"} can be too narrow with small groups (see Details).
-It changes only the interval, not the test.}
+\item{method}{\code{"score"} (default): pooled z-test with the score
+interval. \code{"wald"}: unpooled (Wald) z-test with the Wald interval.
+Each interval is its own test turned around, so the interval leaves out
+0 exactly when \code{reject} is \code{TRUE}, whichever method is used.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{difference}{Estimated true difference, group 1 minus group 2,
-between -1 and 1.}
-\item{difference_app}{Measured difference,
-\code{apparent_prev1 - apparent_prev2}: the difference the test is
-done on. Equals \code{difference} when \code{sensitivity} and
-\code{specificity} are both 1.}
-\item{statistic}{The z-statistic.}
-\item{p_value}{p-value for the chosen \code{alternative}.}
-\item{reject}{\code{TRUE} if \code{p_value} is below
-1 - \code{conf_level}.}
-\item{alternative}{Direction of the test, as supplied.}
-\item{prevalence1, prevalence2}{Estimated true prevalence in each group
-(Rogan-Gladen corrected, between 0 and 1).}
-\item{apparent_prev1, apparent_prev2}{Measured prevalence in each
-group.}
+A list with:
+\item{difference}{Estimated true difference, group 1 minus group 2:
+the measured difference divided by \eqn{Se + Sp - 1}, between -1 and
+1.}
 \item{ci_lower, ci_upper}{Confidence interval for the true difference;
 \code{ci_upper} is 1 for \code{"greater"} and \code{ci_lower} is -1
 for \code{"less"}.}
-\item{ci_method}{Interval method, as supplied.}
-\item{n_total1, n_total2}{Number of people tested in each group.}
-\item{n_eff1, n_eff2}{Effective sample size of each group before the
-finite-population correction: \code{n_total / deff}.}
-\item{n_eff_adj1, n_eff_adj2}{Effective sample size each group
-contributes to the test and interval, after the finite-population
-correction (equals \code{n_eff} when \code{fpc_N} is \code{NULL}).}
-\item{conf_level}{Confidence level, as supplied (as a plain number).}
-\item{sensitivity, specificity}{As supplied (as plain numbers).}
-\item{icc_used1, icc_used2}{ICC used for each group. If
-\code{icc = NULL}, it is the value estimated from that group's data
-(0 for a group with one site, or one person per site). If \code{icc}
-was supplied, it is that group's value.}
+\item{p_value}{p-value for the chosen \code{alternative}.}
+\item{reject}{\code{TRUE} if \code{p_value} is below
+1 - \code{conf_level}.}
+\item{prevalence1, prevalence2}{Estimated true prevalence in each group
+(Rogan-Gladen corrected, between 0 and 1).}
+\item{n_eff1, n_eff2}{Effective sample size of each group,
+\code{sum(n) / deff}.}
+\item{icc1, icc2}{ICC used for each group: as supplied, or estimated
+from that group's data.}
 \item{deff1, deff2}{Design effect used for each group (1 with no
 clustering).}
-\item{fpc_N}{\code{fpc_N}, as supplied (as plain numbers), or
-\code{NULL}.}
 }
 \description{
 Analysis function: given the number of positives and the number tested in
 two groups, tests whether their true prevalence differs. Returns the
-estimated difference with a confidence interval, the z-statistic, the
-p-value and whether the difference is significant. It is the analysis
+estimated difference with the confidence interval that matches the test,
+the p-value and whether the difference is significant. It is the analysis
 twin of \code{design_difference()}.
 
 The test compares the measured (apparent) prevalences, the share who
@@ -139,20 +103,14 @@ H1: \eqn{p_1 \ne p_2}.}
 \strong{Design effect} (returned as \code{deff1} and \code{deff2}). For
 each group it is \eqn{1 + (n_w - 1) ICC}, where
 \eqn{n_w = \sum n^2 / \sum n} is the mean number of people per site,
-weighted by site size (the plain mean when all sites are the same size).
-With \code{icc} supplied (for example
-from earlier surveys), that value is used. Supply \code{icc} for a group
-with one site only when the site stands for a wider population, such as
-a district; if the site itself is the population of interest, leave
+weighted by site size. With \code{icc} supplied (for example from
+earlier surveys), that value is used. Supply \code{icc} for a group with
+one site only when the site stands for a wider population, such as a
+district; if the site itself is the population of interest, leave
 \code{icc = NULL}. With \code{icc = NULL}, the ICC of each group is
-worked out from the data as in \code{estimate_prevalence()}: the
-variance of the site prevalences divided by the variance expected if
-everyone were independent, turned into an ICC with the mean site size.
-This needs at least two sites; a group with
-one site gets a design effect of 1. The ICC (returned
-as \code{icc_used1} and \code{icc_used2}) is kept between 0 and 1, so the
-design effect is between 1 and \eqn{n_w}. With one person per site
-the design effect is 1.
+estimated from its own data as in \code{estimate_prevalence()}; this
+needs at least two sites, and a group with one site gets a design effect
+of 1.
 
 An ICC estimated from only a few sites is uncertain, and the interval
 then tends to be too narrow. In simulations with a true ICC of 0.1, 50
@@ -162,62 +120,62 @@ sites per group, 87 to 89 percent with 3 and 90 to 92 percent with 5.
 Supplying \code{icc} from other studies avoids this.
 
 \strong{Effective sample size.} For group \eqn{g}, \eqn{m_g} (returned as
-\code{n_eff_adj1} and \code{n_eff_adj2}) is the number
-tested divided by the design effect, then divided by the
-finite-population factor \eqn{(N - n)/(N - 1)} when \code{fpc_N} is
-given (\eqn{n} the number tested, \eqn{N} the population size).
+\code{n_eff1} and \code{n_eff2}) is the number tested divided by the
+design effect.
 
-\strong{Test.} With \eqn{\hat{p}_g} the measured prevalence in group
-\eqn{g},
+\strong{Score test} (\code{method = "score"}). With \eqn{\hat{p}_g} the
+measured prevalence in group \eqn{g},
 
 \deqn{z = \frac{\hat{p}_1 - \hat{p}_2}
   {\sqrt{\bar{p}(1-\bar{p})\,(1/m_1 + 1/m_2)}}, \qquad
   \bar{p} = \frac{\hat{p}_1 m_1 + \hat{p}_2 m_2}{m_1 + m_2}.}
 
-With no clustering and no \code{fpc_N}, this is the same test as R's
-\code{prop.test(correct = FALSE)}.
+With no clustering this is the same test as R's
+\code{prop.test(correct = FALSE)}, and the one \code{design_difference()}
+sizes for.
 
-\strong{Interval.} Built on the measured scale, then divided by
-\eqn{Se + Sp - 1} to give an interval for the true difference (the rest
-of the Rogan-Gladen correction cancels in a difference). When
-\eqn{Se + Sp} is below 1.1 a warning is given: dividing by so small a
-number makes the difference and its interval very wide.
+\strong{Wald test} (\code{method = "wald"}). The same, but with the
+standard error worked out from each group's own prevalence,
 
-\code{"score"} contains every difference \eqn{\delta} that the same kind
-of test would not reject. For each \eqn{\delta}, the two prevalences are
-estimated again under the condition \eqn{p_1 - p_2 = \delta}, giving
-\eqn{\tilde{p}_1, \tilde{p}_2}, and
+\deqn{z = \frac{\hat{p}_1 - \hat{p}_2}
+  {\sqrt{\hat{p}_1(1-\hat{p}_1)/m_1 + \hat{p}_2(1-\hat{p}_2)/m_2}}.}
+
+With small groups it can be too optimistic: with 20 people per group and
+true prevalences of 0.05 and 0.10, a 95 percent Wald interval contains
+the true difference only about 90 percent of the time (score 97). When
+each group's measured prevalence is 0 or 1 the standard error is 0.
+
+For both, the one-sided p-values are the normal tail areas above and
+below \eqn{z}, and the two-sided p-value is twice the smaller of them.
+
+\strong{Interval.} The interval is the test turned around: it holds the
+differences \eqn{\delta} the test would not reject, so it leaves out 0
+exactly when \code{reject} is \code{TRUE}. It matches
+\code{alternative}: two-sided for \code{"two.sided"}, \eqn{[L, 1]} for
+\code{"greater"} and \eqn{[-1, U]} for \code{"less"}.
+
+For \code{"score"}, the two prevalences are estimated again by maximum
+likelihood under the condition \eqn{p_1 - p_2 = \delta} (the closed form
+of Farrington and Manning, 1990), giving \eqn{\tilde{p}_1, \tilde{p}_2},
+and
 
 \deqn{z(\delta) = \frac{\hat{p}_1 - \hat{p}_2 - \delta}
   {\sqrt{\tilde{p}_1(1-\tilde{p}_1)/m_1 + \tilde{p}_2(1-\tilde{p}_2)/m_2}}}
 
-is compared with the z value for \code{conf_level} (Mee, 1984). At
-\eqn{\delta = 0} this is exactly the test above, so the interval
-excludes 0 when, and only when, \code{reject} is \code{TRUE}. Miettinen
+is set equal to the z value for \code{conf_level} and solved for
+\eqn{\delta} (Mee, 1984). At \eqn{\delta = 0}, \eqn{\tilde{p}_1 =
+\tilde{p}_2 = \bar{p}} and this is exactly the score test above. Miettinen
 and Nurminen (1985) multiply the variance by
 \eqn{(m_1 + m_2)/(m_1 + m_2 - 1)}; that factor is left out here so that
-the interval and the test always agree. \code{"newcombe"} combines a
-Wilson interval for each group and can disagree with \code{reject} near
-the significance cut-off.
+the interval and the test always agree.
 
-\code{"wald"} is \eqn{\hat{p}_1 - \hat{p}_2 \pm z \sqrt{\hat{p}_1(1 -
-\hat{p}_1)/m_1 + \hat{p}_2(1 - \hat{p}_2)/m_2}}. It can disagree with
-\code{reject}, as the test uses the pooled prevalence \eqn{\bar{p}} and
-this interval does not. With small groups it can be too narrow: with 20
-people per group and true prevalences of 0.05 and 0.10, a 95 percent
-interval contains the true difference only about 90 percent of the time
-(score 97, Newcombe 99).
-When each group's measured prevalence is 0 or 1 it has zero width, and a
-warning is given.
+For \code{"wald"}, the interval is \eqn{\hat{p}_1 - \hat{p}_2 \pm z
+\sqrt{\hat{p}_1(1 - \hat{p}_1)/m_1 + \hat{p}_2(1 - \hat{p}_2)/m_2}}.
 
-The interval matches \code{alternative}: two-sided for
-\code{"two.sided"}, \eqn{[L, 1]} for \code{"greater"} and \eqn{[-1, U]}
-for \code{"less"}. Ends outside -1 to 1 are set to -1 or 1.
-
-\code{difference} is the measured difference divided by
-\eqn{Se + Sp - 1}, the value the interval is built around. It can differ
-from \code{prevalence1 - prevalence2} when a corrected group prevalence is
-set to 0 or 1.
+The interval is built on the measured scale, then divided by
+\eqn{Se + Sp - 1} to give an interval for the true difference (the rest
+of the Rogan-Gladen correction cancels in a difference). Ends outside -1
+to 1 are set to -1 or 1.
 }
 \examples{
 # One count per group: 8 of 100 versus 20 of 120
@@ -233,9 +191,8 @@ test_difference(
   sensitivity = 0.9, specificity = 0.97
 )
 
-# Newcombe or Wald interval instead of the default score interval
-test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, ci_method = "newcombe")
-test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, ci_method = "wald")
+# Wald test and interval instead of the default score versions
+test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, method = "wald")
 
 # A different ICC for each group
 test_difference(
@@ -262,15 +219,7 @@ non-zero risk difference or non-unity relative risk. \emph{Statistics in
 Medicine} \strong{9}(12), 1447-1454. (Prevalences estimated under a
 given difference.)
 
-Newcombe, R. G. (1998) Interval estimation for the difference between
-independent proportions: comparison of eleven methods. \emph{Statistics
-in Medicine} \strong{17}(8), 873-890.
-\doi{10.1002/(SICI)1097-0258(19980430)17:8<873::AID-SIM779>3.0.CO;2-I}
-
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
-
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}
