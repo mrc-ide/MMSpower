@@ -6,6 +6,8 @@
 \alias{MMSpower-package}
 \title{MMSpower: Malaria Molecular Surveillance (MMS) Sample Size and Study Design Power Calculations}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 This package has basic functions needed for MMS power calculations.
 }
 \seealso{
