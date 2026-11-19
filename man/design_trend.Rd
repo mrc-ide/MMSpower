@@ -12,14 +12,13 @@ design_trend(
   times = NULL,
   n_per_timepoint = NULL,
   power = 0.8,
-  alternative = "two.sided",
+  alternative = c("two.sided", "greater", "less"),
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
   n_sites = NULL,
   n_per_site = NULL,
-  icc = 0,
-  fpc_N = NULL
+  icc = 0
 )
 }
 \arguments{
@@ -27,191 +26,137 @@ design_trend(
 in (0, 1).}
 
 \item{prevalence_end}{Expected true prevalence at the last timepoint, in
-(0, 1). Supply exactly one of \code{prevalence_end} or \code{slope}.}
+(0, 1). Supply exactly one of \code{prevalence_end} and \code{slope}.}
 
 \item{slope}{Change in true prevalence per unit of time. Supply exactly
-one of \code{prevalence_end} or \code{slope}.}
+one of \code{prevalence_end} and \code{slope}.}
 
-\item{n_timepoints}{Integer, 2 or more. Number of equally spaced
-timepoints, used when \code{times} is not given (the timepoints are then
-0, 1, ..., \code{n_timepoints} - 1).}
+\item{n_timepoints}{Whole number, 2 or more: equally spaced timepoints
+0, 1, ..., \code{n_timepoints} - 1. Supply exactly one of \code{n_timepoints} and
+\code{times}.}
 
-\item{times}{Optional numeric vector of at least two timepoints, for
-unequal spacing or real units (e.g. calendar years). Used instead of
-\code{n_timepoints}.}
+\item{times}{Numeric vector of at least two timepoints, for unequal
+spacing or real units (for example calendar years).}
 
-\item{n_per_timepoint}{Optional positive integer. If supplied, the
-function runs in reverse and reports the power this number of people per
-timepoint gives; \code{power} is then not used.}
+\item{n_per_timepoint}{Optional whole number. If supplied, the function
+runs in reverse and reports the power this many people per timepoint
+give; \code{power} is then not used.}
 
 \item{power}{Target power, in [0.5, 1); default 0.80.}
 
-\item{alternative}{Direction of the test; must match the
-\code{alternative} used later in \code{test_trend()}.
-\code{"two.sided"} (default) tests for any trend; \code{"greater"} tests
-for an increase; \code{"less"} tests for a decrease.}
+\item{alternative}{Direction of the test, as used later in
+\code{\link[=test_trend]{test_trend()}}: \code{"two.sided"} (default), \code{"greater"} (an increase) or
+\code{"less"} (a decrease).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case).}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1.}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive).}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1.
+\code{sensitivity + specificity} must exceed 1.}
 
-\item{conf_level}{Confidence level, in [0.5, 1); default 0.95. The
+\item{conf_level}{Confidence level, in (0, 1); default 0.95. The
 significance level of the test is 1 - \code{conf_level}.}
 
-\item{n_sites}{Optional positive integer. Fixes the number of sites per
-timepoint; the function solves for the number of people per site. Cannot
-be used together with \code{n_per_site}.}
+\item{n_sites}{Optional whole number. Fixes the number of sites per
+timepoint; the function solves for people per site. Cannot be used with
+\code{n_per_site}.}
 
-\item{n_per_site}{Optional positive integer. Fixes the number of people
-per site; the function solves for the number of sites per timepoint.
-Cannot be used together with \code{n_sites}.}
+\item{n_per_site}{Optional whole number. Fixes the number of people per
+site; the function solves for the number of sites per timepoint. Cannot
+be used with \code{n_sites}.}
 
 \item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
-clustering). An \code{icc} above 0 needs \code{n_sites} or
-\code{n_per_site}. Values below about 1.5e-8 are treated as 0.}
-
-\item{fpc_N}{Optional positive integer. Population size \strong{per
-timepoint}, for a finite-population correction. \code{NULL} (default) =
-no finite-population correction applied.}
+clustering). An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{n_per_timepoint}{People per timepoint: solved for, or as supplied
-in reverse mode.}
-\item{n}{Total number of people over all timepoints,
-\code{n_per_timepoint * n_timepoints}.}
-\item{n_eff}{Effective number of people per timepoint with no
-clustering and no finite-population correction: \eqn{n_0} rounded up
-in forward mode; in reverse mode the effective size of the supplied
-design (\code{Inf} when the whole population is tested, which gives a
-power of 1).}
-\item{n_timepoints}{Number of timepoints.}
-\item{times}{The timepoints used.}
-\item{power}{Target power (forward), or the power achieved (reverse).}
-\item{prevalence_start}{As supplied.}
-\item{prevalence_end}{As supplied, or implied by \code{slope}.}
-\item{slope}{True change in prevalence per unit of time.}
-\item{slope_app}{Measured change in prevalence per unit of time.}
-\item{sxx}{\eqn{S_{xx} = \sum (t_i - \bar t)^2}.}
-\item{sigma2_app}{\eqn{\bar\sigma^2_{app}}, the binomial variance at the
-average measured prevalence.}
-\item{alternative}{As supplied.}
-\item{conf_level}{As supplied.}
-\item{sensitivity}{As supplied.}
-\item{specificity}{As supplied.}
-\item{icc}{As supplied.}
-\item{deff}{Design effect applied at each timepoint (1 with no
-clustering).}
-\item{fpc_N}{As supplied, or \code{NULL}.}
-\item{mode}{\code{"solve_n"} (forward) or \code{"solve_power"}
-(reverse).}
-\item{n_sites}{Sites per timepoint: solved for when \code{n_per_site} is
-given, echoed when \code{n_sites} is given. \code{NULL} with no
-clustering.}
-\item{n_per_site}{People per site: solved for when \code{n_sites} is
-given, echoed when \code{n_per_site} is given. \code{NULL} with no
-clustering.}
+A list with:
+\item{n_per_timepoint}{People per timepoint (or as supplied, in
+reverse). With sites, \code{n_sites * n_per_site}.}
+\item{n}{Total over all timepoints.}
+\item{n_sites}{Sites per timepoint (\code{NULL} if unclustered).}
+\item{n_per_site}{People per site (\code{NULL} if unclustered).}
+\item{deff}{Design effect at each timepoint; 1 if unclustered.}
+\item{n_eff}{Unclustered people per timepoint \eqn{n_0}, rounded up
+(in reverse, \code{n_per_timepoint / deff}).}
+\item{power}{The target (forward), or the power achieved (reverse).}
 }
 \description{
-Design function: given the prevalence at the first timepoint and either
-the prevalence at the last timepoint or a slope, returns the number of
-people needed \strong{per timepoint} to detect a linear trend with the
-target power. It is the design twin of \code{test_trend()}.
+Given the prevalence at the first timepoint and either the prevalence at
+the last timepoint or a slope, returns the number of people needed
+\strong{per timepoint} to detect a linear trend with the target power, using
+the test in \code{\link[=test_trend]{test_trend()}}. Supply \code{n_per_timepoint} instead to run it in
+reverse: the function then reports the power that number of people per
+timepoint gives. Every timepoint gets the same design.
 
-Supply \code{n_per_timepoint} instead to run it in reverse: the function
-then reports the power that number of people per timepoint gives.
-
-Every timepoint gets the same number of people. Clustering and the
-finite-population correction are applied to each timepoint in the same
-way. Three designs are supported:
+\strong{Three design modes} -- controlled by \code{n_sites} and \code{n_per_site}, at
+each timepoint:
 \describe{
-\item{No clustering (neither \code{n_sites} nor \code{n_per_site})}{
-Returns the number of people per timepoint.}
-\item{Fixed number of people per site (\code{n_per_site})}{Solves for
-the number of sites needed per timepoint.}
-\item{Fixed number of sites (\code{n_sites})}{Solves for the number of
-people needed per site.}
+\item{Unclustered (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Returns the
+number of people per timepoint.}
+\item{Fixed site size (\code{n_per_site} supplied)}{Solves for the number of
+sites per timepoint.}
+\item{Fixed number of sites (\code{n_sites} supplied)}{Solves for the number
+of people per site.}
 }
 }
 \details{
-\strong{Sample size per timepoint.} The test fits a straight line through
-the measured (apparent) prevalences at times \eqn{t_1, \dots, t_T}. With
-\eqn{n} people per timepoint, the variance of its slope is approximately
-
-\deqn{\mathrm{Var}(\hat\beta_{app}) = \frac{\bar\sigma^2_{app}}{n \, S_{xx}},
-  \qquad S_{xx} = \sum_i (t_i - \bar t)^2,}
-
-where \eqn{\bar\sigma^2_{app} = \bar p_{app}(1 - \bar p_{app})} uses the
-average of the first and last measured prevalences, \eqn{\bar p_{app}}.
-Detecting a measured slope \eqn{\beta_{app}} with the target power needs
+\strong{Sample size per timepoint.} The test fits a straight line through the
+measured prevalences at times \eqn{t_1, \dots, t_T}. With \eqn{n} people
+per timepoint, its slope has variance about
+\eqn{\bar\sigma^2_{app} / (n S_{xx})}, where
+\eqn{S_{xx} = \sum_i (t_i - \bar t)^2} and
+\eqn{\bar\sigma^2_{app} = \bar p_{app}(1 - \bar p_{app})} uses the
+average of the first and last measured prevalences. Detecting a measured
+slope \eqn{\beta_{app}} with the target power needs
 
 \deqn{n_0 = \frac{(z_\alpha + z_\beta)^2 \, \bar\sigma^2_{app}}
   {S_{xx} \, \beta_{app}^2},}
 
-where \eqn{z_\beta} is the standard normal quantile at \code{power} and
-\eqn{z_\alpha} the standard normal quantile at \eqn{1 - \alpha/2}
-(two-sided) or \eqn{1 - \alpha} (one-sided), with
-\eqn{\alpha = 1 -} \code{conf_level}. The measured slope is the true slope
-times \eqn{Se + Sp - 1}, so an imperfect test shrinks the trend the test
-can see and increases \eqn{n_0}.
+with \eqn{z_\beta} the normal quantile at \code{power} and \eqn{z_\alpha} at
+\eqn{1 - \alpha/2} (two-sided) or \eqn{1 - \alpha} (one-sided). The
+measured slope is the true slope times \eqn{Se + Sp - 1}, so an imperfect
+test needs more people (Dupont & Plummer 1998).
 
-\strong{Clustering.} The design effect \eqn{D_{eff} = 1 + (\bar{n} -
-1)\,ICC}, with \eqn{\bar{n}} the number of people per site, is applied to
-each timepoint. With \code{n_per_site} fixed, \eqn{n = n_0 D_{eff}}. With
-\code{n_sites} fixed, \eqn{D_{eff}} depends on \eqn{n}, and solving gives
-\eqn{n = n_0 \cdot n_{sites}(1 - ICC) / (n_{sites} - n_0 \cdot ICC)}. This
-has a solution only when \eqn{n_{sites} > n_0 \cdot ICC}; otherwise the
-function stops and reports the maximum power those sites can give. The
-number of people per site is rounded up, and \code{deff} is then worked
-out again from that rounded number.
+\strong{Clustering}, as in \code{\link[=design_precision]{design_precision()}}: with \code{n_per_site} fixed,
+\eqn{n = n_0 D_{eff}} with \eqn{D_{eff} = 1 + (n_{per site} - 1) ICC};
+with \code{n_sites} fixed,
+\eqn{n = n_0 n_{sites}(1 - ICC) / (n_{sites} - n_0 ICC)}, which exists
+only when \eqn{n_{sites} > n_0 ICC}; otherwise the function stops and
+reports the highest power those sites can give. If fewer people are
+needed than there are sites, fewer sites are used, with 1 person at
+each, and a warning says so. With sites, \code{n_per_timepoint} is the number
+actually sampled, \code{n_sites * n_per_site}.
 
-\strong{Finite-population correction.} With \code{fpc_N} (the population
-size \eqn{N} at each timepoint), \eqn{n = n_1 N / (N + n_1 - 1)}, where
-\eqn{n_1} is the size before the correction. With \code{n_sites} fixed,
-the correction and the design effect are solved together (a quadratic with
-one positive root, below \eqn{N}), so the target is always reachable.
-
-\strong{Reverse mode.} With \code{n_per_timepoint} given, the same
-equations are run backwards: the effective size is
-\eqn{n / (D_{eff} \cdot (N - n)/(N - 1))} (the last factor only with
-\code{fpc_N}), and the power is that of the slope test with that size, so
-a forward result put back in gives the target power.
-
-Solving for the number of timepoints is not supported: fix
-\code{n_timepoints} (or \code{times}) and solve for the number of people.
+\strong{Reverse mode.} The same equation run backwards: the power of the
+slope test with \eqn{n / D_{eff}} people per timepoint.
 }
 \examples{
-# Detect prevalence rising from 10 to 20 percent over 5 annual rounds
+# Prevalence rising from 10 to 20 percent over 5 annual rounds
 design_trend(prevalence_start = 0.10, prevalence_end = 0.20, n_timepoints = 5)
 
 # The same trend given as a slope
 design_trend(prevalence_start = 0.10, slope = 0.025, n_timepoints = 5)
 
-# Reverse mode: the power of 150 people per round
+# Reverse: the power of 150 people per round
 design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
              n_per_timepoint = 150)
 
-# Clustered: how many sites per round?
+# Fixed site size: how many sites per round?
 design_trend(0.10, prevalence_end = 0.20, n_timepoints = 5,
              n_per_site = 25, icc = 0.03)
 }
 \references{
-MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
-
 Dupont, W. D. & Plummer, W. D. (1998) Power and sample size calculations
-for studies involving linear regression. \emph{Controlled Clinical
-Trials} \strong{19}(6), 589-601.
+for studies involving linear regression. \emph{Controlled Clinical Trials}
+\strong{19}(6), 589-601.
 
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
 
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
-
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
-of a screening test. \emph{American Journal of Epidemiology}
-\strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
+of a screening test. \emph{American Journal of Epidemiology} \strong{107}(1),
+71-76. \doi{10.1093/oxfordjournals.aje.a112510}
+
+MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
+}
+\seealso{
+\code{\link[=test_trend]{test_trend()}}
 }
