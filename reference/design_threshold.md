@@ -97,7 +97,8 @@ design_threshold(
 
 ## Value
 
-A list with:
+A list with (every value `NA`, with a warning, if more than 100,000
+people are needed without clustering):
 
 - n:
 
@@ -145,8 +146,10 @@ every number from 203 on gives at least 80 percent. The function returns
 the larger number (203): the smallest \\n\\ from which every larger
 \\n\\ also reaches the target power. This is the safe choice, as a few
 extra (or a few lost) people never drop the study below the target.
-Sample sizes up to 10,000 are checked; a design needing more than that
-without clustering stops with an error.
+Sample sizes up to 100,000 are checked. A design needing more than that
+without clustering (a prevalence very close to the threshold) gives a
+warning that reports the power 100,000 people would reach, and returns
+`NA` for every value.
 
 **Imperfect test.** The test is worked out on the measured scale: a true
 prevalence \\p\\ is measured as \\p\_{app} = p \cdot Se + (1-p)(1-Sp)\\,

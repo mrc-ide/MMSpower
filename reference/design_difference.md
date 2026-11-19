@@ -79,8 +79,10 @@ design_difference(
 
 - conf_level:
 
-  Confidence level, in (0, 1); default 0.95. The significance level of
-  the test is 1 - `conf_level`.
+  Confidence level, in \[0.5, 1); default 0.95. The significance level
+  of the test is 1 - `conf_level`. Below 0.5 the one-sided z value turns
+  negative and the sample size shrinks towards nonsense, so it is not
+  allowed.
 
 - n_sites:
 

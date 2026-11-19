@@ -49,13 +49,13 @@ estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
 #> [1] 0.3
 #> 
 #> $ci_lower
-#> [1] 0.2501124
+#> [1] 0.2506
 #> 
 #> $ci_upper
-#> [1] 0.3498876
+#> [1] 0.353099
 #> 
 #> $moe
-#> [1] 0.04988762
+#> [1] 0.05124951
 #> 
 #> $n_eff
 #> [1] 324.1379
@@ -65,6 +65,9 @@ estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
 #> 
 #> $deff
 #> [1] 1.45
+#> 
+#> $df
+#> [1] Inf
 ```
 
 ## Testing against a threshold
@@ -119,6 +122,9 @@ test_threshold(x = 18, n = 191, threshold = 0.05)
 #> 
 #> $deff
 #> [1] 1
+#> 
+#> $df
+#> [1] Inf
 ```
 
 ## Comparing two groups
@@ -191,6 +197,9 @@ test_difference(x1 = 24, n1 = 240, x2 = 48, n2 = 240, icc = 0.02)
 #> 
 #> $deff2
 #> [1] 5.78
+#> 
+#> $df
+#> [1] Inf
 ```
 
 ## Costing a study

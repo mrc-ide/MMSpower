@@ -157,4 +157,22 @@ estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
 #> $budget_remaining
 #> NULL
 #> 
+
+# Cost a two-group design: design_difference() gives one n_sites per
+# group, so add them up
+des2 <- design_difference(0.10, 0.20, n_per_site = 30, icc = 0.05)
+estimate_cost(n = des2$n, cost_per_sample = 50, n_sites = sum(des2$n_sites),
+              fixed_cost_per_site = 5000)
+#> $total_cost
+#> [1] 221000
+#> 
+#> $variable_cost
+#> [1] 51000
+#> 
+#> $site_cost
+#> [1] 170000
+#> 
+#> $budget_remaining
+#> NULL
+#> 
 ```

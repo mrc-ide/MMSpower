@@ -22,6 +22,14 @@ pfhrp2/3 deletion threshold?
 - [`test_threshold()`](https://mrc-ide.github.io/MMSpower/reference/test_threshold.md)
   : Test whether prevalence is above or below a decision threshold
 
+## Detecting presence
+
+How many samples to find at least one case of a rare variant, such as an
+early drug-resistance marker?
+
+- [`design_detection()`](https://mrc-ide.github.io/MMSpower/reference/design_detection.md)
+  : Calculate sample size to detect at least one case
+
 ## Comparing two groups
 
 Does prevalence differ between two groups, such as two regions?
@@ -31,6 +39,16 @@ Does prevalence differ between two groups, such as two regions?
   two groups
 - [`test_difference()`](https://mrc-ide.github.io/MMSpower/reference/test_difference.md)
   : Test whether prevalence differs between two groups
+
+## Trends over time
+
+Is prevalence rising or falling across survey rounds?
+
+- [`design_trend()`](https://mrc-ide.github.io/MMSpower/reference/design_trend.md)
+  : Calculate sample size per timepoint to detect a linear trend in
+  prevalence
+- [`test_trend()`](https://mrc-ide.github.io/MMSpower/reference/test_trend.md)
+  : Test whether prevalence is changing linearly over time
 
 ## Costing a study
 

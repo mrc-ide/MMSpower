@@ -148,6 +148,11 @@ A list with:
 
   Design effect used (1 with no clustering).
 
+- df:
+
+  Degrees of freedom of the estimated design effect, sites - 1; `Inf`
+  when `icc` is supplied or not estimated.
+
 ## Details
 
 **Design effect** (returned as `deff`). It is \\1 + (n_w - 1) ICC\\,
@@ -159,6 +164,19 @@ itself is the population of interest, leave `icc = NULL`. With
 `icc = NULL`, the ICC is estimated from the data as in
 [`estimate_prevalence()`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md);
 this needs at least two sites, and with one site the design effect is 1.
+
+**Few sites.** An ICC estimated from \\k\\ sites rests on \\k - 1\\
+degrees of freedom (returned as `df`), so the design effect is itself
+uncertain. The tests allow for this, as
+[`estimate_prevalence()`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md)
+does: the exact test and its interval use the effective sample size
+shrunk to \\m (z / t\_{k-1})^2\\ (Korn and Graubard, 1998), with \\z\\
+and \\t\_{k-1}\\ the normal and t quantiles for the tail area of the
+test (\\\alpha\\, or \\\alpha / 2\\ for two-sided); the Wald test uses a
+t distribution with \\k - 1\\ degrees of freedom in place of the normal.
+With `icc` supplied, or one site, nothing changes. Because the shrink
+depends on \\\alpha\\, the exact p-value then depends a little on
+`conf_level`; `reject` and the interval always agree.
 
 **Effective sample size.** \\m\\ (returned as `n_eff`) is the number
 tested divided by the design effect. The number of positives is scaled
@@ -183,9 +201,10 @@ m}}\$\$
 
 with the standard error worked out at the measured prevalence
 \\\hat{p}\\. The one-sided p-values are the normal tail areas above and
-below \\z\\. It can be too optimistic for small samples or a prevalence
-near 0; with no positives (or all positive) the standard error is 0, and
-any threshold on the other side counts as rejected.
+below \\z\\ (t tail areas when the ICC is estimated; see Few sites). It
+can be too optimistic for small samples or a prevalence near 0; with no
+positives (or all positive) the standard error is 0, and any threshold
+on the other side counts as rejected.
 
 **Two-sided p-value.** For both methods, twice the smaller of the two
 one-sided p-values, at most 1. For the exact test this is the "central"
@@ -207,20 +226,23 @@ B^{-1}(1 - \alpha;\\ x\_{eff} + 1,\\ m - x\_{eff})\$\$
 
 with \\x\_{eff} = \hat{p} m\\ and \\B^{-1}\\ the beta quantile function;
 for the Wald test it is \\\hat{p} \pm z\_{1-\alpha} \sqrt{\hat{p}(1 -
-\hat{p}) / m}\\ (\\\alpha/2\\ in place of \\\alpha\\ for two-sided). It
-is built on the measured scale and then corrected for an imperfect test,
+\hat{p}) / m}\\ (\\\alpha/2\\ in place of \\\alpha\\ for two-sided).
+With an estimated ICC, \\m\\ is the shrunk size in the Clopper-Pearson
+interval and the t quantile replaces \\z\\ in the Wald interval. It is
+built on the measured scale and then corrected for an imperfect test,
 with ends kept within \[0, 1\]; if the whole corrected interval lies
 outside \[0, 1\], the function warns that the data do not fit the
 assumed sensitivity and specificity.
 
 **When to use DRpower instead.** With the ICC supplied, this function
 keeps the chance of a false alarm at or below the significance level.
-With `icc = NULL` and few sites of very different sizes, the ICC is
-poorly estimated and the false alarm rate can be well above it (13 to 28
-percent at a 5 percent level in simulation); with an ICC estimated from
-few sites it also has low power. For pfhrp2/3 deletion surveys with
-several sites and an unknown ICC, where the question is whether
-prevalence is above the threshold, consider DRpower
+With `icc = NULL` the degrees-of-freedom adjustment keeps it there too:
+in simulation, with the true prevalence at a 5 percent threshold, an ICC
+of 0.05 and 2 to 10 sites (equal or very different sizes), false alarms
+at a 5 percent level were at most 4.6 percent. The price is low power
+with few sites, as an ICC estimated from them says little. For pfhrp2/3
+deletion surveys with several sites and an unknown ICC, where the
+question is whether prevalence is above the threshold, consider DRpower
 (<https://mrc-ide.github.io/DRpower/>). It estimates prevalence and ICC
 together and has more power, especially with few sites, but more false
 alarms when prevalence is close to the threshold.
@@ -240,6 +262,11 @@ intervals for discrete data. *The R Journal* **2**(1), 53-58.
 [doi:10.32614/RJ-2010-008](https://doi.org/10.32614/RJ-2010-008)
 
 Kish, L. (1965) *Survey Sampling*. Wiley. (Design effect.)
+
+Korn, E. L. & Graubard, B. I. (1998) Confidence intervals for
+proportions with small expected number of positive counts estimated from
+survey data. *Survey Methodology* **24**(2), 193-201.
+(Degrees-of-freedom adjustment.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. *American Journal of Epidemiology* **107**(1),
@@ -279,6 +306,9 @@ test_threshold(x = 8, n = 100, threshold = 0.05)
 #> $deff
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # Five sites, ICC estimated from the data
 test_threshold(
@@ -287,7 +317,7 @@ test_threshold(
   threshold = 0.05
 )
 #> $p_value
-#> [1] 0.174857
+#> [1] 0.2631809
 #> 
 #> $reject
 #> [1] FALSE
@@ -296,19 +326,22 @@ test_threshold(
 #> [1] 0.07333333
 #> 
 #> $ci_lower
-#> [1] 0.03752174
+#> [1] 0.0284146
 #> 
 #> $ci_upper
 #> [1] 1
 #> 
 #> $n_eff
-#> [1] 112.8
+#> [1] 108.5637
 #> 
 #> $icc
-#> [1] 0.02662419
+#> [1] 0.02828913
 #> 
 #> $deff
-#> [1] 2.659574
+#> [1] 2.763356
+#> 
+#> $df
+#> [1] 4
 #> 
 
 # Two-sided, imperfect diagnostic test
@@ -339,6 +372,9 @@ test_threshold(x = 12, n = 100, threshold = 0.10,
 #> $deff
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # One site, a clear result: the interval lies above the threshold
 test_threshold(x = 15, n = 100, threshold = 0.05)
@@ -366,6 +402,9 @@ test_threshold(x = 15, n = 100, threshold = 0.05)
 #> $deff
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # Wald test and interval instead of the exact test
 test_threshold(x = 15, n = 100, threshold = 0.05, method = "wald")
@@ -392,5 +431,8 @@ test_threshold(x = 15, n = 100, threshold = 0.05, method = "wald")
 #> 
 #> $deff
 #> [1] 1
+#> 
+#> $df
+#> [1] Inf
 #> 
 ```

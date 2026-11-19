@@ -3,16 +3,19 @@
 Analysis function: given observed counts, returns a prevalence point
 estimate and confidence interval. Three CI methods are available:
 
-- `"wald"` (default):
-
-  Symmetric unless an end is moved to 0 or 1. \\\hat{p} \pm z \cdot
-  SE\\. Can be too narrow for small samples or prevalence near 0 or 1.
-
-- `"clopper-pearson"`:
+- `"clopper-pearson"` (default):
 
   Asymmetric. Exact binomial interval, via the beta distribution. For a
   simple random sample, its coverage is at least the stated confidence
-  level, so it is usually wider than the Wald interval.
+  level, so it is usually wider than the Wald interval. It is also the
+  interval that matches the exact test in
+  [`test_threshold()`](https://mrc-ide.github.io/MMSpower/reference/test_threshold.md).
+
+- `"wald"`:
+
+  Symmetric unless an end is moved to 0 or 1. \\\hat{p} \pm z \cdot
+  SE\\. Can be too narrow for small samples or prevalence near 0 or 1,
+  and has zero width when no one (or everyone) tests positive.
 
 - `"agresti-coull"`:
 
@@ -40,7 +43,7 @@ estimate_prevalence(
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  ci_method = c("wald", "clopper-pearson", "agresti-coull")
+  ci_method = c("clopper-pearson", "wald", "agresti-coull")
 )
 ```
 
@@ -78,8 +81,11 @@ estimate_prevalence(
 
 - ci_method:
 
-  CI method: `"wald"` (default), `"clopper-pearson"`, or
+  CI method: `"clopper-pearson"` (default), `"wald"`, or
   `"agresti-coull"`. See Description.
+  [`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
+  sizes a study from the Wald formula, so the default interval comes out
+  a little wider than the margin of error it was designed for.
 
 ## Value
 
@@ -108,6 +114,11 @@ A list with:
 - deff:
 
   Design effect applied (1 when there is no clustering).
+
+- df:
+
+  Degrees of freedom of the estimated design effect, sites - 1; `Inf`
+  when `icc` is supplied or not estimated.
 
 ## Details
 
@@ -147,20 +158,32 @@ to the variance expected under simple random sampling,
 \frac{\mathrm{Var}(\hat{p}\_i)}{\\\overline{\hat{p}(1 - \hat{p}) /
 n_i}\\}, \qquad \hat{p}\_i = \frac{x_i}{n_i}\$\$
 
-and the ICC recovered by inverting the Kish formula, \\\hat{\rho} =
-(\widehat{D} - 1) / (\bar{n} - 1)\\, kept between 0 and
+and the ICC recovered from \\\widehat{D} = 1 + (n_h - 1)\\\hat{\rho}\\,
 
-1.  \\D\_{eff}\\ is then computed from \\\hat{\rho}\\ as above. With a
-    single site, one person per site, or nobody (or everybody) positive,
-    the ICC is 0. If everyone tested comes from one site, supply `icc`.
+\$\$\hat{\rho} = \frac{\widehat{D} - 1}{n_h - 1}, \qquad n_h =
+\frac{k}{\sum_i 1 / n_i}\$\$
 
-An ICC estimated from only a few sites is uncertain, and the interval
-then tends to be too narrow. In simulations with a true ICC of 0.1, 50
-people per site and a prevalence of 0.3, a 95 percent Wald interval
-contained the true prevalence about 76 percent of the time with 2 sites,
-87 percent with 5 and 90 percent with 10 (Clopper-Pearson: 80, 89 and 92
-percent). With the true ICC supplied it was 92 to 95 percent. Supplying
-`icc` from other studies avoids this.
+kept between 0 and 1, where \\k\\ is the number of sites and \\n_h\\ the
+harmonic mean site size. The harmonic mean is the one that links
+\\\widehat{D}\\ to the ICC when sites differ in size: the variance of a
+site's prevalence is \\p(1-p)(1 + (n_i - 1)\rho) / n_i\\, and averaging
+over sites gives \\n_h\\. \\D\_{eff}\\ is then computed from
+\\\hat{\rho}\\ as above, with the size-weighted mean \\n_w\\, because
+that is the design effect of the pooled prevalence \\\hat{p}\\. With
+equal sites the two means are the same. With a single site, one person
+per site, or nobody (or everybody) positive, the ICC is 0. If everyone
+tested comes from one site, supply `icc`.
+
+*Few sites.* An ICC estimated from \\k\\ sites rests on only \\k - 1\\
+degrees of freedom (returned as `df`), so the design effect is itself
+uncertain. The interval allows for this as in Korn and Graubard (1998):
+see step 4. In simulations with a true ICC of 0.1, 50 people per site
+and a prevalence of 0.3, the 95 percent Clopper-Pearson interval
+contained the true prevalence 99 percent of the time with 3 sites, 96
+with 5 and 95 to 96 with 10 or more (Wald: 97, 94 and 94). With 2 sites
+(1 degree of freedom) the interval is very wide, which is an honest
+picture of how little 2 sites say. Supplying `icc` from other studies
+gives narrower intervals when it can be trusted.
 
 **3. Effective sample size.**
 
@@ -170,10 +193,19 @@ the number of independent observations carrying the same information as
 the clustered sample.
 
 **4. Confidence interval on apparent prevalence.** Let \\z =
-\Phi^{-1}(1 - \alpha/2)\\, \\\alpha = 1 - \\ `conf_level`, and
-\\x\_{eff} = \hat{p}\\n\_{eff}\\, the number of positives scaled to the
-effective sample size. Any end below 0 is set to 0 and any end above 1
-is set to 1.
+\Phi^{-1}(1 - \alpha/2)\\, \\\alpha = 1 - \\ `conf_level`. When the ICC
+is estimated, the effective sample size used for the interval is shrunk
+to
+
+\$\$n\_{eff} \left(\frac{z}{t\_{k-1}}\right)^2\$\$
+
+where \\t\_{k-1}\\ is the matching quantile of a t distribution with
+\\k - 1\\ degrees of freedom (Korn and Graubard, 1998). For the Wald
+interval this is the same as using \\t\_{k-1}\\ in place of \\z\\. With
+`icc` supplied, or one site, nothing changes. Below, \\n\_{eff}\\ stands
+for this adjusted size, and \\x\_{eff} = \hat{p}\\n\_{eff}\\ is the
+number of positives scaled to it. Any end below 0 is set to 0 and any
+end above 1 is set to 1.
 
 *`"wald"`* – the normal-approximation interval,
 
@@ -238,6 +270,11 @@ interval estimation of binomial proportions. *The American Statistician*
 **52**(2), 119-126.
 [doi:10.1080/00031305.1998.10480550](https://doi.org/10.1080/00031305.1998.10480550)
 
+Korn, E. L. & Graubard, B. I. (1998) Confidence intervals for
+proportions with small expected number of positive counts estimated from
+survey data. *Survey Methodology* **24**(2), 193-201.
+(Degrees-of-freedom adjustment.)
+
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. *American Journal of Epidemiology* **107**(1),
 71-76.
@@ -252,13 +289,13 @@ estimate_prevalence(x = 8, n = 50)
 #> [1] 0.16
 #> 
 #> $ci_lower
-#> [1] 0.05838385
+#> [1] 0.07170077
 #> 
 #> $ci_upper
-#> [1] 0.2616161
+#> [1] 0.2911263
 #> 
 #> $moe
-#> [1] 0.1016161
+#> [1] 0.1097128
 #> 
 #> $n_eff
 #> [1] 50
@@ -268,6 +305,9 @@ estimate_prevalence(x = 8, n = 50)
 #> 
 #> $deff
 #> [1] 1
+#> 
+#> $df
+#> [1] Inf
 #> 
 
 # Multi-site clustered data -- ICC estimated from the data
@@ -279,37 +319,40 @@ estimate_prevalence(
 #> [1] 0.1581818
 #> 
 #> $ci_lower
-#> [1] 0.01536317
+#> [1] 0.02751651
 #> 
 #> $ci_upper
-#> [1] 0.3010005
+#> [1] 0.4238572
 #> 
 #> $moe
-#> [1] 0.1428186
+#> [1] 0.1981704
 #> 
 #> $n_eff
-#> [1] 25.07848
+#> [1] 23.17315
 #> 
 #> $icc
-#> [1] 0.2867281
+#> [1] 0.3114297
 #> 
 #> $deff
-#> [1] 21.93115
+#> [1] 23.73437
+#> 
+#> $df
+#> [1] 7
 #> 
 
-# Clopper-Pearson interval
-estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
+# Wald interval instead of the default Clopper-Pearson
+estimate_prevalence(x = 3, n = 30, ci_method = "wald")
 #> $prevalence
 #> [1] 0.1
 #> 
 #> $ci_lower
-#> [1] 0.02111714
+#> [1] 0
 #> 
 #> $ci_upper
-#> [1] 0.2652885
+#> [1] 0.2073516
 #> 
 #> $moe
-#> [1] 0.1220857
+#> [1] 0.1036758
 #> 
 #> $n_eff
 #> [1] 30
@@ -320,6 +363,9 @@ estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
 #> $deff
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # Imperfect diagnostic test
 estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
@@ -327,13 +373,13 @@ estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
 #> [1] 0.2941176
 #> 
 #> $ci_lower
-#> [1] 0.1884508
+#> [1] 0.1910664
 #> 
 #> $ci_upper
-#> [1] 0.3997845
+#> [1] 0.4115467
 #> 
 #> $moe
-#> [1] 0.1056669
+#> [1] 0.1102402
 #> 
 #> $n_eff
 #> [1] 100
@@ -344,6 +390,9 @@ estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
 #> $deff
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # Known ICC
 estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05)
@@ -351,13 +400,13 @@ estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05)
 #> [1] 0.1333333
 #> 
 #> $ci_lower
-#> [1] 0.02887
+#> [1] 0.04734662
 #> 
 #> $ci_upper
-#> [1] 0.2377967
+#> [1] 0.2767238
 #> 
 #> $moe
-#> [1] 0.1044633
+#> [1] 0.1146886
 #> 
 #> $n_eff
 #> [1] 40.67797
@@ -367,5 +416,8 @@ estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05)
 #> 
 #> $deff
 #> [1] 2.95
+#> 
+#> $df
+#> [1] Inf
 #> 
 ```

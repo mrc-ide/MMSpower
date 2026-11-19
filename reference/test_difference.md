@@ -143,6 +143,11 @@ A list with:
 
   Design effect used for each group (1 with no clustering).
 
+- df:
+
+  Degrees of freedom of the test (see Few sites); `Inf` when neither ICC
+  is estimated.
+
 ## Details
 
 **Design effect** (returned as `deff1` and `deff2`). For each group it
@@ -157,12 +162,24 @@ estimated from its own data as in
 this needs at least two sites, and a group with one site gets a design
 effect of 1.
 
-An ICC estimated from only a few sites is uncertain, and the interval
-then tends to be too narrow. In simulations with a true ICC of 0.1, 50
-people per site and prevalences of 0.2 to 0.5, a 95 percent interval
-contained the true difference about 83 to 85 percent of the time with 2
-sites per group, 87 to 89 percent with 3 and 90 to 92 percent with 5.
-Supplying `icc` from other studies avoids this.
+**Few sites.** An ICC estimated from \\k\\ sites rests on only \\k - 1\\
+degrees of freedom, so the design effect is itself uncertain. When
+either group's ICC is estimated, the test statistic is compared with a t
+distribution in place of the normal, and the interval uses the matching
+t quantile. Its degrees of freedom (returned as `df`) combine the two
+groups by Satterthwaite's (1946) formula,
+
+\$\$df = \frac{(v_1 + v_2)^2}{v_1^2 / df_1 + v_2^2 / df_2}, \qquad v_g =
+\hat{p}\_g (1 - \hat{p}\_g) / m_g\$\$
+
+with \\df_g = k_g - 1\\ for a group whose ICC is estimated, and a group
+whose ICC is supplied (or that has one site) left out of the
+denominator. With both ICCs supplied, `df` is `Inf` and the test is the
+normal one. In simulations with a true ICC of 0.1, 50 people per site
+and prevalences of 0.2 to 0.5, a 95 percent interval contained the true
+difference 96 to 97 percent of the time with 3 sites per group and 95 to
+96 percent with 5. With 2 sites per group it is very wide (99 percent),
+an honest picture of how little 2 sites say.
 
 **Effective sample size.** For group \\g\\, \\m_g\\ (returned as
 `n_eff1` and `n_eff2`) is the number tested divided by the design
@@ -193,7 +210,8 @@ the true difference only about 90 percent of the time (score 97). When
 each group's measured prevalence is 0 or 1 the standard error is 0.
 
 For both, the one-sided p-values are the normal tail areas above and
-below \\z\\, and the two-sided p-value is twice the smaller of them.
+below \\z\\ (t tail areas with `df` degrees of freedom when an ICC is
+estimated), and the two-sided p-value is twice the smaller of them.
 
 **Interval.** The interval is the test turned around: it holds the
 differences \\\delta\\ the test would not reject, so it leaves out 0
@@ -248,6 +266,10 @@ difference.)
 
 Kish, L. (1965) *Survey Sampling*. Wiley. (Design effect.)
 
+Satterthwaite, F. E. (1946) An approximate distribution of estimates of
+variance components. *Biometrics Bulletin* **2**(6), 110-114.
+[doi:10.2307/3002019](https://doi.org/10.2307/3002019)
+
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. *American Journal of Epidemiology* **107**(1),
 71-76.
@@ -301,10 +323,13 @@ test_difference(x1 = 8, n1 = 100, x2 = 20, n2 = 120)
 #> $deff2
 #> [1] 1
 #> 
+#> $df
+#> [1] Inf
+#> 
 
 # Three sites per group, one-sided, imperfect diagnostic test. The sites
-# differ, so the estimated design effects are above 1 (about 2.6 and 3.3)
-# and p is 0.07; treating everyone as independent would give 0.007.
+# differ, so the estimated design effects are above 1 (about 2.7 and 3.4)
+# and p is 0.12; treating everyone as independent would give 0.007.
 test_difference(
   x1 = c(1, 9, 3), n1 = c(50, 60, 40),
   x2 = c(4, 18, 9), n2 = c(55, 70, 45),
@@ -318,10 +343,10 @@ test_difference(
 #> [1] -1
 #> 
 #> $ci_upper
-#> [1] 0.01445694
+#> [1] 0.06249794
 #> 
 #> $p_value
-#> [1] 0.07208968
+#> [1] 0.1151506
 #> 
 #> $reject
 #> [1] FALSE
@@ -333,22 +358,25 @@ test_difference(
 #> [1] 0.1751183
 #> 
 #> $n_eff1
-#> [1] 56.36647
+#> [1] 55.38594
 #> 
 #> $n_eff2
-#> [1] 50.66946
+#> [1] 49.50051
 #> 
 #> $icc1
-#> [1] 0.03300311
+#> [1] 0.03393911
 #> 
 #> $icc2
-#> [1] 0.04093694
+#> [1] 0.04231414
 #> 
 #> $deff1
-#> [1] 2.661157
+#> [1] 2.708268
 #> 
 #> $deff2
-#> [1] 3.355078
+#> [1] 3.434308
+#> 
+#> $df
+#> [1] 3.549145
 #> 
 
 # Wald test and interval instead of the default score versions
@@ -391,6 +419,9 @@ test_difference(x1 = 3, n1 = 80, x2 = 12, n2 = 90, method = "wald")
 #> 
 #> $deff2
 #> [1] 1
+#> 
+#> $df
+#> [1] Inf
 #> 
 
 # A different ICC for each group
@@ -437,5 +468,8 @@ test_difference(
 #> 
 #> $deff2
 #> [1] 5.602353
+#> 
+#> $df
+#> [1] Inf
 #> 
 ```
