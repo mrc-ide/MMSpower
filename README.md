@@ -6,27 +6,62 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/mrc-ide/MMSpower/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/mrc-ide/MMSpower/actions/workflows/R-CMD-check.yaml)
-[![Codecov test
-coverage](https://codecov.io/gh/mrc-ide/MMSpower/graph/badge.svg)](https://app.codecov.io/gh/mrc-ide/MMSpower)
 <!-- badges: end -->
 
-The goal of MMSpower is to …
+> **Documentation, tutorials and function reference are on the package
+> website: <https://mrc-ide.github.io/MMSpower/>**
+
+MMSpower provides simple sample size, power and analysis calculations
+for malaria molecular surveillance (MMS) studies. It allows for
+imperfect diagnostic tests (sensitivity and specificity) and for
+clustered sampling across sites (intra-cluster correlation and the
+design effect).
+
+The package covers three common study questions, each with a design
+function (how many samples do I need?) and a matching analysis function
+(what do my data show?), plus a simple costing function:
+
+| Question | Design | Analysis |
+|----|----|----|
+| How precisely can I estimate prevalence? | `design_precision()` | `estimate_prevalence()` |
+| Is prevalence above (or below) a threshold? | `design_threshold()` | `test_threshold()` |
+| Does prevalence differ between two groups? | `design_difference()` | `test_difference()` |
+| What will the study cost? | `estimate_cost()` |  |
 
 ## Installation
 
-You can install the development version of MMSpower from
-[GitHub](https://github.com/) with:
+Install the development version from GitHub with:
 
 ``` r
-# install.packages("pak")
-pak::pak("mrc-ide/MMSpower")
+# install.packages("remotes")
+remotes::install_github("mrc-ide/MMSpower")
 ```
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+How many samples are needed to estimate a prevalence of around 30% to
+within ±5 percentage points, sampling 10 people per site with an ICC of
+0.05?
 
 ``` r
 library(MMSpower)
-## basic example code
+
+design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+#> $n
+#> [1] 470
+#> 
+#> $n_sites
+#> [1] 47
+#> 
+#> $n_per_site
+#> [1] 10
+#> 
+#> $deff
+#> [1] 1.45
+#> 
+#> $n_eff
+#> [1] 323
 ```
+
+See the [website](https://mrc-ide.github.io/MMSpower/) for worked
+tutorials covering each type of study.
