@@ -12,12 +12,18 @@ This package has basic functions needed for MMS power calculations.
 Useful links:
 \itemize{
   \item \url{https://github.com/mrc-ide/MMSpower}
+  \item \url{https://mrc-ide.github.io/MMSpower/}
   \item Report bugs at \url{https://github.com/mrc-ide/MMSpower/issues}
 }
 
 }
 \author{
 \strong{Maintainer}: Sequoia Leuba \email{s.leuba21@imperial.ac.uk}
+
+Authors:
+\itemize{
+  \item Robert Verity
+}
 
 }
 \keyword{internal}

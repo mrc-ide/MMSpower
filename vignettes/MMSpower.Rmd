@@ -1,0 +1,83 @@
+---
+title: "Get started with MMSpower"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started with MMSpower}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(MMSpower)
+```
+
+MMSpower answers three common questions in malaria molecular surveillance
+studies. For each, a **design** function says how many samples are needed,
+and a matching **analysis** function says what the data show. Every
+function allows for an imperfect diagnostic test (`sensitivity`,
+`specificity`) and for clustered sampling across sites (`icc`, with
+`n_sites` or `n_per_site`).
+
+This page is a short tour. Each function's reference page explains its
+methods and formulas in full.
+
+## Estimating prevalence
+
+How many people are needed to estimate a prevalence of around 30% to
+within ±5 percentage points, with 10 people per site and an ICC of 0.05?
+
+```{r}
+design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+```
+
+Once the data are in, estimate the prevalence and its confidence interval:
+
+```{r}
+estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+```
+
+## Testing against a threshold
+
+How many people are needed to show that prevalence is above a 5% threshold
+when it is really 10%, with 80% power?
+
+```{r}
+design_threshold(threshold = 0.05, prevalence = 0.10)
+```
+
+Then test the data against the threshold:
+
+```{r}
+test_threshold(x = 18, n = 191, threshold = 0.05)
+```
+
+## Comparing two groups
+
+How many people per group are needed to detect a difference between 10% and
+20% prevalence, with 30 sites per group and an ICC of 0.02?
+
+```{r}
+design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites = 30, icc = 0.02)
+```
+
+Then test for a difference:
+
+```{r}
+test_difference(x1 = 24, n1 = 240, x2 = 48, n2 = 240, icc = 0.02)
+```
+
+## Costing a study
+
+Finally, cost a design from its sample size and number of sites:
+
+```{r}
+estimate_cost(n = 470, cost_per_sample = 50, n_sites = 47,
+              fixed_cost_per_site = 500, transport_cost_per_site = 200)
+```
