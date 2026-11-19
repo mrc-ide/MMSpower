@@ -12,207 +12,111 @@ design_precision(
   conf_level = 0.95,
   n_sites = NULL,
   n_per_site = NULL,
-  icc = 0,
-  fpc_N = NULL
+  icc = 0
 )
 }
 \arguments{
-\item{prevalence}{Numeric in (0, 1). Expected true prevalence.}
+\item{prevalence}{Expected true prevalence, in (0, 1).}
 
-\item{moe}{Numeric in (0, 0.5). Target margin of error (half-width of
-confidence interval) on the true-prevalence scale.}
+\item{moe}{Target margin of error (half-width of the confidence interval)
+on the true-prevalence scale, in (0, 0.5). A decimal fraction, e.g. 0.05
+for +/-5 percentage points.}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (perfect
-test). Set below 1 to activate the Rogan-Gladen variance adjustment.}
+test).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]; default 1.}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1.
+\code{sensitivity + specificity} must exceed 1.}
 
 \item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
-\item{n_sites}{Optional positive integer. Fix the number of clusters.
-The function solves for the required samples per cluster and returns it
-as \code{n_per_site} in the output.
-Cannot be used together with \code{n_per_site} -- see the "Known limitation"
-section below.}
+\item{n_sites}{Optional whole number. Fixes the number of sites; the
+function solves for people per site. Cannot be used with \code{n_per_site}.}
 
-\item{n_per_site}{Optional positive integer. Fix the samples per cluster.
-The function computes Deff directly, then solves for the number of
-clusters needed and returns it as \code{n_sites} in the output.
-Cannot be used together with \code{n_sites} -- see the "Known limitation"
-section below.}
+\item{n_per_site}{Optional whole number. Fixes the number of people per
+site; the function solves for the number of sites. Cannot be used with
+\code{n_sites}.}
 
-\item{icc}{Numeric in [0, 1]. Intra-cluster correlation; default 0 (SRS).
-If \code{icc > 0}, supply exactly one of \code{n_sites} or \code{n_per_site} --
-without a cluster structure, Deff is not computable. An \code{icc} below
-\code{sqrt(.Machine$double.eps)} (about 1.5e-8) is treated as 0 (SRS), so a
-negligible upstream estimate does not force the clustered code path.}
-
-\item{fpc_N}{Optional positive integer. Total population size (number of
-individuals), for a finite-population correction. Reduces the required
-\code{n} when the sample is a non-trivial fraction of the population. \code{NULL}
-(default) = no FPC. The correction is applied at the individual level
-only: for clustered designs it does not know what fraction of the
-\emph{clusters} is sampled, so it is conservative (over-sizes), and
-increasingly so when most or all clusters are visited -- see Details.}
+\item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
+clustering). An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{n}{Total sample size required (ceiling of the continuous solution).
-With clusters, the total actually collected is
-\code{n_sites * n_per_site}, which can be slightly higher than
-\code{n} because the per-site size is rounded up; budget for that
-figure.}
-\item{n_eff}{SRS-equivalent independent sample size the design achieves:
-the number of independent observations needed to hit the same \code{moe}
-(equal to the base SRS sample size before the design effect and FPC).
-Clustering inflates the collected \code{n} above this, before any FPC
-adjustment. With no FPC \code{n_eff} \eqn{\le} \code{n}, with equality
-only for an unclustered design; \strong{FPC shrinks \code{n} but does
-not affect \code{n_eff}, so \code{n_eff} can then exceed \code{n}.}
-Rounded up (\code{ceiling()}) to match \code{n}'s rounding, so the
-unclustered-equality case holds exactly.}
-\item{n_sites}{If \code{n_per_site} was supplied: clusters required
-(\code{ceiling(n / n_per_site)}). If \code{n_sites} was supplied: echoed
-back. \code{NULL} for SRS.}
-\item{n_per_site}{If \code{n_sites} was supplied: target samples per cluster
-(\code{ceiling(n / n_sites)}). If \code{n_per_site} was supplied: echoed
-back. \code{NULL} for SRS. Note: this is the minimum whole-number
-cluster size needed -- actual allocation may differ if your real cluster
-sizes vary.}
-\item{prevalence}{Expected true prevalence (as supplied).}
-\item{apparent_prev}{Apparent (observed-test) prevalence implied by
-\code{prevalence}, \code{sensitivity}, and \code{specificity}}
-\item{moe}{Target MOE (as supplied)}
-\item{conf_level}{Confidence level (as supplied)}
-\item{sensitivity}{Sensitivity (as supplied)}
-\item{specificity}{Specificity (as supplied)}
-\item{icc}{ICC (as supplied; 0 for SRS)}
-\item{deff}{Design effect applied: 1 for SRS, > 1 for clustered
-designs. Reported as the effect of the rounded, \emph{fielded}
-design, \code{1 + (n_per_site - 1) * icc}. Because \code{n_per_site}
-is rounded up (and, with an FPC, the FPC acts as a separate
-variance factor), \code{n} is \strong{not} exactly
-\code{n_eff * deff} -- treat \code{n} as the headline figure and
-\code{deff} / \code{n_eff} as diagnostics. This assumes clusters
-come out equal-sized (\code{n_per_site} exactly, not an average)
--- unequal realized cluster sizes in the field will inflate the
-true design effect beyond this estimate.}
-\item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
+A list with:
+\item{n}{Total sample size. With sites, \code{n_sites * n_per_site}.}
+\item{n_sites}{Number of sites (\code{NULL} if unclustered).}
+\item{n_per_site}{People per site (\code{NULL} if unclustered).}
+\item{deff}{Design effect of the returned design,
+\code{1 + (n_per_site - 1) * icc}; 1 if unclustered.}
+\item{n_eff}{Unclustered sample size \eqn{n_0} that gives the same
+precision, rounded up.}
 }
 \description{
 Given a target precision (margin of error), returns the minimum total
 sample size required. Handles imperfect diagnostic tests via the
-Rogan-Gladen variance adjustment, clustered sampling via the design
-effect (Kish formula), and finite-population corrections via Cochran's
-(1977) adjustment.
+Rogan-Gladen variance adjustment, and clustered sampling via the design
+effect (Kish formula).
 
 \strong{Three design modes} -- controlled by \code{n_sites} and \code{n_per_site}:
 \describe{
-\item{SRS (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Treats all
-observations as independent. Returns total \code{n} only; \code{n_sites} and
-\code{n_per_site} are both \code{NULL} in the output.}
-\item{Fixed cluster size (\code{n_per_site} supplied)}{Solves for the
-required number of clusters, returned as \code{n_sites} in the output.}
-\item{Fixed number of clusters (\code{n_sites} supplied)}{Solves for the
-target samples per cluster, returned as \code{n_per_site} in the output.}
+\item{Unclustered (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Treats all
+observations as independent. Returns total \code{n} only.}
+\item{Fixed site size (\code{n_per_site} supplied)}{Solves for the number of
+sites.}
+\item{Fixed number of sites (\code{n_sites} supplied)}{Solves for the number
+of people per site.}
 }
 }
 \details{
 \strong{Rogan-Gladen variance adjustment}: the Rogan-Gladen transform is
 linear in the apparent prevalence, so scaling its variance by the
 (constant) RG slope is exact -- not a delta-method approximation. The
-MOE formula uses that exact variance:
+unclustered sample size is
 
-\deqn{n = \frac{z^2 \, p_{app}(1-p_{app}) \cdot D_{eff}}{MOE^2 \cdot (Se + Sp - 1)^2}}
+\deqn{n_0 = \frac{z^2 \, p_{app}(1-p_{app})}{MOE^2 \cdot (Se + Sp - 1)^2}}
 
 where \eqn{p_{app} = p \cdot Se + (1-p)(1-Sp)} is the apparent prevalence
 implied by the expected true prevalence and the test characteristics.
 When \eqn{Se = Sp = 1} this reduces to the standard MOE formula.
 
-\strong{Fixed number of clusters -- resolving the circularity}: when \code{n_sites}
-is fixed, Deff depends on average cluster size \eqn{\bar{n} = n/n_{sites}},
-which depends on n. Substituting and solving gives the closed-form:
+\strong{Fixed site size}: the design effect \eqn{D_{eff} = 1 + (n_{per site}
+- 1) \cdot ICC} is known directly, so \eqn{n = n_0 \cdot D_{eff}} and the
+number of sites is \code{ceiling(n / n_per_site)}.
+
+\strong{Fixed number of sites}: Deff depends on the number of people per site,
+\eqn{n / n_{sites}}, which depends on n. Substituting and solving gives
+the closed form:
 
 \deqn{n = \frac{n_0 \cdot n_{sites} \cdot (1-ICC)}{n_{sites} - n_0 \cdot ICC}}
 
-where \eqn{n_0} is the SRS sample size. A solution exists only when
-\eqn{n_{sites} > n_0 \cdot ICC}; if not, the target MOE is unachievable --
-adding more samples per site inflates Deff proportionally, so MOE floors
-at:
+A solution exists only when \eqn{n_{sites} > n_0 \cdot ICC}. Otherwise
+the target MOE is unachievable: each site is worth at most \eqn{1/ICC}
+independent people however many are sampled there, so the MOE floors at
 
-\deqn{MOE_{min} = z_{1-\alpha/2}\sqrt{\frac{p_{app}(1-p_{app}) \cdot ICC}
+\deqn{MOE_{min} = z\sqrt{\frac{p_{app}(1-p_{app}) \cdot ICC}
 {n_{sites} \cdot (Se + Sp - 1)^2}}}
 
-The function stops and reports this minimum achievable MOE for that site
-count.
+and the function stops and reports this minimum.
 
-When \code{fpc_N} is also supplied, the finite-population factor
-\eqn{(N-n)/(N-1)} is part of the same equation rather than being applied
-afterwards (applying it afterwards would use a Deff computed at a larger
-\eqn{n} than the one finally returned, and would report the target as
-unachievable when it is not). Substituting \eqn{Deff = 1 + (n/n_{sites} -
-1) \cdot ICC} and the FPC into the variance and solving gives the
-quadratic
-
-\deqn{A n^2 + B n + C = 0, \quad A = \frac{n_0 \cdot ICC}{n_{sites}}, \quad
-B = n_0 (1 - ICC) - A N + N - 1, \quad C = -n_0 (1 - ICC) N}
-
-which has exactly one positive root, and that root is always below
-\eqn{N}: the finite-population variance vanishes as \eqn{n \to N}, so
-with an FPC the target MOE is always achievable and the minimum-MOE stop
-above does not apply. As \eqn{N \to \infty} the root converges to the
-closed form above.
-
-When \code{n_per_site} is fixed instead, Deff is non-circular (cluster size is
-known directly) and the number of sites follows from
-\code{ceiling(n / n_per_site)}.
-
-\strong{Finite-population correction}: sampling without replacement from a
-finite population of size \eqn{N} shrinks the sampling variance by the
-factor \eqn{(N-n)/(N-1)} relative to sampling from an infinite
-population. Requiring the finite-population design to hit the same
-target variance as the continuous sample size \eqn{n_{pre}} computed
-above (after the Rogan-Gladen and design-effect inflation, before the
-FPC) and solving for \eqn{n} gives Cochran's (1977) adjustment:
-
-\deqn{n = \frac{n_{pre}}{1 + (n_{pre} - 1)/N} = \frac{n_{pre} \cdot N}{N + n_{pre} - 1}}
-
-applied with \eqn{N} = \code{fpc_N}. As \eqn{N \to \infty} this converges to
-\eqn{n_{pre}} (no correction); as \eqn{N} shrinks toward \eqn{n_{pre}},
-it pulls the required sample down toward \eqn{N} -- you cannot sample
-more people than exist in the population. This post-hoc form is used for
-SRS and fixed-\code{n_per_site} designs; for fixed-\code{n_sites} designs the FPC
-enters the circularity solve directly (see above), because Deff itself
-depends on \eqn{n}.
-
-The correction treats the sample as \eqn{n} individuals drawn from
-\eqn{N}. In a two-stage cluster sample the between-cluster component of
-the variance actually shrinks with the fraction of \emph{clusters}
-sampled, which this function has no input for. The individual-level
-factor therefore over-states the variance for clustered designs and the
-returned \code{n} is conservative -- markedly so when most or all of the
-clusters in the population are visited (with every cluster sampled, the
-between-cluster component is zero and the true requirement can be a
-fraction of what is returned).
+\strong{Rounding}: the number of sites (or people per site) is rounded up, and
+the returned \code{n} is the number actually sampled, \code{n_sites * n_per_site},
+so it can be slightly above the continuous solution.
 }
 \examples{
-# Simple random sample, perfect test
+# Unclustered, perfect test
 design_precision(prevalence = 0.3, moe = 0.05)
 
 # Imperfect test (sensitivity 90\%, specificity 95\%)
 design_precision(0.3, 0.05, sensitivity = 0.9, specificity = 0.95)
 
-# Fixed cluster size: how many sites do I need?
+# Fixed site size: how many sites do I need?
 design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05)
 
-# Fixed number of sites: what is the target per-site sample?
+# Fixed number of sites: how many people per site?
 design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
 }
 \references{
 Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a
 screening test. American Journal of Epidemiology 107(1):71-76.
-
-Cochran WG (1977). Sampling Techniques, 3rd ed. Wiley.
 
 MMS-SD Study Design Workshop, Modules 1 (sampling), 2 (sample size from
 margin of error) and 5 (ICC / design effect).

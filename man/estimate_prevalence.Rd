@@ -11,75 +11,42 @@ estimate_prevalence(
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  fpc_N = NULL,
-  ci_method = "wald"
+  ci_method = c("wald", "clopper-pearson", "agresti-coull")
 )
 }
 \arguments{
-\item{x}{Vector of integer counts of people who tested positive, one per
-site (a single number for one site).}
+\item{x}{Vector of whole-number counts of people who tested positive, one
+per site (a single number for one site).}
 
-\item{n}{Vector of integer totals tested, one per site (same length as
-\code{x}).}
+\item{n}{Vector of whole-number totals tested, one per site (same length
+as \code{x}).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case). Set below 1 to correct for
-missed cases (Rogan-Gladen correction).}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (the test
+never misses a case).}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive). Set below
-1 to correct for false positives (Rogan-Gladen correction).}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1 (the test
+never gives a false positive). \code{sensitivity + specificity} must exceed
+1.}
 
 \item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
 \item{icc}{Optional. Intra-cluster correlation, in [0, 1]. If \code{NULL}
 (default), ICC is estimated from the data. Set to \code{0} for no
-clustering. It is also used when \code{x} and \code{n} are single values (one
-site). Values below about 1.5e-8 are treated as 0.}
-
-\item{fpc_N}{Optional positive integer. Total population size for a
-finite-population correction; must be larger than \code{sum(n)}. \code{NULL}
-(default) = no finite-population correction applied.}
+clustering. A supplied value is also used with a single site.}
 
 \item{ci_method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
-\code{"agresti-coull"}. See Description. Clopper-Pearson and Agresti-Coull
-produce asymmetric intervals. A Wald interval becomes asymmetric when an
-end is moved to 0 or 1, and the function prints a message when that
-happens (see Details).}
+\code{"agresti-coull"}. See Description.}
 }
 \value{
-A named list with the following fields, in the order returned:
+A list with:
 \item{prevalence}{Point estimate of true prevalence (Rogan-Gladen
-corrected)}
-\item{ci_lower}{Lower confidence limit on the true-prevalence scale}
-\item{ci_upper}{Upper confidence limit on the true-prevalence scale}
-\item{moe}{Half-width of the interval, \code{(ci_upper - ci_lower) / 2},
-the average of \code{moe_lower} and \code{moe_upper}. The two are
-equal only when the interval is symmetric; otherwise report them both
-(see Details).}
-\item{moe_lower}{\code{prevalence - ci_lower}: distance from point estimate
-to lower limit}
-\item{moe_upper}{\code{ci_upper - prevalence}: distance from point estimate
-to upper limit}
-\item{ci_method}{CI method used (as supplied)}
-\item{n_total}{Total number of people tested, \code{sum(n)}}
-\item{n_eff}{Effective independent sample size before the
-finite-population correction: \code{n_total / deff}}
-\item{n_eff_adj}{Effective sample size the CI is actually built from:
-\code{n_eff} divided by \eqn{f}, the finite-population correction
-factor (see Details, step 4). Equals \code{n_eff} when \code{fpc_N}
-is \code{NULL}.}
-\item{conf_level}{Confidence level (as supplied)}
-\item{sensitivity}{Sensitivity (as supplied)}
-\item{specificity}{Specificity (as supplied)}
-\item{icc_used}{ICC used in the calculation. If \code{icc = NULL}, it is
-the value estimated from the data (0 with a single site, or one
-person per site). If \code{icc} was supplied, it is that value,
-unless it was below about 1.5e-8, then it is 0.}
-\item{deff}{Design effect applied (1 when there is no clustering)}
-\item{fpc_N}{\code{fpc_N} as supplied, or \code{NULL}}
+corrected).}
+\item{ci_lower, ci_upper}{Confidence limits on the true-prevalence
+scale.}
+\item{moe}{Half-width of the interval, \code{(ci_upper - ci_lower) / 2}.}
+\item{n_eff}{Effective sample size, \code{sum(n) / deff}.}
+\item{icc}{ICC used: as supplied, or estimated from the data.}
+\item{deff}{Design effect applied (1 when there is no clustering).}
 }
 \description{
 Analysis function: given observed counts, returns a prevalence point
@@ -94,16 +61,13 @@ the beta distribution. For a simple random sample, its coverage is
 at least the stated confidence level, so it is usually wider than
 the Wald interval.}
 \item{\code{"agresti-coull"}}{Asymmetric. A Wald interval calculated after
-adding extra positive and negative cases to the data, the same number
-of each. The number depends on the confidence level: about 1.35 of
-each for 90 percent, 1.92 for 95 percent, and 3.32 for 99 percent.
-This moves the interval towards 0.5; the reported prevalence is
-unchanged.}
+adding \eqn{z^2/2} positive and \eqn{z^2/2} negative cases to the data
+(about 1.92 of each at 95 percent). This moves the interval towards
+0.5; the reported prevalence is unchanged.}
 }
 
 All methods account for imperfect diagnostic tests (Rogan-Gladen
-correction), clustered sampling (Kish design effect), and
-finite-population corrections.
+correction) and clustered sampling (Kish design effect).
 
 If \code{icc} is not supplied, it is estimated from the data (the observed
 variance between sites compared with the variance expected if every
@@ -112,20 +76,18 @@ independent; if people at the same site tend to be similar, this gives an
 interval that is too narrow.
 }
 \details{
-The interval is built in six steps: apparent prevalence, a design
-effect for clustering, an effective sample size, an optional
-finite-population correction, a confidence interval by the chosen
-method, and finally the Rogan-Gladen correction for an imperfect test.
-Each step's equation follows, with when and why it is used.
+The interval is built in five steps: apparent prevalence, a design
+effect for clustering, an effective sample size, a confidence interval by
+the chosen method, and finally the Rogan-Gladen correction for an
+imperfect test.
 
 \strong{1. Apparent prevalence.} The pooled proportion of test
 positives across all sites,
 
 \deqn{\hat{p} = \frac{\sum_i x_i}{\sum_i n_i}}
 
-Every CI method below operates on \eqn{\hat{p}}. It is corrected for
-test imperfection only at step 6, so the correction applies identically
-to the point estimate and to both interval endpoints.
+It is corrected for test imperfection only at step 5, so the correction
+applies identically to the point estimate and to both interval endpoints.
 
 \strong{2. Design effect (Kish).} Observations within a site are
 positively correlated, so a clustered sample carries less information
@@ -138,28 +100,22 @@ where \eqn{n_w = \sum n^2 / \sum n} is the mean number of people per site,
 weighted by site size (the plain mean when all sites are the same size),
 and \eqn{\rho} the intra-cluster correlation (ICC).
 
-\emph{ICC supplied} (\code{icc} set): \eqn{\rho} is used directly, also
-for a single site: people at the same site tend to be alike, so one
-site tells you less about the whole population than the same number of
-people sampled separately. A value below about 1.5e-8 is treated as 0.
-With one person per site, \eqn{D_{eff} = 1}.
+\emph{ICC supplied}: \eqn{\rho} is used directly, also for a single site.
 
 \emph{ICC estimated} (\code{icc = NULL}, the default): with two or more
 sites and an average of more than one person per site, the design effect
-is estimated as the ratio of the observed between-site variance of the
-site proportions to the variance expected under simple random sampling,
+is first estimated as the ratio of the observed variance of the site
+proportions to the variance expected under simple random sampling,
 
-\deqn{\widehat{D_{eff}} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
+\deqn{\widehat{D} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
 
-floored at 1. The implied ICC is recovered by inverting the Kish formula,
-\eqn{\hat{\rho} = (\widehat{D_{eff}} - 1) / (\bar{n} - 1)},
-(with the plain mean site size) kept between 0 and 1; \eqn{D_{eff}} is then recomputed from that
-\eqn{\hat{\rho}} so the returned \code{deff} and \code{icc_used} stay
-mutually consistent. If nobody tests positive, or everybody does, the
-expected variance is 0 and \eqn{D_{eff} = 1}. \eqn{D_{eff} = 1} also
-when there is a single site (no variation between sites to measure)
-or every site has only one person (no two people share a site). If
-everyone tested comes from one site, supply \code{icc}.
+and the ICC recovered by inverting the Kish formula,
+\eqn{\hat{\rho} = (\widehat{D} - 1) / (\bar{n} - 1)}, kept between 0 and
+\enumerate{
+\item \eqn{D_{eff}} is then computed from \eqn{\hat{\rho}} as above. With a
+single site, one person per site, or nobody (or everybody) positive, the
+ICC is 0. If everyone tested comes from one site, supply \code{icc}.
+}
 
 An ICC estimated from only a few sites is uncertain, and the interval
 then tends to be too narrow. In simulations with a true ICC of 0.1, 50
@@ -174,105 +130,57 @@ Supplying \code{icc} from other studies avoids this.
 \deqn{n_{eff} = \frac{n_{total}}{D_{eff}}}
 
 the number of independent observations carrying the same information as
-the clustered sample. Returned as \code{n_eff}.
+the clustered sample.
 
-\strong{4. Finite-population correction.} Used only when \code{fpc_N}
-(the population size \eqn{N}) is given. Testing a large share of the
-population reduces the variance by the factor
-
-\deqn{f = \frac{N - n_{total}}{N - 1}}
-
-where \eqn{n_{total}} is the total number of people tested. Reducing the
-variance by \eqn{f} is the same as dividing the sample size by \eqn{f},
-so the function applies it to the effective sample size,
-
-\deqn{n_{eff,adj} = \frac{n_{eff}}{f}}
-
-which all three CI methods then use. Without \code{fpc_N},
-\eqn{n_{eff,adj} = n_{eff}}. If everyone in the population was tested
-(\code{fpc_N} equal to \code{sum(n)}), there is no sampling uncertainty
-left, so the function stops with an error. \code{fpc_N} counts people,
-not sites. If a study tested at nearly all of the sites in the
-population, the interval will be wider than necessary, because the
-correction does not remove the variation between sites.
-
-\strong{5. Confidence interval on apparent prevalence.} Let
+\strong{4. Confidence interval on apparent prevalence.} Let
 \eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},
-and \eqn{x_{eff} = \hat{p}\,n_{eff,adj}}, the number of positives scaled
-to the adjusted effective sample size.
+and \eqn{x_{eff} = \hat{p}\,n_{eff}}, the number of positives scaled to
+the effective sample size. Any end below 0 is set to 0 and any end above
+1 is set to 1.
 
 \emph{\code{"wald"}} -- the normal-approximation interval,
 
-\deqn{\hat{p} \;\pm\; z \sqrt{\frac{\hat{p}(1 - \hat{p})}{n_{eff,adj}}}}
+\deqn{\hat{p} \;\pm\; z \sqrt{\frac{\hat{p}(1 - \hat{p})}{n_{eff}}}}
 
-with any end below 0 set to 0 and any end above 1 set to 1. For small
-\eqn{n} or prevalence near 0 or 1 it can be too narrow (it covers the
-true prevalence less often than the stated confidence level), and it has
-zero width when \eqn{\hat{p} = 0} or \eqn{1}. For example, with 30
+For small \eqn{n} or prevalence near 0 or 1 it can be too narrow, and it
+has zero width when \eqn{\hat{p} = 0} or \eqn{1}. For example, with 30
 people and a true prevalence of 5 percent, a 95 percent Wald interval
 contains the true prevalence only about 78 percent of the time.
 
 \emph{\code{"clopper-pearson"}} -- the exact binomial interval,
 
-\deqn{L = B^{-1}\!\left(\tfrac{\alpha}{2};\; x_{eff},\; n_{eff,adj} - x_{eff} + 1\right)}
-\deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff,adj} - x_{eff}\right)}
+\deqn{L = B^{-1}\!\left(\tfrac{\alpha}{2};\; x_{eff},\; n_{eff} - x_{eff} + 1\right)}
+\deqn{U = B^{-1}\!\left(1 - \tfrac{\alpha}{2};\; x_{eff} + 1,\; n_{eff} - x_{eff}\right)}
 
 where \eqn{B^{-1}(q; a, b)} is the \eqn{q}-th quantile of a beta
-distribution with parameters \eqn{a} and \eqn{b}, and \eqn{L = 0} when
-\eqn{\hat{p} = 0} and \eqn{U = 1} when \eqn{\hat{p} = 1}. For a simple
-random sample, it covers the true prevalence at least as often as the
-stated confidence level, so it is usually wider than the Wald interval.
-Here \eqn{x_{eff}} does not need to be an integer, so the clustering
-and population adjustments can be applied. When they are, "at least as
-often as the stated confidence level" holds only approximately.
+distribution, and \eqn{L = 0} when \eqn{\hat{p} = 0} and \eqn{U = 1} when
+\eqn{\hat{p} = 1}. \eqn{x_{eff}} need not be a whole number, so the
+design effect can be applied; coverage of at least the stated level then
+holds only approximately.
 
-\emph{\code{"agresti-coull"}} -- add \eqn{z^2/2} positive cases and
-\eqn{z^2/2} negative cases (about 1.92 of each at 95 percent), then take
-a Wald interval on the adjusted proportion,
+\emph{\code{"agresti-coull"}} -- add \eqn{z^2/2} positive and \eqn{z^2/2}
+negative cases, then take a Wald interval on the adjusted proportion,
 
-\deqn{\tilde{n} = n_{eff,adj} + z^2, \qquad \tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}}
+\deqn{\tilde{n} = n_{eff} + z^2, \qquad \tilde{p} = \frac{x_{eff} + z^2/2}{\tilde{n}}}
 \deqn{\tilde{p} \;\pm\; z \sqrt{\frac{\tilde{p}(1 - \tilde{p})}{\tilde{n}}}}
 
-with any end below 0 set to 0 and any end above 1 set to 1. The added
-cases pull the interval towards 0.5, so unlike the Wald interval it does
-not have zero width at \eqn{\hat{p} = 0} or \eqn{1}.
-
-\strong{6. Rogan-Gladen correction.} An imperfect test inflates apparent
+\strong{5. Rogan-Gladen correction.} An imperfect test inflates apparent
 prevalence through false positives and deflates it through false
 negatives. Inverting \eqn{p_{app} = p\,Se + (1 - p)(1 - Sp)} gives true
 prevalence,
 
 \deqn{p = \frac{p_{app} - (1 - Sp)}{Se + Sp - 1}}
 
-This same formula is applied to \eqn{\hat{p}} and to both CI endpoints.
-A corrected value below 0 is then set to 0, and one above 1 is set to 1.
-When \eqn{Se = Sp = 1} it leaves the values unchanged.
+This same formula is applied to \eqn{\hat{p}} and to both CI endpoints,
+and the results are kept within [0, 1]. If the whole corrected
+interval lies below 0 (fewer positives than false positives alone would
+produce) or above 1, the function warns that the data do not fit the
+assumed sensitivity and specificity.
 
-The denominator \eqn{Se + Sp - 1} must be positive, as the correction
-divides by it (a value below about 1.5e-8 is treated as 0). Thus, as it
-approaches 0, the corrected interval becomes very wide, and the function
-warns when it is below 0.1.
-
-If the whole corrected interval lies below 0, both ends are set to 0 and
-the interval has zero width (likewise above 1). This happens when there
-are fewer positives than false positives alone would produce at the
-given specificity (or more positives than the sensitivity allows). The
-function warns that this zero width is not real precision.
-
-\strong{Margin of error.} From the corrected point estimate and
-endpoints,
-
-\deqn{\mathrm{moe} = \frac{ci_{upper} - ci_{lower}}{2}, \quad
-      \mathrm{moe\_lower} = p - ci_{lower}, \quad
-      \mathrm{moe\_upper} = ci_{upper} - p}
-
-For \code{"wald"} the interval is usually symmetric and all three
-coincide -- unless an end is moved to 0 or 1 (very low or high
-prevalence), which makes it asymmetric. For \code{"clopper-pearson"}
-and \code{"agresti-coull"} the interval is asymmetric by design:
-\code{moe} is only the average of the two half-widths, so \code{moe_lower}
-and \code{moe_upper} should be reported together. For \code{"wald"}, the
-function prints a message when an end is moved to 0 or 1.
+\strong{Margin of error.} \code{moe} is the half-width of the corrected
+interval, \code{(ci_upper - ci_lower) / 2}. Clopper-Pearson and
+Agresti-Coull intervals are asymmetric, and so is a Wald interval with an
+end moved to 0 or 1; report \code{ci_lower} and \code{ci_upper} then.
 }
 \examples{
 # Single site / simple random sample
@@ -290,17 +198,13 @@ estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
 # Imperfect diagnostic test
 estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
 
-# Known ICC and population size
-estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05,
-                    fpc_N = 2000)
+# Known ICC
+estimate_prevalence(x = c(5, 8, 3), n = c(40, 40, 40), icc = 0.05)
 }
 \references{
 MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
 
 Kish, L. (1965) \emph{Survey Sampling}. Wiley.
-
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
 
 Clopper, C. J. & Pearson, E. S. (1934) The use of confidence or fiducial
 limits illustrated in the case of the binomial. \emph{Biometrika}

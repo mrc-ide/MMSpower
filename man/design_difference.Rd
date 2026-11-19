@@ -8,26 +8,22 @@ design_difference(
   prevalence1,
   prevalence2,
   power = 0.8,
-  alternative = "two.sided",
+  alternative = c("two.sided", "greater", "less"),
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
   n_sites = NULL,
   n_per_site = NULL,
-  icc = 0,
-  fpc_N = NULL
+  icc = 0
 )
 }
 \arguments{
 \item{prevalence1}{Expected true prevalence in group 1, in [0, 1].}
 
 \item{prevalence2}{Expected true prevalence in group 2, in [0, 1].
-The two prevalences must differ; either can be 0 or 1.}
+The two prevalences must differ.}
 
-\item{power}{Target power, between 1 - \code{conf_level} and 1; default
-0.80. Values below 0.5 give a warning, and are not allowed when the two
-groups differ in sites, people per site, ICC or population size (the
-sample size formula is not reliable there).}
+\item{power}{Target power, in [0.5, 1); default 0.80.}
 
 \item{alternative}{Which kind of difference to look for.
 \code{"two.sided"} (default) looks for any difference; \code{"greater"}
@@ -35,98 +31,50 @@ looks for group 1 being higher (requires
 \code{prevalence1 > prevalence2}); \code{"less"} looks for group 1 being
 lower (requires \code{prevalence1 < prevalence2}).}
 
-\item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
-who truly have the condition that the test detects as positive.
-Default 1 (the test never misses a case). Assumed the same in both
-groups.}
+\item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1. Assumed
+the same in both groups.}
 
-\item{specificity}{Diagnostic specificity in (0, 1]: the share of people
-who truly do not have the condition that the test correctly reads as
-negative. Default 1 (the test never gives a false positive). Assumed the
-same in both groups.}
+\item{specificity}{Diagnostic specificity in (0, 1]; default 1. Assumed
+the same in both groups. \code{sensitivity + specificity} must exceed
+1.}
 
-\item{conf_level}{Confidence level, in [0.5, 1); default 0.95. The
+\item{conf_level}{Confidence level, in (0, 1); default 0.95. The
 significance level of the test is 1 - \code{conf_level}.}
 
-\item{n_sites}{Optional. Number of sites in each group: one positive
-integer for both groups, or two, \code{c(group 1, group 2)}. The
-function solves for the number of people per site, the same in both
-groups. Cannot be used together with \code{n_per_site}.}
+\item{n_sites}{Optional. Number of sites in each group: one whole number
+for both groups, or two, \code{c(group 1, group 2)}. The function solves
+for the number of people per site, the same in both groups. Cannot be
+used with \code{n_per_site}.}
 
-\item{n_per_site}{Optional. Number of people per site: one positive
-integer for both groups, or two, \code{c(group 1, group 2)}. The
-function solves for the number of sites, the same in both groups.
-Cannot be used together with \code{n_sites}. If one site in each group
-already has more people than needed, the function stops with an error;
-use \code{n_sites = 1} to find how many people that one site needs.}
+\item{n_per_site}{Optional. Number of people per site: one whole number
+for both groups, or two, \code{c(group 1, group 2)}. The function solves
+for the number of sites, the same in both groups. Cannot be used with
+\code{n_sites}.}
 
-\item{icc}{Intra-cluster correlation (ICC): how alike people in the same
-site are, from 0 (not at all) to 1 (identical). One number for both
+\item{icc}{Intra-cluster correlation, in [0, 1]: one number for both
 groups, or two, \code{c(group 1, group 2)}. Default 0 (no clustering).
-An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}, and the
-value given is then used exactly, however small. Without sites, a tiny
-value below about 1.5e-8, such as one left over from rounding in an
-earlier calculation, is treated as 0.}
-
-\item{fpc_N}{Optional. Population size of each group, for a
-finite-population correction: one positive integer for both groups, or
-two, \code{c(group 1, group 2)}. \code{NULL} (default) means no
-finite-population correction.}
+An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
 }
 \value{
-A named list with the following fields, in the order returned:
-\item{n_per_group1, n_per_group2}{Number of people needed in each
-group. They are equal when \code{n_sites}, \code{n_per_site},
-\code{icc} and \code{fpc_N} each have one value.}
-\item{n}{Total number of people across both groups,
-\code{n_per_group1 + n_per_group2}. With sites, every site in a group
-gets the same whole number of people, rounded up, so the study
-collects \code{n_sites1 * n_per_site1 + n_sites2 * n_per_site2}
-people, which can be more than \code{n}. Budget for that number. The
-extra is usually small, but can almost double the study when sites
-have only 1 or 2 people each: for example, a group needing 199 people
-across 198 sites gets 2 per site, so 396 are collected in that group
-instead of 199.}
-\item{n_eff1, n_eff2}{The number of people each group would need with
-no clustering and no finite-population correction, keeping the
-groups in the same ratio as the design (for example, twice as many
-people in group 2 with \code{n_sites = c(10, 20)}).}
-\item{n_sites1, n_sites2}{Sites in each group: solved for when
-\code{n_per_site} is given, as given when \code{n_sites} is given. If
-the study needs fewer people in a group than its sites, fewer sites are
-used, with 1 person at each, and a warning says so. \code{NULL} with
-no clustering.}
-\item{n_per_site1, n_per_site2}{People per site in each group: solved
-for when \code{n_sites} is given, as given when \code{n_per_site} is
-given. \code{NULL} with no clustering.}
-\item{prevalence1, prevalence2}{The true prevalences, as supplied.}
-\item{apparent_prev1, apparent_prev2}{The prevalences the test would
-measure in each group.}
-\item{difference}{The true difference, \code{prevalence1 - prevalence2}.}
-\item{difference_app}{The difference the test would measure,
-\code{apparent_prev1 - apparent_prev2}.}
-\item{power}{Target power, as supplied.}
-\item{alternative}{Which kind of difference was looked for, as
-supplied.}
-\item{conf_level}{Confidence level, as supplied.}
-\item{sensitivity}{Sensitivity, as supplied.}
-\item{specificity}{Specificity, as supplied.}
-\item{icc}{ICC, as supplied (one or two values).}
-\item{deff1, deff2}{Design effect of each group: how much clustering
-inflates the number of people needed (1 with no clustering). With
-sites, it is worked out for the people actually collected,
-\code{n_sites * n_per_site} in that group.}
-\item{fpc_N}{\code{fpc_N}, as supplied, or \code{NULL}.}
+A list with:
+\item{n_per_group}{People in each group, \code{c(group 1, group 2)}.
+With sites, \code{n_sites * n_per_site}.}
+\item{n}{Total number of people, \code{sum(n_per_group)}.}
+\item{n_sites}{Sites in each group (\code{NULL} with no clustering).}
+\item{n_per_site}{People per site in each group (\code{NULL} with no
+clustering).}
+\item{deff}{Design effect of each group (1 with no clustering).}
+\item{n_eff}{People each group would need with no clustering, keeping
+the groups in the same ratio as the design.}
 }
 \description{
 Design function: given the expected true prevalence in two groups, returns
-the sample size needed in each group to detect that difference with the
-target power.
+the sample size needed in each group for \code{test_difference()} (with
+its default score test) to detect that difference with the target power.
 
-Each group can have its own number of sites, people per site, ICC and
-population size: give one value for both groups, or two,
-\code{c(group 1, group 2)}. The function solves for one unknown, the
-same in both groups:
+Each group can have its own number of sites, people per site and ICC:
+give one value for both groups, or two, \code{c(group 1, group 2)}. The
+function solves for one unknown, the same in both groups:
 \describe{
 \item{No clustering (\code{n_sites} and \code{n_per_site} both
 \code{NULL}, default)}{Solves for the number of people per group.}
@@ -144,7 +92,8 @@ groups).
 }
 \details{
 \strong{Sample size.} Write \eqn{m_1}, \eqn{m_2} for the effective sizes
-of the two groups (below). The test reaches the target power when
+of the two groups (below). The score test in \code{test_difference()}
+reaches the target power when
 
 \deqn{z_\alpha \sqrt{\bar{p}(1-\bar{p})\,(1/m_1 + 1/m_2)} +
   z_\beta \sqrt{p_{1,app}(1-p_{1,app})/m_1 + p_{2,app}(1-p_{2,app})/m_2}
@@ -152,65 +101,50 @@ of the two groups (below). The test reaches the target power when
 
 where \eqn{p_{g,app} = p_g \cdot Se + (1-p_g)(1-Sp)} is the prevalence the
 test would measure in group \eqn{g}, \eqn{\bar{p} = (p_{1,app} m_1 +
-p_{2,app} m_2)/(m_1 + m_2)}, \eqn{z_\beta} = \code{qnorm(power)} (0.84 for
-80 percent power), and \eqn{z_\alpha} = \code{qnorm(1 - alpha/2)} for a
-two-sided test (1.96 at 95 percent) or \code{qnorm(1 - alpha)} for a
-one-sided test (1.64 at 95 percent), with \eqn{\alpha = 1 -}
-\code{conf_level}. The function finds the smallest value of the unknown
-(people per group, sites, or people per site) for which the left side is
-no larger than the right, by a numerical search, and rounds it up to a
-whole number.
-
-With no clustering and two groups of \eqn{n} people this gives
-
-\deqn{n_0 = \frac{\left(z_\alpha \sqrt{2\,\bar{p}(1-\bar{p})} +
-  z_\beta \sqrt{p_{1,app}(1-p_{1,app}) + p_{2,app}(1-p_{2,app})}\right)^2}
-  {(p_{1,app} - p_{2,app})^2}}
-
-the same formula as R's \code{power.prop.test()}.
+p_{2,app} m_2)/(m_1 + m_2)} is the pooled prevalence the test uses,
+\eqn{z_\beta} = \code{qnorm(power)} (0.84 for 80 percent power), and
+\eqn{z_\alpha} = \code{qnorm(1 - alpha/2)} for a two-sided test (1.96 at
+95 percent) or \code{qnorm(1 - alpha)} for a one-sided test (1.64 at 95
+percent), with \eqn{\alpha = 1 -} \code{conf_level}. With no clustering
+and two groups of \eqn{n} people this is the formula of R's
+\code{power.prop.test()}.
 
 Because \eqn{p_{1,app} - p_{2,app} = (p_1 - p_2)(Se + Sp - 1)}, an
 imperfect test shrinks the difference the test can see and increases the
-sample size. When \eqn{Se = Sp = 1} the measured and true prevalences are
-the same.
+sample size.
 
-\strong{Effective size.} For group \eqn{g} with \eqn{n_g} people,
-\eqn{m_g = n_g / D_g}, where \eqn{D_g = 1 + (\bar{n}_g - 1)\,ICC_g} is the
-design effect and \eqn{\bar{n}_g} the number of people per site. With
-\code{fpc_N} (the population size \eqn{N_g}), sampling without
-replacement reduces the variance by the factor \eqn{(N_g - n_g)/(N_g - 1)},
-so \eqn{m_g} is divided by it as well (Cochran, 1977).
+\strong{Effective size.} For group \eqn{g} with \eqn{n_g} people in sites
+of \eqn{s_g} people, \eqn{m_g = n_g / D_g} with design effect
+\eqn{D_g = 1 + (s_g - 1)\,ICC_g}. With one unknown \eqn{x}, each design
+gives \eqn{m_g} directly:
+\describe{
+\item{No clustering}{\eqn{m_g = x}, people per group.}
+\item{Fixed \code{n_per_site}}{\eqn{m_g = x \, s_g / D_g}, with \eqn{x}
+sites per group.}
+\item{Fixed \code{n_sites}}{\eqn{m_g = k_g x / (1 + (x - 1) ICC_g)},
+with \eqn{k_g} sites and \eqn{x} people per site.}
+}
+Each \eqn{m_g} grows with \eqn{x}, so the left side of the equation
+above falls as \eqn{x} grows, and the function finds the smallest
+\eqn{x} that meets it with a single root search (\code{uniroot()}),
+then rounds up to a whole number.
 
-\strong{Highest power.} With \code{n_sites} fixed and no \code{fpc_N},
-adding people to each site cannot raise the power past a limit. People in
-the same site tend to resemble each other, so after a point each extra
-person adds almost nothing new. Each site is worth at most \eqn{1 / ICC}
-independent people, so a group can never count as more than
-\eqn{n_{sites} / ICC} independent people. For example, with ICC 0.05 each
+\strong{Highest power.} With \code{n_sites} fixed, adding people to each
+site cannot raise the power past a limit: each site is worth at most
+\eqn{1/ICC} independent people, so group \eqn{g} never counts as more than
+\eqn{k_g / ICC_g} independent people. For example, with ICC 0.05 each
 site is worth at most 20 independent people, so 8 sites per group give at
-most 160 independent people. For 10 versus 20 percent, 160 people per
-group give 70.9 percent power, so 80 percent can never be reached. When
-the target cannot be reached, the function stops and reports the highest
-power the sites can give.
+most 160 independent people; for 10 versus 20 percent that gives 70.9
+percent power, so 80 percent can never be reached. When the target is out
+of reach, the function stops and reports the power at that limit.
 
-With \code{fpc_N}, a group whose whole population is tested has no
-sampling uncertainty left, so with the same design in both groups the
-target is always reachable. When the groups differ, one group can reach
-its whole population before the target is reached; the function then
-stops and reports the highest power at that point. If there are too few
-sites for the ICC to reach the target power on their own, the
-correction can still make it reachable, but often only by testing a large
-share of the population; a warning says so.
-
-\code{fpc_N} counts people, not sites. If a study samples nearly all of
-the sites in a group, the returned sample size is larger than necessary,
-because the correction does not remove the variation between sites.
-
-\strong{Rounding.} The people needed in each group, and the number of
-sites or people per site, are rounded up. Each design effect (returned as
-\code{deff1}, \code{deff2}) is then worked out again from the rounded
-number of people per site, so that
-\eqn{D_g = 1 + (n_{per site, g} - 1) ICC_g} describes the design reported.
+\strong{Rounding.} The number of sites, or people per site, is rounded up
+to a whole number, the same in both groups. With more sites than people
+needed, 1 person is sampled at each of just enough of the sites (there is
+then no clustering); with \code{n_per_site} larger than needed, 1 site
+per group is used. The people in each group are
+\code{n_sites * n_per_site}, and the design effects are those of the
+rounded design.
 }
 \examples{
 # Detect 10 versus 20 percent prevalence with 80 percent power
@@ -239,10 +173,10 @@ Rates and Proportions}, 3rd ed. Wiley. (Two-group sample size.)
 
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
 
-Cochran, W. G. (1977) \emph{Sampling Techniques}, 3rd ed. Wiley.
-(Finite-population correction.)
-
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}
 \strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
+}
+\seealso{
+\code{\link{test_difference}}
 }
