@@ -2,7 +2,8 @@ Package: MMSpower
 Title: Malaria Molecular Surveillance (MMS) Sample Size and Study Design Power Calculations
 Version: 0.1.0
 Authors@R: 
-    person("Sequoia", "Leuba", , "s.leuba21@imperial.ac.uk", role = c("aut", "cre"))
+    c(person("Sequoia", "Leuba", , "s.leuba21@imperial.ac.uk", role = c("aut", "cre")),
+      person("Robert", "Verity", role = "aut"))
 Description: This package has basic functions needed for MMS power calculations.
 License: MIT + file LICENSE
 Encoding: UTF-8

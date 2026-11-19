@@ -20,5 +20,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Sequoia Leuba \email{s.leuba21@imperial.ac.uk}
 
+Authors:
+\itemize{
+  \item Robert Verity
+}
+
 }
 \keyword{internal}
