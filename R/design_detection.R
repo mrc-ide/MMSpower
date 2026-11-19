@@ -198,11 +198,9 @@ design_detection <- function(prevalence,
     # allowance stops rounding noise rejecting an exact hit)
     log_miss <- log1p(-detection_prob) * (1 - tol)
     if (!is.null(n_per_site)) {
-      # each site misses every case with the same chance
+      # each site misses every case with the same chance; a site larger than
+      # needed gives 1 site (as in design_precision())
       k <- ceiling(log_miss / log_p0_sites(1, n_per_site))
-      if (k == 1 && log_p0_sites(1, n_per_site - 1) <= log_miss)
-        stop("`n_per_site` is larger than needed: one site of fewer people ",
-             "is enough. Use `n_sites = 1` to find how many.", call. = FALSE)
       design <- list(n_sites = k, n_per_site = n_per_site)
     } else {
       # smallest number per site, by bisection, up to 2 million people
@@ -229,9 +227,6 @@ design_detection <- function(prevalence,
       n_equiv(log_p0_sites(design$n_sites, design$n_per_site))
   } else {
     design <- .allocate(needed, n_sites, n_per_site)
-    if (!is.null(n_per_site) && n_per_site > needed)
-      stop("`n_per_site` is larger than the ", needed, " people needed. Use ",
-           "`n_sites = 1` to find how many one site needs.", call. = FALSE)
   }
 
   list(

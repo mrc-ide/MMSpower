@@ -110,13 +110,16 @@ test_that("more sites than people needed: 1 person at just enough sites", {
   expect_no_warning(design_detection(0.05, n_sites = 32, icc = 0.05))
 })
 
-test_that("one site larger than needed stops", {
-  # icc 0: 32 needed; icc 0.05: one site of 81 is enough, 80 is not
-  expect_error(design_detection(0.05, n_per_site = 33), "larger than the 32 people needed")
-  expect_equal(design_detection(0.05, n_per_site = 32)$n_sites, 1)
+test_that("one site larger than needed gives 1 site of that size (as design_precision)", {
+  # icc 0: 32 needed, so a site of 5000 is 1 site and 5000 people
+  res <- design_detection(0.05, n_per_site = 5000)
+  expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(5000, 1, 5000, 1))
+  # icc 0.05: one site of 81 is enough, 80 is not; a site of 200 is 1 site
   expect_lt(1 - p0_direct(80, 0.05, 0.05), 0.8)
-  expect_error(design_detection(0.05, n_per_site = 82, icc = 0.05), "larger than needed")
   expect_equal(design_detection(0.05, n_per_site = 81, icc = 0.05)$n, 81)
+  expect_equal(design_detection(0.05, n_per_site = 80, icc = 0.05)$n_sites, 2)
+  res <- design_detection(0.05, n_per_site = 200, icc = 0.05)
+  expect_equal(c(res$n, res$n_sites), c(200, 1))
 })
 
 test_that("more than 2 million people stops; tiny values are not lost to rounding", {
