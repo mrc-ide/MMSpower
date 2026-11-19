@@ -167,16 +167,12 @@ and spreading the samples over more sites reduces the total needed:
 
 ``` r
 
-sites <- c(15, 20, 30, 50, 100)
-total <- sapply(sites, function(k)
-  design_precision(prevalence = 0.2, moe = 0.05, n_sites = k, icc = 0.05)$n)
-data.frame(sites, per_site = total / sites, total)
-#>   sites per_site total
-#> 1    15       87  1305
-#> 2    20       31   620
-#> 3    30       14   420
-#> 4    50        7   350
-#> 5   100        3   300
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 15, icc = 0.05)$n
+#> [1] 1305
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 30, icc = 0.05)$n
+#> [1] 420
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 100, icc = 0.05)$n
+#> [1] 300
 ```
 
 With 15 sites the study needs 1305 samples; with 100 sites, only 300,
@@ -266,8 +262,9 @@ The differences matter for small samples or a prevalence near 0 or 1.
 There the Wald interval is too narrow, has zero width when no positives
 are seen, and its limits can fall below 0 or above 1.
 [`estimate_prevalence()`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md)
-cuts such limits back to 0 or 1, but that hides the problem rather than
-fixing it. Clopper-Pearson, the default, is the cautious choice, and
+sets such limits to 0 or 1, which keeps the interval sensible, but the
+result is still less reliable than the other two methods in these
+situations. Clopper-Pearson, the default, is the cautious choice, and
 Agresti-Coull a good compromise.
 [`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
 sizes a study with the simpler Wald formula, so a Clopper-Pearson

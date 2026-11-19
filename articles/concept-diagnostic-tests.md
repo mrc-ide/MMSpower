@@ -22,9 +22,11 @@ assay for a resistance marker, can go wrong in two ways.
   someone who truly is negative. A test with $`Sp = 0.95`$ gives a false
   positive in 1 true negative in 20.
 
-The default in every function is $`Se = Sp = 1`$, a perfect test. Values
-for a particular test usually come from a validation study against a
-reference standard.
+The default in every function is $`Se = Sp = 1`$, a perfect test
+([`design_detection()`](https://mrc-ide.github.io/MMSpower/reference/design_detection.md)
+takes only the sensitivity, as positives are assumed to be confirmed
+before a variant is declared present). Values for a particular test
+usually come from a validation study against a reference standard.
 
 ## Apparent prevalence
 

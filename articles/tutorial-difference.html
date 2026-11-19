@@ -42,6 +42,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials">
 <li><a class="dropdown-item" href="../articles/tutorial-prevalence.html">Estimating prevalence</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-threshold.html">Testing against a threshold</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial-detection.html">Detecting a rare variant</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-difference.html">Comparing two groups</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-cost.html">Costing a study</a></li>
   </ul>
@@ -177,7 +178,8 @@ unclustered one.</p>
 people you can sample at each site, fix <code>n_per_site</code> and the
 function solves for the number of sites per group:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_per</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 400 400</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -195,11 +197,14 @@ function solves for the number of sites per group:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
 <span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<p>Each group needs 20 sites of 20 people, 400 people per group and 800
+in total.</p>
 <p>If the number of sites is fixed instead (for example, the health
 facilities already in a surveillance network), fix <code>n_sites</code>
 and the function solves for the number of people per site:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_sites</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 380 380</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -217,6 +222,8 @@ and the function solves for the number of people per site:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
 <span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<p>Each of the 20 sites per group now needs 19 people, 380 people per
+group and 760 in total.</p>
 <p>In both cases <code>n_eff</code> is what each group would need
 without clustering, and <code>deff</code> is the design effect that
 turns one into the other.</p>

@@ -5,12 +5,12 @@
 library(MMSpower)
 ```
 
-MMSpower answers three common questions in malaria molecular
-surveillance studies. For each, a **design** function says how many
-samples are needed, and a matching **analysis** function says what the
-data show. Every function allows for an imperfect diagnostic test
-(`sensitivity`, `specificity`) and for clustered sampling across sites
-(`icc`, with `n_sites` or `n_per_site`).
+MMSpower answers four common questions in malaria molecular surveillance
+studies. For most, a **design** function says how many samples are
+needed, and a matching **analysis** function says what the data show.
+Every function allows for an imperfect diagnostic test (`sensitivity`,
+and `specificity` where it applies) and for clustered sampling across
+sites (`icc`, with `n_sites` or `n_per_site`).
 
 This page is a short tour. Each function’s reference page explains its
 methods and formulas in full.
@@ -125,6 +125,33 @@ test_threshold(x = 18, n = 191, threshold = 0.05)
 #> 
 #> $df
 #> [1] Inf
+```
+
+## Detecting a rare variant
+
+How many people are needed for an 80% chance of finding at least one
+case of a variant present in 1% of infections?
+
+``` r
+
+design_detection(prevalence = 0.01)
+#> $n
+#> [1] 161
+#> 
+#> $n_sites
+#> NULL
+#> 
+#> $n_per_site
+#> NULL
+#> 
+#> $deff
+#> [1] 1
+#> 
+#> $n_eff
+#> [1] 161
+#> 
+#> $detection_prob
+#> [1] 0.8
 ```
 
 ## Comparing two groups

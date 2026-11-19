@@ -68,6 +68,7 @@ groups)."><meta property="og:image" content="https://mrc-ide.github.io/MMSpower/
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-tutorials" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Tutorials</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials"><li><a class="dropdown-item" href="../articles/tutorial-prevalence.html">Estimating prevalence</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-threshold.html">Testing against a threshold</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial-detection.html">Detecting a rare variant</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-difference.html">Comparing two groups</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-cost.html">Costing a study</a></li>
   </ul></li>
@@ -277,10 +278,10 @@ most 160 independent people; for 10 versus 20 percent that gives 70.9
 percent power, so 80 percent can never be reached. When the target is out
 of reach, the function stops and reports the power at that limit.</p>
 <p><strong>Rounding.</strong> The number of sites, or people per site, is rounded up
-to a whole number, the same in both groups. With more sites than people
-needed, 1 person is sampled at each of just enough of the sites (there is
-then no clustering); with <code>n_per_site</code> larger than needed, 1 site
-per group is used. The people in each group are
+to a whole number, the same in both groups. With <code>n_sites</code> fixed,
+every site is used, with at least 1 person each, even if fewer people
+would do (as in the other design functions); with <code>n_per_site</code>
+larger than needed, 1 site per group is used. The people in each group are
 <code>n_sites * n_per_site</code>, and the design effects are those of the
 rounded design.</p>
     </div>

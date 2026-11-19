@@ -40,16 +40,6 @@ Does prevalence differ between two groups, such as two regions?
 - [`test_difference()`](https://mrc-ide.github.io/MMSpower/reference/test_difference.md)
   : Test whether prevalence differs between two groups
 
-## Trends over time
-
-Is prevalence rising or falling across survey rounds?
-
-- [`design_trend()`](https://mrc-ide.github.io/MMSpower/reference/design_trend.md)
-  : Calculate sample size per timepoint to detect a linear trend in
-  prevalence
-- [`test_trend()`](https://mrc-ide.github.io/MMSpower/reference/test_trend.md)
-  : Test whether prevalence is changing linearly over time
-
 ## Costing a study
 
 - [`estimate_cost()`](https://mrc-ide.github.io/MMSpower/reference/estimate_cost.md)

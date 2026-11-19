@@ -42,6 +42,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials">
 <li><a class="dropdown-item" href="../articles/tutorial-prevalence.html">Estimating prevalence</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-threshold.html">Testing against a threshold</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial-detection.html">Detecting a rare variant</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-difference.html">Comparing two groups</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-cost.html">Costing a study</a></li>
   </ul>
@@ -118,7 +119,9 @@ gives a false positive in 1 true negative in 20.</li>
 </ul>
 <p>The default in every function is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mi>e</mi><mo>=</mo><mi>S</mi><mi>p</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Se = Sp = 1</annotation></semantics></math>,
-a perfect test. Values for a particular test usually come from a
+a perfect test (<code><a href="../reference/design_detection.html">design_detection()</a></code> takes only the
+sensitivity, as positives are assumed to be confirmed before a variant
+is declared present). Values for a particular test usually come from a
 validation study against a reference standard.</p>
 </div>
 <div class="section level2">

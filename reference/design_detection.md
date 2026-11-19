@@ -69,7 +69,7 @@ design_detection(
 
 - icc:
 
-  Intra-cluster correlation, in \[0, 1\]; default 0 (no clustering). An
+  Intra-cluster correlation, in \[0, 1); default 0 (no clustering). An
   `icc` above 0 needs `n_sites` or `n_per_site`.
 
 ## Value
@@ -127,20 +127,19 @@ found among \\m\\ people at one site is
 \alpha = q \left(\frac{1}{ICC} - 1\right), \quad \beta = (1 - q)
 \left(\frac{1}{ICC} - 1\right),\$\$
 
-and at \\k\\ sites it is \\P_0(m)^k\\. The function finds the smallest
-number of sites (or people per site) that reaches `detection_prob`. With
-an ICC of 1 everyone at a site has the same result, so \\k\\ sites give
-at most \\1 - (1 - q)^k\\. An ICC below about 1.5e-8 is treated as 0,
-where the beta formula loses accuracy.
+and at \\k\\ sites it is \\P_0(m)^k\\. With `n_per_site` fixed, the
+number of sites is \\\lceil \log(1 - detection\\prob) / \log P_0(n\_{per
+site}) \rceil\\. With `n_sites` fixed there is no formula for the people
+per site, so the smallest whole number that reaches `detection_prob` is
+found by a numerical search. \\P_0(m)\\ always falls towards 0 as \\m\\
+grows, but very slowly when the ICC is high and cases are rare; if even
+\\10^{15}\\ people per site fall short, the function stops.
 
-**Too many sites.** One person per site gives the chance of `n_sites`
-people with no clustering. If fewer people are needed, fewer sites are
-used, with 1 person at each, and a warning says so. A site larger than
-needed gives 1 site of that size.
-
-**Limit and rounding.** A design that needs more than 2 million people
-stops with an error. With sites, the returned `n` is the number actually
-sampled, `n_sites * n_per_site`.
+**Sites and rounding.** With `n_sites` fixed, every site is used, with
+at least 1 person each, even if fewer people would do (as in the other
+design functions). A site larger than needed gives 1 site of that size.
+With sites, the returned `n` is the number actually sampled,
+`n_sites * n_per_site`.
 
 ## References
 

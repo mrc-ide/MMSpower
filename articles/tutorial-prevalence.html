@@ -42,6 +42,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-tutorials">
 <li><a class="dropdown-item" href="../articles/tutorial-prevalence.html">Estimating prevalence</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-threshold.html">Testing against a threshold</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial-detection.html">Detecting a rare variant</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-difference.html">Comparing two groups</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial-cost.html">Costing a study</a></li>
   </ul>
@@ -233,16 +234,12 @@ there is evidence for it) assume a smaller ICC.</p>
 sites, and spreading the samples over more sites reduces the total
 needed:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">15</span>, <span class="fl">20</span>, <span class="fl">30</span>, <span class="fl">50</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="va">total</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">sites</span>, <span class="kw">function</span><span class="op">(</span><span class="va">k</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="va">k</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="va">sites</span>, per_site <span class="op">=</span> <span class="va">total</span> <span class="op">/</span> <span class="va">sites</span>, <span class="va">total</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   sites per_site total</span></span>
-<span><span class="co">#&gt; 1    15       87  1305</span></span>
-<span><span class="co">#&gt; 2    20       31   620</span></span>
-<span><span class="co">#&gt; 3    30       14   420</span></span>
-<span><span class="co">#&gt; 4    50        7   350</span></span>
-<span><span class="co">#&gt; 5   100        3   300</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">15</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="co">#&gt; [1] 1305</span></span>
+<span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">30</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="co">#&gt; [1] 420</span></span>
+<span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">100</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="co">#&gt; [1] 300</span></span></code></pre></div>
 <p>With 15 sites the study needs 1305 samples; with 100 sites, only 300,
 close to the 246 an unclustered survey would need. Each new site brings
 in fresh information, whereas each extra sample at a site partly repeats
@@ -321,9 +318,10 @@ estimate but different intervals:</p>
 The differences matter for small samples or a prevalence near 0 or 1.
 There the Wald interval is too narrow, has zero width when no positives
 are seen, and its limits can fall below 0 or above 1.
-<code><a href="../reference/estimate_prevalence.html">estimate_prevalence()</a></code> cuts such limits back to 0 or 1, but
-that hides the problem rather than fixing it. Clopper-Pearson, the
-default, is the cautious choice, and Agresti-Coull a good compromise.
+<code><a href="../reference/estimate_prevalence.html">estimate_prevalence()</a></code> sets such limits to 0 or 1, which
+keeps the interval sensible, but the result is still less reliable than
+the other two methods in these situations. Clopper-Pearson, the default,
+is the cautious choice, and Agresti-Coull a good compromise.
 <code><a href="../reference/design_precision.html">design_precision()</a></code> sizes a study with the simpler Wald
 formula, so a Clopper-Pearson interval usually comes out a little wider
 than the margin of error the study was designed for. See

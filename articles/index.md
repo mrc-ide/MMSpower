@@ -13,6 +13,8 @@ Worked examples, one for each type of study.
   prevalence](https://mrc-ide.github.io/MMSpower/articles/tutorial-prevalence.md):
 - [Testing against a
   threshold](https://mrc-ide.github.io/MMSpower/articles/tutorial-threshold.md):
+- [Detecting a rare
+  variant](https://mrc-ide.github.io/MMSpower/articles/tutorial-detection.md):
 - [Comparing two
   groups](https://mrc-ide.github.io/MMSpower/articles/tutorial-difference.md):
 - [Costing a

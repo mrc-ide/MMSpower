@@ -108,7 +108,8 @@ solves for the number of sites per group:
 
 ``` r
 
-design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
+d_per <- design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
+d_per
 #> $n_per_group
 #> [1] 400 400
 #> 
@@ -128,13 +129,17 @@ design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
 #> [1] 199 199
 ```
 
+Each group needs 20 sites of 20 people, 400 people per group and 800 in
+total.
+
 If the number of sites is fixed instead (for example, the health
 facilities already in a surveillance network), fix `n_sites` and the
 function solves for the number of people per site:
 
 ``` r
 
-design_difference(0.10, 0.20, n_sites = 20, icc = 0.05)
+d_sites <- design_difference(0.10, 0.20, n_sites = 20, icc = 0.05)
+d_sites
 #> $n_per_group
 #> [1] 380 380
 #> 
@@ -153,6 +158,9 @@ design_difference(0.10, 0.20, n_sites = 20, icc = 0.05)
 #> $n_eff
 #> [1] 199 199
 ```
+
+Each of the 20 sites per group now needs 19 people, 380 people per group
+and 760 in total.
 
 In both cases `n_eff` is what each group would need without clustering,
 and `deff` is the design effect that turns one into the other.

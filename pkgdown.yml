@@ -6,10 +6,11 @@ articles:
   articles/concept-diagnostic-tests: concept-diagnostic-tests.html
   MMSpower: MMSpower.html
   articles/tutorial-cost: tutorial-cost.html
+  articles/tutorial-detection: tutorial-detection.html
   articles/tutorial-difference: tutorial-difference.html
   articles/tutorial-prevalence: tutorial-prevalence.html
   articles/tutorial-threshold: tutorial-threshold.html
-last_built: 2026-11-19T16:08Z
+last_built: 2026-11-19T19:07Z
 urls:
   reference: https://mrc-ide.github.io/MMSpower/reference
   article: https://mrc-ide.github.io/MMSpower/articles
