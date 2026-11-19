@@ -28,6 +28,8 @@ navbar:
         href: articles/tutorial-prevalence.html
       - text: Testing against a threshold
         href: articles/tutorial-threshold.html
+      - text: Detecting a rare variant
+        href: articles/tutorial-detection.html
       - text: Comparing two groups
         href: articles/tutorial-difference.html
       - text: Costing a study
@@ -78,6 +80,7 @@ articles:
   contents:
   - articles/tutorial-prevalence
   - articles/tutorial-threshold
+  - articles/tutorial-detection
   - articles/tutorial-difference
   - articles/tutorial-cost
 - title: Concepts
