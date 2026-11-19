@@ -55,11 +55,20 @@ reference:
   contents:
   - design_threshold
   - test_threshold
+- title: Detecting presence
+  desc: How many samples to find at least one case of a rare variant, such as an early drug-resistance marker?
+  contents:
+  - design_detection
 - title: Comparing two groups
   desc: Does prevalence differ between two groups, such as two regions?
   contents:
   - design_difference
   - test_difference
+- title: Trends over time
+  desc: Is prevalence rising or falling across survey rounds?
+  contents:
+  - design_trend
+  - test_trend
 - title: Costing a study
   contents:
   - estimate_cost
