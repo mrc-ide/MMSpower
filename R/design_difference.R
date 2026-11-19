@@ -102,10 +102,10 @@
 #' of reach, the function stops and reports the power at that limit.
 #'
 #' \strong{Rounding.} The number of sites, or people per site, is rounded up
-#' to a whole number, the same in both groups. With more sites than people
-#' needed, 1 person is sampled at each of just enough of the sites (there is
-#' then no clustering); with \code{n_per_site} larger than needed, 1 site
-#' per group is used. The people in each group are
+#' to a whole number, the same in both groups. With \code{n_sites} fixed,
+#' every site is used, with at least 1 person each, even if fewer people
+#' would do (as in the other design functions); with \code{n_per_site}
+#' larger than needed, 1 site per group is used. The people in each group are
 #' \code{n_sites * n_per_site}, and the design effects are those of the
 #' rounded design.
 #'
@@ -221,10 +221,6 @@ design_difference <- function(prevalence1,
   if (!is.null(n_sites)) {
     sites <- k
     per   <- rep(x, 2)
-    # Fewer people needed than there are sites (k * x0 people unclustered,
-    # x0 < 1): with 1 person per site there is no clustering, so use 1
-    # person at each of just enough of the sites.
-    if (x0 < 1) sites <- ceiling(k * x0)
   } else if (!is.null(n_per_site)) {
     sites <- rep(x, 2)
     per   <- s

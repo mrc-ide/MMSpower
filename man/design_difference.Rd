@@ -141,10 +141,10 @@ percent power, so 80 percent can never be reached. When the target is out
 of reach, the function stops and reports the power at that limit.
 
 \strong{Rounding.} The number of sites, or people per site, is rounded up
-to a whole number, the same in both groups. With more sites than people
-needed, 1 person is sampled at each of just enough of the sites (there is
-then no clustering); with \code{n_per_site} larger than needed, 1 site
-per group is used. The people in each group are
+to a whole number, the same in both groups. With \code{n_sites} fixed,
+every site is used, with at least 1 person each, even if fewer people
+would do (as in the other design functions); with \code{n_per_site}
+larger than needed, 1 site per group is used. The people in each group are
 \code{n_sites * n_per_site}, and the design effects are those of the
 rounded design.
 }
