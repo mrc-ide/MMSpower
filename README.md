@@ -28,6 +28,7 @@ costing function:
 | Is prevalence above (or below) a threshold? | `design_threshold()` | `test_threshold()` |
 | Is a variant present at all? | `design_detection()` |  |
 | Does prevalence differ between two groups? | `design_difference()` | `test_difference()` |
+| Is prevalence changing over time? | `design_trend()` | `test_trend()` |
 | What will the study cost? | `estimate_cost()` |  |
 
 ## Installation

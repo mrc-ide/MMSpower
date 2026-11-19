@@ -17,6 +17,7 @@ what your data show.
 | Is prevalence above (or below) a threshold? | [`design_threshold()`](reference/design_threshold.html) | [`test_threshold()`](reference/test_threshold.html) |
 | Is a variant present at all? | [`design_detection()`](reference/design_detection.html) | |
 | Does prevalence differ between two groups? | [`design_difference()`](reference/design_difference.html) | [`test_difference()`](reference/test_difference.html) |
+| Is prevalence changing over time? | [`design_trend()`](reference/design_trend.html) | [`test_trend()`](reference/test_trend.html) |
 | What will the study cost? | [`estimate_cost()`](reference/estimate_cost.html) | |
 
 ## Installation

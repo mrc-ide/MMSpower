@@ -33,6 +33,11 @@ reference:
   contents:
   - design_difference
   - test_difference
+- title: Trends over time
+  desc: Is prevalence rising or falling across survey rounds?
+  contents:
+  - design_trend
+  - test_trend
 - title: Costing a study
   contents:
   - estimate_cost
