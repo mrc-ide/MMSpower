@@ -88,16 +88,16 @@ best
 ```
 
 ```{r, fig.alt = "Total study cost against people per site, falling steeply then levelling off, with the cheapest design marked."}
-par(mar = c(4.5, 4.5, 1, 1), las = 1, bty = "l")
-plot(designs$n_per_site, designs$total_cost / 1000, type = "l",
-     col = "#1B2A41", lwd = 2,
-     xlab = "People per site", ylab = "Total cost (thousands)")
-points(designs$n_per_site, designs$total_cost / 1000,
-       pch = 19, cex = 0.6, col = "#1B2A41")
-points(best$n_per_site, best$total_cost / 1000, pch = 19, cex = 1.6, col = "#C0392B")
-text(best$n_per_site, best$total_cost / 1000,
-     sprintf("%d sites of %d", best$n_sites, best$n_per_site),
-     pos = 3, offset = 0.9, col = "#6B7280")
+library(ggplot2)
+
+ggplot(designs, aes(x = n_per_site, y = total_cost / 1000)) +
+  geom_line(colour = "#1B2A41", linewidth = 0.8) +
+  geom_point(colour = "#1B2A41", size = 1.2) +
+  geom_point(data = best, colour = "#C0392B", size = 4) +
+  geom_text(data = best, aes(label = sprintf("%d sites of %d", n_sites, n_per_site)),
+            colour = "#6B7280", vjust = -1.4) +
+  labs(x = "People per site", y = "Total cost (thousands)") +
+  theme_classic(base_size = 13)
 ```
 
 Every point on this curve gives the same precision. On the left, sampling 5

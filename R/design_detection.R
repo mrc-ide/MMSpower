@@ -30,7 +30,7 @@
 #' @param n_per_site Optional whole number. Fixes the number of people per
 #'   site; the function solves for the number of sites. Cannot be used with
 #'   `n_sites`.
-#' @param icc Intra-cluster correlation, in \[0, 1\]; default 0 (no
+#' @param icc Intra-cluster correlation, in \[0, 1); default 0 (no
 #'   clustering). An `icc` above 0 needs `n_sites` or `n_per_site`.
 #'
 #' @details
@@ -54,20 +54,20 @@
 #'   \alpha = q \left(\frac{1}{ICC} - 1\right), \quad
 #'   \beta = (1 - q) \left(\frac{1}{ICC} - 1\right),}
 #'
-#' and at \eqn{k} sites it is \eqn{P_0(m)^k}. The function finds the
-#' smallest number of sites (or people per site) that reaches
-#' `detection_prob`. With an ICC of 1 everyone at a site has the same
-#' result, so \eqn{k} sites give at most \eqn{1 - (1 - q)^k}. An ICC below
-#' about 1.5e-8 is treated as 0, where the beta formula loses accuracy.
+#' and at \eqn{k} sites it is \eqn{P_0(m)^k}. With `n_per_site` fixed, the
+#' number of sites is
+#' \eqn{\lceil \log(1 - detection\_prob) / \log P_0(n_{per site}) \rceil}.
+#' With `n_sites` fixed there is no formula for the people per site, so
+#' the smallest whole number that reaches `detection_prob` is found by a
+#' numerical search. \eqn{P_0(m)} always falls towards 0 as \eqn{m} grows,
+#' but very slowly when the ICC is high and cases are rare; if even
+#' \eqn{10^{15}} people per site fall short, the function stops.
 #'
-#' **Too many sites.** One person per site gives the chance of `n_sites`
-#' people with no clustering. If fewer people are needed, fewer sites are
-#' used, with 1 person at each, and a warning says so. A site larger than
-#' needed gives 1 site of that size.
-#'
-#' **Limit and rounding.** A design that needs more than 2 million people
-#' stops with an error. With sites, the returned `n` is the number actually
-#' sampled, `n_sites * n_per_site`.
+#' **Sites and rounding.** With `n_sites` fixed, every site is used, with at
+#' least 1 person each, even if fewer people would do (as in the other
+#' design functions). A site larger than needed gives 1 site of that size.
+#' With sites, the returned `n` is the number actually sampled,
+#' `n_sites * n_per_site`.
 #'
 #' @return A list with:
 #'   \item{n}{Total sample size (or `n` as supplied, in reverse). With
@@ -126,128 +126,92 @@ design_detection <- function(prevalence,
     .check_number(detection_prob, "detection_prob", 0, 1,
                   lower_open = TRUE, upper_open = TRUE)
   .check_number(sensitivity, "sensitivity", 0, 1, lower_open = TRUE)
+  .check_number(icc, "icc", 0, 1, upper_open = TRUE)
   .check_sites(n_sites, n_per_site, icc)
   .check_count(n, "n")
 
   q <- prevalence * sensitivity
-  # Below this the beta formula loses accuracy, and the answer is the same
-  # as with no clustering.
-  clustered <- icc >= sqrt(.Machine$double.eps)
-
-  # Tiny allowance for rounding noise, so a target exactly equal to the
-  # chance of a design is reached by that design (not one person more).
-  tol <- 1e-14
-
-  # log chance of no case among people at sites; log1p keeps a tiny q from
-  # being rounded away (1 - 1e-17 is stored as exactly 1)
-  log_p0_sites <- function(k, m) k * .log_p0_site(m, q, icc)
-  n_equiv      <- function(log_p0) log_p0 / log1p(-q)   # unclustered people
+  # log chance of no case at k sites of m people, and the number of people
+  # with no clustering who have the same chance
+  log_p0  <- function(k, m) k * .log_p0_site(m, q, icc)
+  n_equiv <- function(lp0) lp0 / log1p(-q)
 
   # ---- reverse: chance of detection with n people ----
   if (!is.null(n)) {
-    if (!clustered) {
-      detection <- -expm1(n * log1p(-q))
-      n_eff     <- n
-    } else {
-      if (!is.null(n_sites) && n < n_sites)
-        stop("`n` must be at least `n_sites`.", call. = FALSE)
-      # people spread as evenly as the sites allow
-      log_p0 <- if (!is.null(n_sites))
-        log_p0_sites(n %% n_sites, n %/% n_sites + 1) +
-          log_p0_sites(n_sites - n %% n_sites, n %/% n_sites)
-      else
-        log_p0_sites(n %/% n_per_site, n_per_site) +
-          (if (n %% n_per_site > 0) log_p0_sites(1, n %% n_per_site) else 0)
-      detection <- -expm1(log_p0)
-      n_eff     <- n_equiv(log_p0)
-    }
+    if (!is.null(n_sites) && n < n_sites)
+      stop("`n` must be at least `n_sites`.", call. = FALSE)
+    # people spread as evenly as the sites allow
+    lp0 <- if (!is.null(n_sites))
+      log_p0(n %% n_sites, n %/% n_sites + 1) +
+        log_p0(n_sites - n %% n_sites, n %/% n_sites)
+    else if (!is.null(n_per_site))
+      log_p0(n %/% n_per_site, n_per_site) + log_p0(1, n %% n_per_site)
+    else
+      log_p0(1, n)
     design <- .allocate(n, n_sites, n_per_site)
     return(list(
       n              = n,
       n_sites        = design$n_sites,
       n_per_site     = design$n_per_site,
-      deff           = n / n_eff,
-      # the tiny allowance stops rounding noise adding a person
-      n_eff          = ceiling(n_eff * (1 - tol)),
-      detection_prob = detection
+      deff           = n / n_equiv(lp0),
+      n_eff          = ceiling(n_equiv(lp0)),
+      detection_prob = -expm1(lp0)
     ))
   }
 
-  # ---- forward: unclustered sample size ----
-  n0 <- log1p(-detection_prob) / log1p(-q)
-  too_many <- function(needed)
-    stop("These settings need more than 2 million people (about ",
-         format(signif(ceiling(needed), 7), big.mark = ",", scientific = FALSE),
-         ").", call. = FALSE)
-  if (n0 > 2e6) too_many(n0)
-  needed <- ceiling(n0)
-  # One fewer is enough when rounding noise pushed n0 just above a whole number.
-  if (needed > 1 && (needed - 1) * log1p(-q) <= log1p(-detection_prob) * (1 - tol))
-    needed <- needed - 1
-
-  # more sites than people needed: 1 person at just enough sites
-  if (!is.null(n_sites) && n_sites > needed) {
-    warning("The study needs ", needed, " people, fewer than the ", n_sites,
-            " sites given; the design uses ", needed, " sites with 1 person ",
-            "at each.", call. = FALSE)
-    n_sites <- needed
-  }
-
-  # ---- clustered sample size ----
-  deff <- 1
-  if (clustered) {
-    # log chance of missing every case that the target allows (the tiny
-    # allowance stops rounding noise rejecting an exact hit)
-    log_miss <- log1p(-detection_prob) * (1 - tol)
-    if (!is.null(n_per_site)) {
-      # each site misses every case with the same chance; a site larger than
-      # needed gives 1 site (as in design_precision())
-      k <- ceiling(log_miss / log_p0_sites(1, n_per_site))
-      design <- list(n_sites = k, n_per_site = n_per_site)
-    } else {
-      # smallest number per site, by bisection, up to 2 million people
-      reaches <- function(m) log_p0_sites(n_sites, m) <= log_miss
-      m_max   <- floor(2e6 / n_sites)
-      if (!reaches(m_max)) {
-        if (icc < 1)
-          stop("These settings need more than 2 million people.", call. = FALSE)
-        stop("`detection_prob` cannot be reached with ", n_sites, " sites and ",
-             "ICC = 1: they give at most ",
-             format(100 * -expm1(log_p0_sites(n_sites, 1)), digits = 4),
-             " percent, however many people each site has.", call. = FALSE)
-      }
-      lo <- 0; hi <- m_max
-      while (hi - lo > 1) {
-        mid <- floor((lo + hi) / 2)
-        if (reaches(mid)) hi <- mid else lo <- mid
-      }
-      design <- list(n_sites = n_sites, n_per_site = hi)
-    }
-    design$n <- design$n_sites * design$n_per_site
-    if (design$n > 2e6) too_many(design$n)
-    deff <- design$n /
-      n_equiv(log_p0_sites(design$n_sites, design$n_per_site))
+  # ---- forward ----
+  log_miss <- log1p(-detection_prob)   # log chance of missing every case allowed
+  n0       <- ceiling(log_miss / log1p(-q))
+  if (!is.null(n_per_site)) {
+    # every site misses every case with the same chance
+    design <- list(n_sites    = ceiling(log_miss / log_p0(1, n_per_site)),
+                   n_per_site = n_per_site)
+  } else if (!is.null(n_sites)) {
+    design <- list(n_sites    = n_sites,
+                   n_per_site = .detection_per_site(n_sites, log_p0, log_miss))
   } else {
-    design <- .allocate(needed, n_sites, n_per_site)
+    design <- list(n_sites = NULL, n_per_site = NULL)
   }
+  n_total <- if (is.null(n_sites) && is.null(n_per_site)) n0
+             else design$n_sites * design$n_per_site
 
   list(
-    n              = design$n,
+    n              = n_total,
     n_sites        = design$n_sites,
     n_per_site     = design$n_per_site,
-    deff           = deff,
-    n_eff          = needed,
+    deff           = if (is.null(design$n_sites)) 1 else
+      n_total / n_equiv(log_p0(design$n_sites, design$n_per_site)),
+    n_eff          = n0,
     detection_prob = detection_prob
   )
 }
 
 # Log chance that no case is found among m people at one site, when the
 # chance q varies between sites as a beta distribution with mean q and
-# intra-cluster correlation icc (DRpower's get_power_presence()). With icc 1
-# everyone at a site has the same result, so it is log(1 - q) for any m.
+# intra-cluster correlation icc (DRpower's get_power_presence()); with icc
+# 0 every person is independent. m need not be a whole number.
 .log_p0_site <- function(m, q, icc) {
-  if (icc == 1) return(log1p(-q))
+  if (icc == 0) return(m * log1p(-q))
   a <- q * (1 / icc - 1)
   b <- (1 - q) * (1 / icc - 1)
   lbeta(a, b + m) - lbeta(a, b)
+}
+
+# Smallest whole number of people per site at n_sites sites with log chance
+# of no case at most log_miss. That chance falls as people are added, so one
+# root search on log(m) finds it. It falls very slowly when the ICC is high
+# and cases are rare, so the search stops at 1e15 people per site (beyond
+# which whole numbers are not exact).
+.detection_per_site <- function(n_sites, log_p0, log_miss) {
+  f <- function(u) log_p0(n_sites, exp(u)) - log_miss
+  if (f(0) <= 0) return(1)
+  u_max <- log(1e15)
+  if (f(u_max) > 0)
+    stop("`detection_prob` cannot be reached with ", n_sites, " sites at this ",
+         "ICC: even 10^15 people per site give ",
+         format(100 * -expm1(log_p0(n_sites, 1e15)), digits = 3),
+         " percent. Increase `n_sites` or use a lower `icc`.", call. = FALSE)
+  m <- ceiling(exp(stats::uniroot(f, c(0, u_max), tol = 1e-10)$root))
+  # uniroot stops within its tolerance of the root, so check one below
+  if (m > 1 && f(log(m - 1)) <= 0) m - 1 else m
 }

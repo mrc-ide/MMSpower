@@ -28,6 +28,8 @@ navbar:
         href: articles/tutorial-prevalence.html
       - text: Testing against a threshold
         href: articles/tutorial-threshold.html
+      - text: Detecting a rare variant
+        href: articles/tutorial-detection.html
       - text: Comparing two groups
         href: articles/tutorial-difference.html
       - text: Costing a study
@@ -64,11 +66,6 @@ reference:
   contents:
   - design_difference
   - test_difference
-- title: Trends over time
-  desc: Is prevalence rising or falling across survey rounds?
-  contents:
-  - design_trend
-  - test_trend
 - title: Costing a study
   contents:
   - estimate_cost
@@ -83,6 +80,7 @@ articles:
   contents:
   - articles/tutorial-prevalence
   - articles/tutorial-threshold
+  - articles/tutorial-detection
   - articles/tutorial-difference
   - articles/tutorial-cost
 - title: Concepts

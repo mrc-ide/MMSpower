@@ -117,14 +117,18 @@ The same precision can be reached with many different numbers of sites, and
 spreading the samples over more sites reduces the total needed:
 
 ```{r}
-sites <- c(15, 20, 30, 50, 100)
-total <- sapply(sites, function(k)
-  design_precision(prevalence = 0.2, moe = 0.05, n_sites = k, icc = 0.05)$n)
-data.frame(sites, per_site = total / sites, total)
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 15, icc = 0.05)$n
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 30, icc = 0.05)$n
+design_precision(prevalence = 0.2, moe = 0.05, n_sites = 100, icc = 0.05)$n
 ```
 
-With 15 sites the study needs `r total[1]` samples; with 100 sites, only
-`r total[5]`, close to the `r d0$n` an unclustered survey would need. Each
+```{r, include = FALSE}
+n15  <- design_precision(prevalence = 0.2, moe = 0.05, n_sites = 15, icc = 0.05)$n
+n100 <- design_precision(prevalence = 0.2, moe = 0.05, n_sites = 100, icc = 0.05)$n
+```
+
+With 15 sites the study needs `r n15` samples; with 100 sites, only
+`r n100`, close to the `r d0$n` an unclustered survey would need. Each
 new site brings in fresh information, whereas each extra sample at a site
 partly repeats what that site has already shown. So, where the budget and
 logistics allow, aim for more sites with fewer people at each. Site visits
@@ -179,8 +183,9 @@ c(ac$ci_lower, ac$ci_upper)
 With this much data and a prevalence well away from 0 they are close. The
 differences matter for small samples or a prevalence near 0 or 1. There the
 Wald interval is too narrow, has zero width when no positives are seen, and
-its limits can fall below 0 or above 1. `estimate_prevalence()` cuts such
-limits back to 0 or 1, but that hides the problem rather than fixing it.
+its limits can fall below 0 or above 1. `estimate_prevalence()` sets such
+limits to 0 or 1, which keeps the interval sensible, but the result is
+still less reliable than the other two methods in these situations.
 Clopper-Pearson, the default, is the cautious choice, and Agresti-Coull a
 good compromise. `design_precision()` sizes a study with the simpler Wald
 formula, so a Clopper-Pearson interval usually comes out a little wider
