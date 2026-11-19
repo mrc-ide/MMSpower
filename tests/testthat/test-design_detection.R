@@ -150,26 +150,43 @@ test_that("DET-C-4: a high ICC needs many people per site; at ICC 1 too few site
   res <- design_detection(0.05, 1 - 0.95^5, n_sites = 5, icc = 1)
   expect_equal(res$n_per_site, 1)
   expect_equal(res$deff, 1)
-  # ICC below 1 but so high that more than a trillion people per site would
-  # be needed (beyond that, the answer could not be worked out exactly)
+  # ICC below 1 but so high that more than 2 million people would be needed
   expect_error(
     design_detection(0.001, n_sites = 3, icc = 0.5),
-    "A detection probability of 80 percent cannot be reached with 3 sites and ICC = 0.5: it would need more than a trillion (1000000000000) people per site (that many give 8.114521 percent). Increase `n_sites`, lower the ICC, or lower `detection_prob`.",
+    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
     fixed = TRUE)
 })
 
-test_that("DET-C-5: more sites than people needed with no clustering is rejected", {
-  expect_error(
-    design_detection(0.05, n_sites = 40, icc = 0.05),
-    "`n_sites` (40) is more than the number of people needed with no clustering (32), so one person per site would already be more than enough. Use `n_sites` of 32 or fewer, or supply `n_per_site` instead.",
-    fixed = TRUE)
-  # 32 sites of 1 person is the unclustered design
-  res <- design_detection(0.05, n_sites = 32, icc = 0.05)
-  expect_equal(res$n_per_site, 1)
-  expect_equal(res$n,          32)
-  expect_equal(res$deff,       1)
+test_that("DET-C-5: more sites than people needed gives a warning and uses fewer sites, 1 person at each", {
+  # 32 people are needed with no sites (log(0.2) / log(0.95) = 31.4, rounded
+  # up). 40 or 1000 sites, with or without an ICC: 32 sites with 1 person at
+  # each (no clustering with 1 per site)
+  msg <- function(sites)
+    paste0("With this prevalence and detection probability, the study needs 32 people, fewer than the ",
+           sites, " sites given (`n_sites`). The design uses 32 sites with 1 person at each.")
+  for (icc in c(0, 0.05, 1)) for (sites in c(40, 1000)) {
+    expect_warning(res <- design_detection(0.05, n_sites = sites, icc = icc), msg(sites), fixed = TRUE)
+    expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(32, 32, 1, 1))
+  }
+  # Exactly 32 sites: no warning, 32 sites of 1 person
+  for (icc in c(0, 0.05)) {
+    expect_no_warning(res <- design_detection(0.05, n_sites = 32, icc = icc))
+    expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(32, 32, 1, 1))
+  }
   # 31 sites need 2 people each
   expect_equal(design_detection(0.05, n_sites = 31, icc = 0.05)$n, 62)
+  # With fpc_N the number needed is from the population: 30 of 200 (hand
+  # check with dhyper in DET-F tests), so 50 sites become 30
+  expect_warning(res <- design_detection(0.05, n_sites = 50, fpc_N = 200),
+    "With this prevalence and detection probability, the study needs 30 people, fewer than the 50 sites given (`n_sites`). The design uses 30 sites with 1 person at each.",
+    fixed = TRUE)
+  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(30, 30, 1))
+  # One person is enough (prevalence 0.9: log(0.2) / log(0.1) = 0.7):
+  # "1 person" and "1 site"
+  for (icc in c(0, 0.05))
+    expect_warning(design_detection(0.9, n_sites = 5, icc = icc),
+      "With this prevalence and detection probability, the study needs 1 person, fewer than the 5 sites given (`n_sites`). The design uses 1 site with 1 person at each.",
+      fixed = TRUE)
 })
 
 test_that("DET-C-10: one site with more people than needed is rejected", {
@@ -535,4 +552,80 @@ test_that("DET-R-2: inputs are echoed back as supplied", {
                     icc = 0.05, fpc_N = NULL))
   expect_equal(design_detection(0.05, fpc_N = 5000)$fpc_N, 5000)
   expect_equal(design_detection(0.05, n = 139)$n, 139)
+})
+
+test_that("DET-R-3: a name or a 1 x 1 matrix does not leak into the result", {
+  res <- design_detection(matrix(0.05), sensitivity = c(s = 0.9), n_sites = matrix(3),
+                          icc = c(i = 0.1))
+  expect_identical(res[c("prevalence", "q", "sensitivity", "icc", "n_sites")],
+                   list(prevalence = 0.05, q = 0.05 * 0.9, sensitivity = 0.9,
+                        icc = 0.1, n_sites = 3))
+  res <- design_detection(0.05, detection_prob = c(d = 0.8), n_per_site = c(k = 10),
+                          icc = 0.05)
+  expect_identical(res[c("detection_prob", "n_per_site")],
+                   list(detection_prob = 0.8, n_per_site = 10))
+  res <- design_detection(0.05, n = matrix(10), fpc_N = c(N = 200))
+  expect_identical(res[c("n", "n_eff", "fpc_N")], list(n = 10, n_eff = 10, fpc_N = 200))
+})
+
+test_that("DET-7: a tiny prevalence or target is worked out exactly; more than 2 million people stops", {
+  msg <- function(about, test = "or a lower `detection_prob`")
+    paste0("These settings need more than 2 million people (about ", about,
+           "). Use a higher prevalence, ", test, ".")
+  # The prevalence at which exactly 2 million people are needed, and one
+  # part in a million either side
+  p_lim <- -expm1(log(0.2) / 2e6)
+  expect_equal(design_detection(p_lim * 1.000001)$n, 1999999)
+  expect_error(design_detection(p_lim * 0.999999), msg("2,000,003"), fixed = TRUE)
+  # 1 - 1e-17 is stored as exactly 1, so log(1 - q) would be 0 (n = -Inf);
+  # log1p gives 1.6e17 people
+  expect_error(design_detection(1e-17), msg("160,943,800,000,000,000"), fixed = TRUE)
+  expect_error(design_detection(1e-17, sensitivity = 0.9),
+               msg("178,826,400,000,000,000",
+                   "a lower `detection_prob`, or a more sensitive test"),
+               fixed = TRUE)
+  # Sites cannot help when even no clustering needs too many: no site advice
+  expect_error(design_detection(1e-7, n_sites = 5, icc = 0.1), msg("16,094,380"),
+               fixed = TRUE)
+  # With fpc_N the population answer decides: 2011797 people with no
+  # population, but 1381966 of 2.5 million; 3943723 of 100 million stops
+  expect_equal(design_detection(8e-7, fpc_N = 2.5e6)$n, 1381966)
+  expect_error(design_detection(4e-7, fpc_N = 1e8), msg("3,943,723"), fixed = TRUE)
+  # A target of 1e-300 needs 1 person (log(1 - 1e-300) would give 0)
+  expect_equal(design_detection(0.05, 1e-300)$n, 1)
+  # In reverse, a tiny prevalence is not lost: 1e6 people at 1e-17 give
+  # 1 - (1 - 1e-17)^1e6 = 1e-11 (1 - (1 - q)^n would give 0)
+  expect_equal(design_detection(1e-17, n = 1e6)$detection_prob / 1e-11, 1, tolerance = 1e-6)
+  # n_per_site given, but no clustering already needs too many: no site advice
+  expect_error(design_detection(1e-7, n_per_site = 10, icc = 0.1), msg("16,094,380"),
+               fixed = TRUE)
+  # A tiny sensitivity with fpc_N: no crash, and a chance close to 0
+  # (true value 1 - (1 - 1e-17)^50 = 5e-16)
+  res <- design_detection(0.5, n = 50, sensitivity = 1e-17, fpc_N = 100)
+  expect_lt(res$detection_prob, 1e-15)
+})
+
+test_that("DET-C-11: a design with sites above 2 million people stops, with the right advice", {
+  # 100 per site, ICC 0.5: 15513 sites at prevalence 2e-5, 31026 at 1e-5
+  expect_equal(design_detection(2e-5, n_per_site = 100, icc = 0.5)$n, 1551300)
+  expect_error(design_detection(1e-5, n_per_site = 100, icc = 0.5),
+    "These settings need more than 2 million people (about 3,102,600). Use a higher prevalence, a lower `detection_prob`, or a smaller `n_per_site`.",
+    fixed = TRUE)
+  # Just over the limit: 2386700 people at 1.3e-5
+  expect_error(design_detection(1.3e-5, n_per_site = 100, icc = 0.5),
+    "These settings need more than 2 million people (about 2,386,700). Use a higher prevalence, a lower `detection_prob`, or a smaller `n_per_site`.",
+    fixed = TRUE)
+  # 20 sites, ICC 0.001: 4002 per site at 5e-5. At 1.6e-5, 3047940 people
+  # would be needed (152397 per site; bisection with no limit), so the search
+  # up to 2 million in all stops. At 1e-4 with ICC 0.01 likewise
+  expect_equal(design_detection(5e-5, n_sites = 20, icc = 0.001)$n, 80040)
+  expect_error(design_detection(1.6e-5, n_sites = 20, icc = 0.001),
+    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
+    fixed = TRUE)
+  expect_error(design_detection(1e-4, n_sites = 20, icc = 0.01),
+    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
+    fixed = TRUE)
+  expect_error(design_detection(1e-4, n_sites = 20, icc = 0.01, sensitivity = 0.9),
+    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, more sites or a lower ICC, or a more sensitive test.",
+    fixed = TRUE)
 })

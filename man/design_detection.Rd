@@ -19,11 +19,11 @@ design_detection(
 \item{prevalence}{Expected true prevalence, in (0, 1): the lowest
 prevalence the study should be able to detect.}
 
-\item{detection_prob}{Target chance of finding at least one positive
-person, in (0, 1); default 0.80. Not used when \code{n} is supplied.}
+\item{detection_prob}{Target chance of finding at least one case, in
+(0, 1); default 0.80. Not used when \code{n} is supplied.}
 
 \item{n}{Optional positive integer. If supplied, the function runs in
-reverse and reports the chance of finding at least one positive person
+reverse and reports the chance of finding at least one case
 among \code{n} people; \code{detection_prob} is then not used.}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]: the share of people
@@ -62,14 +62,15 @@ a very large population. In reverse mode, the number of people with
 no clustering who would give the same chance of finding a case as the
 \code{n} people given, rounded up.}
 \item{n_sites}{Number of sites: solved for when \code{n_per_site} is
-given, echoed when \code{n_sites} is given. \code{NULL} with no
-clustering.}
+given, echoed when \code{n_sites} is given. If the study needs fewer
+people than there are sites, fewer sites are used, with 1 person at
+each, and a warning says so. \code{NULL} with no clustering.}
 \item{n_per_site}{People per site: solved for when \code{n_sites} is
 given, echoed when \code{n_per_site} is given. \code{NULL} with no
 clustering. With \code{icc} 0 the design can collect more people than
 \code{n}, because the site numbers are rounded up.}
-\item{detection_prob}{Target chance of finding at least one positive
-person (forward), or the chance achieved with \code{n} people
+\item{detection_prob}{Target chance of finding at least one case
+(forward), or the chance achieved with \code{n} people
 (reverse).}
 \item{prevalence}{The true prevalence, as supplied.}
 \item{q}{Chance that one person is a true case and tests positive,
@@ -88,9 +89,9 @@ clustering who would give the same chance of finding a case.}
 \description{
 Design function: given the expected true prevalence of a (possibly rare)
 variant or condition, returns the number of people needed so that the
-chance of finding at least one positive person reaches a target
+chance of finding at least one case reaches a target
 (\code{detection_prob}). Supply \code{n} instead to run it in reverse: the
-function then reports the chance of finding at least one positive person
+function then reports the chance of finding at least one case
 with that many people.
 
 Three designs are supported:
@@ -104,23 +105,28 @@ people needed per site.}
 }
 }
 \details{
-\strong{Sample size.} Each person tested is a true case that the test
-detects with probability \eqn{q = prevalence \times sensitivity}. The
-chance that none of \eqn{n} people tests positive is \eqn{(1 - q)^n}, so
+\strong{Sample size.} Each person tested has a chance
+\eqn{q = prevalence \times sensitivity} of being a true case whom the
+test detects. The chance that no case is found among \eqn{n} people is
+\eqn{(1 - q)^n}, so
 the chance of finding at least one is \eqn{1 - (1 - q)^n}, and the number
 of people needed is
 
 \deqn{n_0 = \frac{\log(1 - detection\_prob)}{\log(1 - q)}}
 
-rounded up. A false positive is not counted as finding a case, so
-specificity is not used.
+rounded up (Cannon 2001, equation 4.6). Positives are assumed to be
+confirmed, for example by a second test (Cannon 2001), so a false
+positive is not counted as finding a case, and specificity is not used.
+
+A design that needs more than 2 million people stops with an error (as
+in \code{design_threshold()}).
 
 \strong{Clustering.} People at the same site tend to resemble each other,
 so cases bunch together: some sites have many and others none. To allow
 for this, the chance \eqn{q} is taken to vary from site to site, with
 average \eqn{q} and intra-cluster correlation ICC (a beta distribution, as
-in the DRpower package). The chance that none of \eqn{m} people at one
-site tests positive is then
+in the DRpower package). The chance that no case is found among
+\eqn{m} people at one site is then
 
 \deqn{P_0(m) = \frac{B(\alpha, \beta + m)}{B(\alpha, \beta)}, \qquad
   \alpha = q \left(\frac{1}{ICC} - 1\right), \quad
@@ -137,19 +143,19 @@ function stops if the target is above that. With an ICC below 1, more
 people per site always raise the chance, but slowly when the ICC is high.
 
 With \code{n_sites} fixed, one person per site already gives the chance
-of \code{n_sites} people with no clustering. If that is more than enough
-(\code{n_sites} above \eqn{n_0}), the function stops and asks for fewer
-sites.
+of \code{n_sites} people with no clustering. If the study needs fewer
+people than there are sites, fewer sites are used, with 1 person at
+each, and a warning says so (as in \code{design_threshold()}).
 
 \strong{Finite population.} With \code{fpc_N} (the population size
 \eqn{N}), the population is taken to contain \eqn{D} cases, \eqn{N \times
 prevalence} rounded down, and people are drawn without replacement. The
-chance that none of \eqn{n} people tests positive is then
+chance that no case is found among \eqn{n} people is then
 
 \deqn{\sum_k \frac{\binom{D}{k}\binom{N-D}{n-k}}{\binom{N}{n}} (1 - Se)^k}
 
 (the hypergeometric distribution: \eqn{k} cases in the sample, each missed
-by the test with probability \eqn{1 - Se}), and \eqn{n_0} is the smallest
+by the test with probability \eqn{1 - Se}; Cannon 2001, equation 4.1), and \eqn{n_0} is the smallest
 \eqn{n} that reaches \code{detection_prob}. Testing everyone finds a case
 with probability \eqn{1 - (1 - Se)^D}, so a target above that cannot be
 reached. The calculation with clustering assumes a very large population,
@@ -186,10 +192,9 @@ deletion prevalence studies. R package, version 1.0.4 (functions
 \code{get_power_presence()} and \code{get_sample_size_presence()}).
 \url{https://github.com/mrc-ide/DRpower}
 
-Cannon, R. M. & Roe, R. T. (1982) \emph{Livestock Disease Surveys: A Field
-Manual for Veterinarians}. Australian Bureau of Animal Health.
-
 Cannon, R. M. (2001) Sense and sensitivity: designing surveys based on an
-imperfect test. \emph{Preventive Veterinary Medicine} \strong{49}(3),
-141-163. \doi{10.1016/S0167-5877(01)00184-2}
+imperfect test. \emph{Preventive Veterinary Medicine} \strong{49}(3-4),
+141-163. \doi{10.1016/S0167-5877(01)00184-2} (Section 4: sample size
+with an imperfect sensitivity and confirmed positives, equations 4.1 and
+4.6.)
 }

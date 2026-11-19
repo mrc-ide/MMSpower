@@ -3,9 +3,9 @@
 #' @description
 #' Design function: given the expected true prevalence of a (possibly rare)
 #' variant or condition, returns the number of people needed so that the
-#' chance of finding at least one positive person reaches a target
+#' chance of finding at least one case reaches a target
 #' (\code{detection_prob}). Supply \code{n} instead to run it in reverse: the
-#' function then reports the chance of finding at least one positive person
+#' function then reports the chance of finding at least one case
 #' with that many people.
 #'
 #' Three designs are supported:
@@ -20,10 +20,10 @@
 #'
 #' @param prevalence Expected true prevalence, in (0, 1): the lowest
 #'   prevalence the study should be able to detect.
-#' @param detection_prob Target chance of finding at least one positive
-#'   person, in (0, 1); default 0.80. Not used when \code{n} is supplied.
+#' @param detection_prob Target chance of finding at least one case, in
+#'   (0, 1); default 0.80. Not used when \code{n} is supplied.
 #' @param n Optional positive integer. If supplied, the function runs in
-#'   reverse and reports the chance of finding at least one positive person
+#'   reverse and reports the chance of finding at least one case
 #'   among \code{n} people; \code{detection_prob} is then not used.
 #' @param sensitivity Diagnostic sensitivity in (0, 1]: the share of people
 #'   who truly have the condition that the test detects as positive.
@@ -47,23 +47,28 @@
 #'   population is treated as very large. Only used with \code{icc} 0.
 #'
 #' @details
-#' \strong{Sample size.} Each person tested is a true case that the test
-#' detects with probability \eqn{q = prevalence \times sensitivity}. The
-#' chance that none of \eqn{n} people tests positive is \eqn{(1 - q)^n}, so
+#' \strong{Sample size.} Each person tested has a chance
+#' \eqn{q = prevalence \times sensitivity} of being a true case whom the
+#' test detects. The chance that no case is found among \eqn{n} people is
+#' \eqn{(1 - q)^n}, so
 #' the chance of finding at least one is \eqn{1 - (1 - q)^n}, and the number
 #' of people needed is
 #'
 #' \deqn{n_0 = \frac{\log(1 - detection\_prob)}{\log(1 - q)}}
 #'
-#' rounded up. A false positive is not counted as finding a case, so
-#' specificity is not used.
+#' rounded up (Cannon 2001, equation 4.6). Positives are assumed to be
+#' confirmed, for example by a second test (Cannon 2001), so a false
+#' positive is not counted as finding a case, and specificity is not used.
+#'
+#' A design that needs more than 2 million people stops with an error (as
+#' in \code{design_threshold()}).
 #'
 #' \strong{Clustering.} People at the same site tend to resemble each other,
 #' so cases bunch together: some sites have many and others none. To allow
 #' for this, the chance \eqn{q} is taken to vary from site to site, with
 #' average \eqn{q} and intra-cluster correlation ICC (a beta distribution, as
-#' in the DRpower package). The chance that none of \eqn{m} people at one
-#' site tests positive is then
+#' in the DRpower package). The chance that no case is found among
+#' \eqn{m} people at one site is then
 #'
 #' \deqn{P_0(m) = \frac{B(\alpha, \beta + m)}{B(\alpha, \beta)}, \qquad
 #'   \alpha = q \left(\frac{1}{ICC} - 1\right), \quad
@@ -80,19 +85,19 @@
 #' people per site always raise the chance, but slowly when the ICC is high.
 #'
 #' With \code{n_sites} fixed, one person per site already gives the chance
-#' of \code{n_sites} people with no clustering. If that is more than enough
-#' (\code{n_sites} above \eqn{n_0}), the function stops and asks for fewer
-#' sites.
+#' of \code{n_sites} people with no clustering. If the study needs fewer
+#' people than there are sites, fewer sites are used, with 1 person at
+#' each, and a warning says so (as in \code{design_threshold()}).
 #'
 #' \strong{Finite population.} With \code{fpc_N} (the population size
 #' \eqn{N}), the population is taken to contain \eqn{D} cases, \eqn{N \times
 #' prevalence} rounded down, and people are drawn without replacement. The
-#' chance that none of \eqn{n} people tests positive is then
+#' chance that no case is found among \eqn{n} people is then
 #'
 #' \deqn{\sum_k \frac{\binom{D}{k}\binom{N-D}{n-k}}{\binom{N}{n}} (1 - Se)^k}
 #'
 #' (the hypergeometric distribution: \eqn{k} cases in the sample, each missed
-#' by the test with probability \eqn{1 - Se}), and \eqn{n_0} is the smallest
+#' by the test with probability \eqn{1 - Se}; Cannon 2001, equation 4.1), and \eqn{n_0} is the smallest
 #' \eqn{n} that reaches \code{detection_prob}. Testing everyone finds a case
 #' with probability \eqn{1 - (1 - Se)^D}, so a target above that cannot be
 #' reached. The calculation with clustering assumes a very large population,
@@ -108,14 +113,15 @@
 #'     no clustering who would give the same chance of finding a case as the
 #'     \code{n} people given, rounded up.}
 #'   \item{n_sites}{Number of sites: solved for when \code{n_per_site} is
-#'     given, echoed when \code{n_sites} is given. \code{NULL} with no
-#'     clustering.}
+#'     given, echoed when \code{n_sites} is given. If the study needs fewer
+#'     people than there are sites, fewer sites are used, with 1 person at
+#'     each, and a warning says so. \code{NULL} with no clustering.}
 #'   \item{n_per_site}{People per site: solved for when \code{n_sites} is
 #'     given, echoed when \code{n_per_site} is given. \code{NULL} with no
 #'     clustering. With \code{icc} 0 the design can collect more people than
 #'     \code{n}, because the site numbers are rounded up.}
-#'   \item{detection_prob}{Target chance of finding at least one positive
-#'     person (forward), or the chance achieved with \code{n} people
+#'   \item{detection_prob}{Target chance of finding at least one case
+#'     (forward), or the chance achieved with \code{n} people
 #'     (reverse).}
 #'   \item{prevalence}{The true prevalence, as supplied.}
 #'   \item{q}{Chance that one person is a true case and tests positive,
@@ -139,12 +145,11 @@
 #' \code{get_power_presence()} and \code{get_sample_size_presence()}).
 #' \url{https://github.com/mrc-ide/DRpower}
 #'
-#' Cannon, R. M. & Roe, R. T. (1982) \emph{Livestock Disease Surveys: A Field
-#' Manual for Veterinarians}. Australian Bureau of Animal Health.
-#'
 #' Cannon, R. M. (2001) Sense and sensitivity: designing surveys based on an
-#' imperfect test. \emph{Preventive Veterinary Medicine} \strong{49}(3),
-#' 141-163. \doi{10.1016/S0167-5877(01)00184-2}
+#' imperfect test. \emph{Preventive Veterinary Medicine} \strong{49}(3-4),
+#' 141-163. \doi{10.1016/S0167-5877(01)00184-2} (Section 4: sample size
+#' with an imperfect sensitivity and confirmed positives, equations 4.1 and
+#' 4.6.)
 #'
 #' @export
 #'
@@ -339,6 +344,17 @@ design_detection <- function(prevalence,
     stop("`n` (", num(n), ") is larger than `fpc_N` (", num(fpc_N), "): you cannot ",
          "test more people than there are in the population.")
 
+  # From here on these are plain numbers: a name or a 1 x 1 matrix would
+  # otherwise leak into the result (as in design_threshold()).
+  prevalence  <- as.numeric(prevalence)
+  sensitivity <- as.numeric(sensitivity)
+  icc         <- as.numeric(icc)
+  if (solve_n)  detection_prob <- as.numeric(detection_prob)
+  if (!solve_n) n <- as.numeric(n)
+  if (!is.null(n_sites))    n_sites    <- as.numeric(n_sites)
+  if (!is.null(n_per_site)) n_per_site <- as.numeric(n_per_site)
+  if (!is.null(fpc_N))      fpc_N      <- as.numeric(fpc_N)
+
   # ---- chance that one person is a case and tests positive ----
   q <- prevalence * sensitivity
 
@@ -367,7 +383,8 @@ design_detection <- function(prevalence,
     if (icc_is_zero) {
       deff  <- 1
       n_eff <- n
-      detection <- if (is.null(fpc_N)) 1 - (1 - q)^n
+      # 1 - (1 - q)^n, worked out so that a tiny q is not lost to rounding
+      detection <- if (is.null(fpc_N)) -expm1(n * log1p(-q))
                    else .detect_prob_finite(n, fpc_N, n_cases, sensitivity)
     } else {
       # The n people are spread as evenly as the sites allow: with n_sites
@@ -401,7 +418,7 @@ design_detection <- function(prevalence,
     }
 
     return(list(
-      n              = as.numeric(n),
+      n              = n,
       # The tiny allowance stops rounding noise adding a person.
       n_eff          = ceiling(n_eff * (1 - 1e-12)),
       n_sites        = n_sites_out,
@@ -430,8 +447,42 @@ design_detection <- function(prevalence,
          "enough. Use a smaller `n_per_site`, or set `n_sites = 1` to find ",
          "how many people one site needs.")
 
+  # More sites than people needed: one person at each site (no clustering
+  # then) is already enough, so the design uses fewer sites, with 1 person
+  # at each (as in design_threshold()).
+  warn_fewer_sites <- function(needed)
+    warning("With this prevalence and detection probability, the study ",
+            "needs ", num(needed), if (needed == 1) " person" else " people",
+            ", fewer than the ", num(n_sites), " sites given (`n_sites`). ",
+            "The design uses ", num(needed),
+            if (needed == 1) " site" else " sites", " with 1 person at each.",
+            call. = FALSE)
+
+  # No real study tests more than 2 million people, so larger designs stop
+  # (the same limit as design_threshold()). `about` is the number needed,
+  # when it is known (7 digits, so 2000002 does not print as 2,000,000).
+  # Site advice is given only when the sites are what push the design past
+  # the limit: with no clustering (`sites = FALSE`) it cannot help.
+  stop_limit <- function(about = NULL, sites = TRUE) {
+    fixes <- c("a higher prevalence", "a lower `detection_prob`")
+    if (sites && !icc_is_zero && !is.null(n_per_site)) fixes <- c(fixes, "a smaller `n_per_site`")
+    if (sites && !icc_is_zero && !is.null(n_sites))    fixes <- c(fixes, "more sites or a lower ICC")
+    if (sensitivity < 1)                               fixes <- c(fixes, "a more sensitive test")
+    stop("These settings need more than 2 million people",
+         if (!is.null(about))
+           paste0(" (about ", format(signif(ceiling(about), 7), big.mark = ",",
+                                     scientific = FALSE), ")"),
+         ". Use ", paste(fixes[-length(fixes)], collapse = ", "), ", or ",
+         fixes[length(fixes)], ".")
+  }
+
   # ---- number of people with no clustering ----
-  n_inf <- log(1 - detection_prob) / log(1 - q)
+  # log1p(-x) is log(1 - x) without rounding 1 - x to 1 when x is tiny
+  # (1 - 1e-17 is stored as exactly 1).
+  n_inf <- log1p(-detection_prob) / log1p(-q)
+  # With fpc_N the number needed can be smaller, so it is checked after the
+  # finite-population search instead.
+  if (is.null(fpc_N) && n_inf > 2e6) stop_limit(n_inf, sites = FALSE)
   # n_eff: people needed with no clustering and a very large population.
   n_eff <- ceiling(n_inf)
 
@@ -458,46 +509,45 @@ design_detection <- function(prevalence,
         if (hi < n_per_site) stop_one_site(hi)
       }
 
+    } else if (n_sites > n_eff) {
+      # One person per site gives the chance of n_sites people with no
+      # clustering, more than needed: use n_eff sites with 1 person at each.
+      # Checked before the search, which would stop at 1 per site anyway.
+      warn_fewer_sites(n_eff)
+      n_sites_out    <- n_eff
+      n_per_site_out <- 1
+
     } else {
       # Number of sites fixed: find the smallest number of people per site.
       # The chance of detection rises with every person added, so a
-      # bisection search finds it. The search stops at a trillion people
-      # per site: far above that, one more person changes the chance by
-      # less than R can store, so the answer would not be exact.
+      # bisection search finds it. The search stops at 2 million people in
+      # all (n_sites is at most n_eff here, so at least 1 per site).
       reaches <- function(m) n_sites * .log_p0_site(m, q, icc) <= log_miss
-      m_max <- 1e12
+      m_max <- floor(2e6 / n_sites)
       if (!reaches(m_max)) {
+        # With an ICC of 1 no number per site is enough; below 1 the target
+        # is reached, but only with more than 2 million people.
+        if (icc < 1) stop_limit()
         best <- -expm1(n_sites * .log_p0_site(m_max, q, icc))
         stop("A detection probability of ", .pct(detection_prob),
              " percent cannot be reached with ", num(n_sites),
-             if (n_sites == 1) " site" else " sites", " and ICC = ", num(icc), ": ",
-             if (icc == 1)
-               paste0("with an ICC of 1 everyone at a site has the same ",
-                      "result, so these sites can give at most ", .pct(best),
-                      " percent, however many people each site has.")
-             else
-               paste0("it would need more than a trillion (",
-                      format(m_max, scientific = FALSE), ") people per site ",
-                      "(that many give ", .pct(best), " percent)."),
-             " Increase `n_sites`, lower the ICC, or lower `detection_prob`.")
+             if (n_sites == 1) " site" else " sites", " and ICC = 1: with an ",
+             "ICC of 1 everyone at a site has the same result, so these sites ",
+             "can give at most ", .pct(best), " percent, however many people ",
+             "each site has. Increase `n_sites`, lower the ICC, or lower ",
+             "`detection_prob`.")
       }
       lo <- 0; hi <- m_max
       while (hi - lo > 1) {
         mid <- floor((lo + hi) / 2)
         if (reaches(mid)) hi <- mid else lo <- mid
       }
-      # One person per site gives the chance of n_sites people with no
-      # clustering. If fewer sites would already be enough, say so.
-      if (hi == 1 && n_sites > n_eff)
-        stop("`n_sites` (", num(n_sites), ") is more than the number of people ",
-             "needed with no clustering (", num(n_eff), "), so one person per ",
-             "site would already be more than enough. Use `n_sites` of ",
-             num(n_eff), " or fewer, or supply `n_per_site` instead.")
       n_sites_out    <- n_sites
       n_per_site_out <- hi
     }
 
     n_total <- n_sites_out * n_per_site_out
+    if (n_total > 2e6) stop_limit(n_total)
     deff    <- n_total / n_equiv(n_sites_out *
                                  .log_p0_site(n_per_site_out, q, icc))
 
@@ -540,6 +590,7 @@ design_detection <- function(prevalence,
         hi <- mid else lo <- mid
     }
     n_total <- hi
+    if (n_total > 2e6) stop_limit(n_total)
   }
 
   # ---- distribute across sites (icc 0) ----
@@ -547,6 +598,10 @@ design_detection <- function(prevalence,
   if (!is.null(n_per_site)) {
     n_sites_out    <- ceiling(n_total / n_per_site)
     n_per_site_out <- n_per_site
+  } else if (!is.null(n_sites) && n_sites > n_total) {
+    warn_fewer_sites(n_total)
+    n_sites_out    <- n_total
+    n_per_site_out <- 1
   } else if (!is.null(n_sites)) {
     n_per_site_out <- ceiling(n_total / n_sites)
     n_sites_out    <- n_sites
@@ -581,7 +636,7 @@ design_detection <- function(prevalence,
   )
 }
 
-# Log of the chance that none of m people at one site tests positive, when
+# Log of the chance that no case is found among m people at one site, when
 # the chance q varies between sites as a beta distribution with mean q and
 # intra-cluster correlation icc (the beta-binomial model of DRpower's
 # get_power_presence()). Needs icc above 0. With icc 1 everyone at a site
@@ -605,7 +660,7 @@ design_detection <- function(prevalence,
 # cannot change the result.
 .detect_prob_finite <- function(n, N, D, se) {
   k_max <- min(n, D)
-  if (se < 1) k_max <- min(k_max, ceiling(log(1e-20) / log(1 - se)))
+  if (se < 1) k_max <- min(k_max, ceiling(log(1e-20) / log1p(-se)))
   k <- 0:(if (se == 1) 0 else k_max)
   1 - sum(stats::dhyper(k, D, N - D, n) * (1 - se)^k)
 }
