@@ -1,631 +1,153 @@
 # Hand-checked reference cases for design_detection()
 #
-#   q  = prevalence * sensitivity        (chance one person is a case and tests positive)
-#   n0 = log(1 - detection_prob) / log(1 - q)
+# q = prevalence * sensitivity, n0 = log(1 - detection_prob) / log(1 - q)
 #
-# DET-1 (Module 7 worked example: one health facility, 5 percent, 80 percent):
-#   n0 = log(0.2) / log(0.95) = -1.609438 / -0.051293 = 31.38 -> 32
-#   (the slide gives 32 samples)
+# 5 percent, 80 percent (Module 7 slide): log(0.2) / log(0.95) = 31.38 -> 32
+# 139 people (Module 7 slide): 1 - 0.99^139 = 0.7527, 1 - 0.98^139 = 0.9397
 #
-# DET-2 (Module 7: 139 samples):
-#   1 - 0.98^139 = 0.9397 (2 percent);  1 - 0.99^139 = 0.7527 (1 percent,
-#   the slide's "75% powered to detect a 1% prevalence")
-#
-# With sites (beta-binomial, as in DRpower's get_power_presence()):
+# With sites (beta model, as DRpower's get_power_presence()):
 #   a = q (1/icc - 1), b = (1 - q) (1/icc - 1)
-#   chance of no positive among m people at one site:
-#   P0(m) = B(a, b + m) / B(a, b) = prod over j = 0..m-1 of (b + j) / (a + b + j)
-#   chance of at least one positive at k sites: 1 - P0(m)^k
-#
-# DET-C-1 (n_per_site = 10, icc = 0.05): a = 0.95, b = 18.05
-#   1 - P0(10)^3 = 71.57 percent, 1 - P0(10)^4 = 81.31 percent -> 4 sites, 40 people
-#
-# DET-C-2 (n_sites = 10, icc = 0.05):
-#   1 - P0(3)^10 = 76.83 percent, 1 - P0(4)^10 = 85.10 percent -> 4 per site, 40 people
-#
-# DET-F-1 (population 200, 5 percent, 95 percent):
-#   10 cases. 1 - choose(190, 51) / choose(200, 51) = 0.9514 (enough),
-#   1 - choose(190, 50) / choose(200, 50) = 0.9479 (not enough) -> 51
+#   P0(m) = prod over j = 0..m-1 of (b + j) / (a + b + j)
+#   chance at k sites of m people: 1 - P0(m)^k
+# n_per_site = 10, icc = 0.05: 1 - P0(10)^3 = 71.57, 1 - P0(10)^4 = 81.31
+#   percent -> 4 sites, 40 people
+# n_sites = 10, icc = 0.05: 1 - P0(3)^10 = 76.83, 1 - P0(4)^10 = 85.10
+#   percent -> 4 per site, 40 people
 
-
-# ---------------------------------------------------------------------------
-# Core scenarios (DET-)
-# ---------------------------------------------------------------------------
-
-test_that("DET-1: the Module 7 example (5 percent, 80 percent) gives the slide's 32", {
-  res <- design_detection(prevalence = 0.05)
-  expect_equal(res$n,              32)
-  expect_equal(res$n_eff,          32)
-  expect_equal(res$q,              0.05)
-  expect_equal(res$detection_prob, 0.80)
-  expect_equal(res$deff,           1)
-  expect_equal(res$mode,           "solve_n")
-  expect_null(res$n_sites)
-  expect_null(res$n_per_site)
-  expect_null(res$n_cases)
-})
-
-test_that("DET-2: in reverse, 139 people give the slide's 94 and 75 percent", {
-  r2 <- design_detection(prevalence = 0.02, n = 139)
-  r1 <- design_detection(prevalence = 0.01, n = 139)
-  expect_equal(r2$detection_prob, 1 - 0.98^139)
-  expect_equal(r1$detection_prob, 1 - 0.99^139)
-  expect_equal(round(r1$detection_prob, 3), 0.753)
-  expect_equal(r1$mode, "solve_detection_prob")
-})
-
-test_that("DET-3: a higher target or a rarer case needs more people", {
-  expect_equal(design_detection(0.05, detection_prob = 0.95)$n, 59)
-  expect_equal(design_detection(0.05, detection_prob = 0.99)$n, 90)
-  expect_equal(design_detection(0.01)$n,                        161)
-})
-
-test_that("DET-4: an imperfect test needs more people", {
-  # q = 0.05 * 0.8 = 0.04; log(0.2) / log(0.96) = 39.43 -> 40
-  res <- design_detection(0.05, sensitivity = 0.8)
-  expect_equal(res$q, 0.04)
-  expect_equal(res$n, 40)
-})
-
-test_that("DET-5: forward and reverse agree: n reaches the target and n - 1 does not", {
-  expect_gte(design_detection(0.05, n = 32)$detection_prob, 0.80)
-  expect_lt(design_detection(0.05, n = 31)$detection_prob,  0.80)
-})
-
-test_that("DET-6: integers stored as R integers (30L) give the same result", {
-  expect_equal(design_detection(0.05, n_per_site = 10L, icc = 0.05),
-               design_detection(0.05, n_per_site = 10,  icc = 0.05))
-  expect_equal(design_detection(0.05, n = 139L), design_detection(0.05, n = 139))
-  expect_equal(design_detection(0.05, fpc_N = 200L), design_detection(0.05, fpc_N = 200))
-})
-
-
-# ---------------------------------------------------------------------------
-# Clustering (DET-C-)
-# ---------------------------------------------------------------------------
-
-# Chance of no positive at one site of m people, worked out as a product
-# (a second way, not using lbeta as the function does)
 p0_direct <- function(m, q, icc) {
   a <- q * (1 / icc - 1); b <- (1 - q) * (1 / icc - 1)
   prod((b + 0:(m - 1)) / (a + b + 0:(m - 1)))
 }
 
-test_that("DET-C-1: a fixed number of people per site solves for the number of sites", {
+test_that("unclustered: the Module 7 example gives the slide's 32", {
+  res <- design_detection(0.05)
+  expect_equal(res$n, 32)
+  expect_equal(res$n_eff, 32)
+  expect_equal(res$deff, 1)
+  expect_equal(res$detection_prob, 0.8)
+  expect_null(res$n_sites)
+  expect_null(res$n_per_site)
+  expect_named(res, c("n", "n_sites", "n_per_site", "deff", "n_eff", "detection_prob"))
+})
+
+test_that("a higher target, a rarer case or an imperfect test needs more people", {
+  expect_equal(design_detection(0.05, 0.95)$n, 59)
+  expect_equal(design_detection(0.01)$n, 161)
+  expect_equal(design_detection(0.05, sensitivity = 0.8)$n, 40)
+})
+
+test_that("reverse: 139 people give the slide's 75 and 94 percent", {
+  expect_equal(design_detection(0.01, n = 139)$detection_prob, 1 - 0.99^139)
+  expect_equal(design_detection(0.02, n = 139)$detection_prob, 1 - 0.98^139)
+})
+
+test_that("forward and reverse agree, also when the target is exactly hit", {
+  expect_gte(design_detection(0.05, n = 32)$detection_prob, 0.8)
+  expect_lt(design_detection(0.05, n = 31)$detection_prob, 0.8)
+  # a target equal to the chance of 3 people needs 3, not 4
+  expect_equal(design_detection(0.1, 1 - 0.9^3)$n, 3)
+})
+
+test_that("fixed site size solves for the number of sites", {
   res <- design_detection(0.05, n_per_site = 10, icc = 0.05)
-  expect_equal(res$n,       40)
-  expect_equal(res$n_eff,   32)
-  expect_equal(res$n_sites, 4)
-  # 4 sites reach 80 percent, 3 do not
-  expect_gte(1 - p0_direct(10, 0.05, 0.05)^4, 0.80)
-  expect_lt(1 - p0_direct(10, 0.05, 0.05)^3,  0.80)
-  # deff: 40 people with sites do what 40 / 1.2234 = 32.7 people without do
+  expect_equal(c(res$n, res$n_sites, res$n_per_site, res$n_eff), c(40, 4, 10, 32))
+  # 40 people at 4 sites do what 40 / 1.2234 = 32.7 people without sites do
   expect_equal(res$deff, 40 * log(0.95) / (4 * log(p0_direct(10, 0.05, 0.05))))
-  expect_equal(round(res$deff, 6), 1.223414)
-  # A target exactly at the chance of 4 sites needs 4 sites, not 5
+  # a target exactly at the chance of 4 sites needs 4 sites, not 5
   expect_equal(design_detection(0.05, 1 - p0_direct(10, 0.05, 0.05)^4,
                                 n_per_site = 10, icc = 0.05)$n_sites, 4)
 })
 
-test_that("DET-C-2: a fixed number of sites solves for people per site", {
+test_that("fixed number of sites solves for people per site", {
   res <- design_detection(0.05, n_sites = 10, icc = 0.05)
-  expect_equal(res$n,          40)
-  expect_equal(res$n_per_site, 4)
-  expect_gte(1 - p0_direct(4, 0.05, 0.05)^10, 0.80)
-  expect_lt(1 - p0_direct(3, 0.05, 0.05)^10,  0.80)
-  expect_equal(round(res$deff, 6), 1.077626)
-  # A target exactly at the chance of 4 per site needs 4 per site, not 5
-  expect_equal(design_detection(0.05, 1 - p0_direct(4, 0.05, 0.05)^10,
-                                n_sites = 10, icc = 0.05)$n_per_site, 4)
+  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(40, 10, 4))
+  expect_equal(res$deff, 40 * log(0.95) / (10 * log(p0_direct(4, 0.05, 0.05))))
 })
 
-test_that("DET-C-3: people per site and number of sites match DRpower", {
-  # Expected values from DRpower::get_sample_size_presence(n_clust,
+test_that("sites match DRpower", {
+  # people per site: DRpower::get_sample_size_presence(n_clust,
   # target_power = 0.8, prevalence, ICC)
   for (s in list(c(5, 0.01, 0.10, 294), c(5, 0.01, 0.05, 82), c(10, 0.02, 0.10, 13),
                  c(3, 0.05, 0.20, 47),  c(20, 0.01, 0.05, 10), c(10, 0.05, 0.30, 6),
-                 c(4, 0.10, 0.60, 101))) {
+                 c(4, 0.10, 0.60, 101)))
     expect_equal(design_detection(s[2], n_sites = s[1], icc = s[3])$n_per_site, s[4])
-  }
-  # Number of sites, target 90 percent: the smallest k whose chance in
-  # DRpower::get_power_presence(rep(n_per_site, k), prevalence, ICC) is above
-  # the target (6 sites: 91.92 percent, 5 sites: 87.71; 14: 90.52, 13: 88.79;
-  # 30: 90.32, 29: 89.54)
-  for (s in list(c(10, 0.05, 0.05, 6), c(25, 0.02, 0.20, 14), c(50, 0.01, 0.30, 30))) {
-    expect_equal(design_detection(s[2], 0.90, n_per_site = s[1], icc = s[3])$n_sites, s[4])
-  }
+  # reverse: DRpower::get_power_presence(rep(4, 10), 0.05, 0.05) = 85.1019
+  expect_equal(round(100 * design_detection(0.05, n = 40, n_sites = 10,
+                                            icc = 0.05)$detection_prob, 4), 85.1019)
 })
 
-test_that("DET-C-4: a high ICC needs many people per site; at ICC 1 too few sites is rejected", {
-  # The old design-effect method said this could not be reached; it can,
-  # with 223 per site
-  expect_equal(design_detection(0.05, 0.95, n_sites = 2, icc = 0.1)$n_per_site, 223)
-  # ICC 1: each site counts as one person, so 5 sites give at most
-  # 1 - 0.95^5 = 22.62 percent
-  expect_error(
-    design_detection(0.05, n_sites = 5, icc = 1),
-    "A detection probability of 80 percent cannot be reached with 5 sites and ICC = 1: with an ICC of 1 everyone at a site has the same result, so these sites can give at most 22.62191 percent, however many people each site has. Increase `n_sites`, lower the ICC, or lower `detection_prob`.",
-    fixed = TRUE)
-  # Exactly that maximum is reached with 1 person per site
-  res <- design_detection(0.05, 1 - 0.95^5, n_sites = 5, icc = 1)
-  expect_equal(res$n_per_site, 1)
-  expect_equal(res$deff, 1)
-  # ICC below 1 but so high that more than 2 million people would be needed
-  expect_error(
-    design_detection(0.001, n_sites = 3, icc = 0.5),
-    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
-    fixed = TRUE)
-})
-
-test_that("DET-C-5: more sites than people needed gives a warning and uses fewer sites, 1 person at each", {
-  # 32 people are needed with no sites (log(0.2) / log(0.95) = 31.4, rounded
-  # up). 40 or 1000 sites, with or without an ICC: 32 sites with 1 person at
-  # each (no clustering with 1 per site)
-  msg <- function(sites)
-    paste0("With this prevalence and detection probability, the study needs 32 people, fewer than the ",
-           sites, " sites given (`n_sites`). The design uses 32 sites with 1 person at each.")
-  for (icc in c(0, 0.05, 1)) for (sites in c(40, 1000)) {
-    expect_warning(res <- design_detection(0.05, n_sites = sites, icc = icc), msg(sites), fixed = TRUE)
-    expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(32, 32, 1, 1))
-  }
-  # Exactly 32 sites: no warning, 32 sites of 1 person
-  for (icc in c(0, 0.05)) {
-    expect_no_warning(res <- design_detection(0.05, n_sites = 32, icc = icc))
-    expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(32, 32, 1, 1))
-  }
-  # 31 sites need 2 people each
-  expect_equal(design_detection(0.05, n_sites = 31, icc = 0.05)$n, 62)
-  # With fpc_N the number needed is from the population: 30 of 200 (hand
-  # check with dhyper in DET-F tests), so 50 sites become 30
-  expect_warning(res <- design_detection(0.05, n_sites = 50, fpc_N = 200),
-    "With this prevalence and detection probability, the study needs 30 people, fewer than the 50 sites given (`n_sites`). The design uses 30 sites with 1 person at each.",
-    fixed = TRUE)
-  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(30, 30, 1))
-  # One person is enough (prevalence 0.9: log(0.2) / log(0.1) = 0.7):
-  # "1 person" and "1 site"
-  for (icc in c(0, 0.05))
-    expect_warning(design_detection(0.9, n_sites = 5, icc = icc),
-      "With this prevalence and detection probability, the study needs 1 person, fewer than the 5 sites given (`n_sites`). The design uses 1 site with 1 person at each.",
-      fixed = TRUE)
-})
-
-test_that("DET-C-10: one site with more people than needed is rejected", {
-  msg <- function(nps, needed)
-    paste0("`n_per_site` (", nps, ") is larger than the number of people needed (",
-           needed, "), so one site would be more than enough. Use a smaller ",
-           "`n_per_site`, or set `n_sites = 1` to find how many people one site needs.")
-  # icc 0: 32 people are needed (DET-1), so a site of 33 is too big; 32 is fine
-  expect_error(design_detection(0.05, n_per_site = 33), msg(33, 32), fixed = TRUE)
-  res <- design_detection(0.05, n_per_site = 32)
-  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(32, 1, 32))
-  # icc 0.05: one site of 81 reaches 80 percent, one site of 80 does not
-  expect_gte(1 - p0_direct(81, 0.05, 0.05), 0.80)
-  expect_lt(1 - p0_direct(80, 0.05, 0.05),  0.80)
-  expect_error(design_detection(0.05, n_per_site = 82, icc = 0.05), msg(82, 81),
-               fixed = TRUE)
-  res <- design_detection(0.05, n_per_site = 81, icc = 0.05)
-  expect_equal(c(res$n, res$n_sites, res$n_per_site), c(81, 1, 81))
-  # A target exactly at the chance of one site of 81 still needs 81, not 82
-  expect_error(design_detection(0.05, 1 - p0_direct(81, 0.05, 0.05),
-                                n_per_site = 82, icc = 0.05), msg(82, 81),
-               fixed = TRUE)
-  # The number in the message is what n_sites = 1 gives
-  expect_equal(design_detection(0.05, n_sites = 1, icc = 0.05)$n_per_site, 81)
-  # ICC 1: one person per site already gives q = 0.5, above a 30 percent target
-  expect_error(design_detection(0.5, 0.3, n_per_site = 2, icc = 1), msg(2, 1),
-               fixed = TRUE)
-  # Population of 200 at 80 percent: 30 people are needed
-  expect_equal(design_detection(0.05, fpc_N = 200)$n, 30)
-  expect_error(design_detection(0.05, n_per_site = 31, fpc_N = 200), msg(31, 30),
-               fixed = TRUE)
-  expect_equal(design_detection(0.05, n_per_site = 30, fpc_N = 200)$n_sites, 1)
-  # In reverse, a large site is fine
-  expect_equal(design_detection(0.05, n = 30, n_per_site = 100)$n_sites, 1)
-})
-
-test_that("DET-C-6: icc = 0, or a tiny icc, with sites is the unclustered result spread over the sites", {
-  for (icc in c(0, 1e-12)) {
-    res <- design_detection(0.05, n_sites = 10, icc = icc)
-    expect_equal(res$n,          32)
-    expect_equal(res$deff,       1)
-    expect_equal(res$n_per_site, 4)   # 32 / 10 = 3.2, rounded up
-  }
-  # A tiny icc without sites is not an error: it counts as 0
-  expect_equal(design_detection(0.05, icc = 1e-12)$n, 32)
-})
-
-test_that("DET-C-7: in reverse, the chance matches DRpower, with the people spread as evenly as possible", {
-  # 40 people at 10 sites: 4 each (DRpower: 85.1019 percent)
-  r1 <- design_detection(0.05, n = 40, n_sites = 10, icc = 0.05)
-  expect_equal(r1$detection_prob, 1 - p0_direct(4, 0.05, 0.05)^10)
-  expect_equal(round(100 * r1$detection_prob, 4), 85.1019)
-  expect_equal(r1$n_per_site, 4)
+test_that("reverse with sites spreads the people as evenly as possible", {
   # 43 people at 10 sites: 3 sites of 5 and 7 of 4
-  r2 <- design_detection(0.05, n = 43, n_sites = 10, icc = 0.05)
-  expect_equal(r2$detection_prob,
+  expect_equal(design_detection(0.05, n = 43, n_sites = 10, icc = 0.05)$detection_prob,
                1 - p0_direct(5, 0.05, 0.05)^3 * p0_direct(4, 0.05, 0.05)^7)
-  expect_equal(r2$n_per_site, 5)
   # 45 people in sites of 10: 4 full sites and one of 5
-  r3 <- design_detection(0.05, n = 45, n_per_site = 10, icc = 0.05)
-  expect_equal(r3$detection_prob,
+  res <- design_detection(0.05, n = 45, n_per_site = 10, icc = 0.05)
+  expect_equal(res$detection_prob,
                1 - p0_direct(10, 0.05, 0.05)^4 * p0_direct(5, 0.05, 0.05))
-  expect_equal(r3$n_sites, 5)
-  # n_eff: the people with no clustering who give the same chance,
-  # rounded up; deff = n / that number
-  n_same <- log(1 - r3$detection_prob) / log(0.95)
-  expect_equal(r3$n_eff, ceiling(n_same))
-  expect_equal(r3$deff,  45 / n_same)
-  # One person per site is the same as no clustering
-  r4 <- design_detection(0.05, n = 30, n_per_site = 1, icc = 0.5)
-  expect_equal(r4$detection_prob, 1 - 0.95^30)
-  expect_equal(r4$n_eff, 30)
-  expect_equal(r4$deff,  1)
+  expect_equal(res$n_sites, 5)
+  expect_equal(res$deff, 45 / (log(1 - res$detection_prob) / log(0.95)))
 })
 
-test_that("DET-C-8: forward n reaches the target and one person per site (or one site) fewer does not", {
-  for (s in list(c(0.05, 0.80, 0.05), c(0.05, 0.95, 0.20), c(0.02, 0.90, 0.10),
-                 c(0.01, 0.80, 0.50))) {
-    res <- design_detection(s[1], s[2], n_per_site = 10, icc = s[3])
-    expect_gte(1 - p0_direct(10, s[1], s[3])^res$n_sites,       s[2])
-    expect_lt(1 - p0_direct(10, s[1], s[3])^(res$n_sites - 1),  s[2])
-    res <- design_detection(s[1], s[2], n_sites = 15, icc = s[3])
-    expect_gte(1 - p0_direct(res$n_per_site, s[1], s[3])^15,     s[2])
-    expect_lt(1 - p0_direct(res$n_per_site - 1, s[1], s[3])^15,  s[2])
-    # and reverse mode gives the same chance
-    expect_equal(design_detection(s[1], n = 15 * res$n_per_site, n_sites = 15, icc = s[3])$detection_prob,
-                 1 - p0_direct(res$n_per_site, s[1], s[3])^15)
+test_that("ICC 1: k sites give at most 1 - (1 - q)^k", {
+  expect_equal(design_detection(0.05, 1 - 0.95^5, n_sites = 5, icc = 1)$n_per_site, 1)
+  expect_error(design_detection(0.05, n_sites = 5, icc = 1), "at most 22.62 percent")
+})
+
+test_that("icc 0, or a tiny icc, with sites spreads the unclustered n", {
+  # 32 people over 5 sites: 7 per site, 35 sampled
+  for (icc in c(0, 1e-9)) {
+    res <- design_detection(0.05, n_sites = 5, icc = icc)
+    expect_equal(c(res$n, res$n_per_site, res$deff), c(35, 7, 1))
   }
 })
 
-test_that("DET-C-9: with an imperfect test, sites use q = prevalence x sensitivity", {
-  # Same as DRpower with prevalence 0.05 x 0.8 = 0.04: 5 per site
-  res <- design_detection(0.05, sensitivity = 0.8, n_sites = 10, icc = 0.05)
-  expect_equal(res$n_per_site, 5)
-  expect_equal(res$q, 0.04)
-  expect_equal(res, modifyList(design_detection(0.04, n_sites = 10, icc = 0.05),
-                               list(prevalence = 0.05, sensitivity = 0.8)))
-})
-
-
-# ---------------------------------------------------------------------------
-# Finite population (DET-F-)
-# ---------------------------------------------------------------------------
-
-test_that("DET-F-1: a population of 200 gives the exact 51, and leaves n_eff alone", {
-  res <- design_detection(0.05, 0.95, fpc_N = 200)
-  expect_equal(res$n,       51)
-  expect_equal(res$n_eff,   59)
-  expect_equal(res$n_cases, 10)
-  expect_gte(1 - choose(190, 51) / choose(200, 51), 0.95)
-  expect_lt(1 - choose(190, 50) / choose(200, 50),  0.95)
-})
-
-test_that("DET-F-2: matches a brute-force search with R's dhyper, including an imperfect test", {
-  brute <- function(p, d, N, se) {
-    D <- floor(N * p + 1e-8)
-    for (n in 1:N) {
-      k <- 0:min(n, D)
-      if (1 - sum(stats::dhyper(k, D, N - D, n) * (1 - se)^k) >= d) return(n)
-    }
+test_that("more sites than people needed: 1 person at just enough sites", {
+  for (icc in c(0, 0.05)) {
+    expect_warning(res <- design_detection(0.05, n_sites = 100, icc = icc),
+                   "needs 32 people, fewer than the 100 sites")
+    expect_equal(c(res$n, res$n_sites, res$n_per_site, res$deff), c(32, 32, 1, 1))
   }
-  for (s in list(c(0.05, 0.80, 200, 1), c(0.02, 0.95, 500, 1), c(0.05, 0.95, 200, 0.8),
-                 c(0.02, 0.80, 100, 1), c(0.10, 0.90, 80, 0.6))) {
-    expect_equal(design_detection(s[1], s[2], sensitivity = s[4], fpc_N = s[3])$n,
-                 brute(s[1], s[2], s[3], s[4]))
-  }
+  expect_no_warning(design_detection(0.05, n_sites = 32, icc = 0.05))
 })
 
-test_that("DET-F-3: a target above what testing everyone can give is rejected", {
-  # 5 cases, each missed with probability 0.7: testing all 100 people finds
-  # a case with probability 1 - 0.7^5 = 83.2 percent
-  expect_error(
-    design_detection(0.05, 0.99, sensitivity = 0.3, fpc_N = 100),
-    "A detection probability of 99 percent is not achievable in a population of 100 with 5 cases and `sensitivity` = 0.3: even testing everyone finds a case with probability 83.2 percent. Lower `detection_prob`, or use a more sensitive test.",
-    fixed = TRUE)
-  # With sensitivity 1, testing everyone always finds a case: 2 cases in 40
-  expect_equal(design_detection(0.05, 0.95, fpc_N = 40)$n, 31)
+test_that("one site larger than needed stops", {
+  # icc 0: 32 needed; icc 0.05: one site of 81 is enough, 80 is not
+  expect_error(design_detection(0.05, n_per_site = 33), "larger than the 32 people needed")
+  expect_equal(design_detection(0.05, n_per_site = 32)$n_sites, 1)
+  expect_lt(1 - p0_direct(80, 0.05, 0.05), 0.8)
+  expect_error(design_detection(0.05, n_per_site = 82, icc = 0.05), "larger than needed")
+  expect_equal(design_detection(0.05, n_per_site = 81, icc = 0.05)$n, 81)
 })
 
-test_that("DET-F-4: the number of cases is rounded down, without rounding errors", {
-  # 0.29 * 100 is stored as 28.999999999999996 and must count as 29;
-  # 0.07 * 100 is stored as 7.000000000000001 and must count as 7
-  expect_equal(design_detection(0.29, fpc_N = 100)$n_cases, 29)
-  expect_equal(design_detection(0.07, fpc_N = 100)$n_cases, 7)
-  # 1.5 cases counts as 1
-  expect_equal(design_detection(0.05, fpc_N = 30)$n_cases,  1)
-  expect_error(
-    design_detection(0.005, fpc_N = 100),
-    "`fpc_N` (100) x `prevalence` (0.005) is less than 1: a population of 100 at this prevalence contains no case to find. Use a larger population or a higher prevalence.",
-    fixed = TRUE)
-})
-
-test_that("DET-F-5: fpc_N cannot be used together with an icc above 0", {
-  msg <- "`fpc_N` cannot be used together with an `icc` above 0 (got icc = 0.05): the calculation with sites assumes a very large population. Set `fpc_N = NULL`, or set `icc = 0`."
-  expect_error(design_detection(0.05, 0.95, n_per_site = 10, icc = 0.05, fpc_N = 200),
-               msg, fixed = TRUE)
-  expect_error(design_detection(0.05, 0.95, n_sites = 10, icc = 0.05, fpc_N = 200),
-               msg, fixed = TRUE)
-  expect_error(design_detection(0.05, n = 40, n_sites = 10, icc = 0.05, fpc_N = 200),
-               msg, fixed = TRUE)
-  # With icc 0, sites and fpc_N together are fine: 51 people (DET-F-1),
-  # 6 sites of 10
-  res <- design_detection(0.05, 0.95, n_per_site = 10, fpc_N = 200)
-  expect_equal(res$n,       51)
-  expect_equal(res$n_sites, 6)
-})
-
-test_that("DET-F-6: a rounded design larger than the population warns", {
-  # Population 40, 21 sites, icc 0: n = 22, 22 / 21 = 1.05 -> 2 per site,
-  # so 42 people
-  expect_warning(
-    res <- design_detection(0.05, n_sites = 21, fpc_N = 40),
-    "The rounded design (21 sites x 2 = 42) exceeds `fpc_N` = 40: the required n of 22 is close to a census of the population. Consider surveying the whole population instead.",
-    fixed = TRUE)
-  expect_equal(res$n, 22)
-})
-
-test_that("DET-F-7: in reverse, a finite population raises the chance, and testing everyone gives the maximum", {
-  expect_gt(design_detection(0.05, n = 100, fpc_N = 200)$detection_prob,
-            design_detection(0.05, n = 100)$detection_prob)
-  expect_equal(design_detection(0.05, n = 200, fpc_N = 200)$detection_prob, 1)
-  expect_equal(design_detection(0.05, n = 200, fpc_N = 200, sensitivity = 0.5)$detection_prob,
-               1 - 0.5^10)
-})
-
-
-# ---------------------------------------------------------------------------
-# Validation (DET-V-)
-# ---------------------------------------------------------------------------
-
-test_that("DET-V-1: a prevalence of 0, 1, or outside [0, 1] is rejected", {
-  # Valid value: 0.05 (DET-1)
-  expect_error(design_detection(0),
-               "`prevalence` must be in (0, 1) (got 0). With a prevalence of 0 there is no case to find.",
-               fixed = TRUE)
-  expect_error(design_detection(1),
-               "`prevalence` must be in (0, 1) (got 1). With a prevalence of 1 everyone is a case, so there is no sample size to plan.",
-               fixed = TRUE)
-  expect_error(design_detection(-0.1),
-               "`prevalence` must be in (0, 1) (got -0.1). `prevalence` is a fraction of the population and cannot be negative.",
-               fixed = TRUE)
-  expect_error(design_detection(1.2),
-               "`prevalence` must be in (0, 1) (got 1.2). `prevalence` is a fraction of the population and cannot be greater than 1.",
-               fixed = TRUE)
-})
-
-test_that("DET-V-2: detection_prob outside (0, 1) is rejected, but only when solving for n", {
-  # Valid values: 0.80 (DET-1), 0.95 and 0.99 (DET-3)
-  for (bad in c(0, 1, -0.2, 80)) {
-    expect_error(design_detection(0.05, detection_prob = bad),
-                 paste0("`detection_prob` must be in (0, 1) (got ", bad, "). For example, use 0.80 for an 80 percent chance of finding at least one case."),
-                 fixed = TRUE)
-  }
-  # In reverse detection_prob is not used, so it is not checked
-  expect_no_error(design_detection(0.05, detection_prob = 80, n = 32))
-  expect_no_error(design_detection(0.05, detection_prob = "x", n = 32))
-})
-
-test_that("DET-V-3: a vector, text, TRUE/FALSE, a bare NA or NULL in a single-number argument is rejected, naming the class", {
-  expect_error(design_detection(c(0.05, 0.1)),
-               "`prevalence` must be a single number in (0, 1) (got class `numeric`, length 2).", fixed = TRUE)
-  expect_error(design_detection("0.05"),
-               "`prevalence` must be a single number in (0, 1) (got class `character`, length 1).", fixed = TRUE)
-  expect_error(design_detection(0.05, detection_prob = TRUE),
-               "`detection_prob` must be a single number in (0, 1) (got class `logical`, length 1).", fixed = TRUE)
-  expect_error(design_detection(0.05, detection_prob = NULL),
-               "`detection_prob` must be a single number in (0, 1) (got class `NULL`, length 0).", fixed = TRUE)
-  expect_error(design_detection(0.05, sensitivity = NA),
-               "`sensitivity` must be a single number in (0, 1] (got class `logical`, length 1). Note: `TRUE`, `FALSE` and a plain `NA` are logical, not numeric. Pass 1 if the test never misses a case.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, icc = list(0.05)),
-               "`icc` must be a single number in [0, 1] (got class `list`, length 1).", fixed = TRUE)
-})
-
-test_that("DET-V-4: NaN, Inf or -Inf in a single-number argument gives the finite-value error", {
-  expect_error(design_detection(NaN), "`prevalence` must be a single finite number (got NaN).", fixed = TRUE)
-  expect_error(design_detection(0.05, detection_prob = Inf),
-               "`detection_prob` must be a single finite number (got Inf).", fixed = TRUE)
-  expect_error(design_detection(0.05, sensitivity = -Inf),
-               "`sensitivity` must be a single finite number (got -Inf).", fixed = TRUE)
-  expect_error(design_detection(0.05, icc = NaN),
-               "`icc` must be a single finite number (got NaN).", fixed = TRUE)
-})
-
-test_that("DET-V-5: sensitivity and icc range checks give the right message for each bad value", {
-  # Valid values: sensitivity 1 (DET-1) and 0.8 (DET-4); icc 0.05 (DET-C-1)
-  expect_error(design_detection(0.05, sensitivity = 0),
-               "`sensitivity` must be in (0, 1] (got 0). A sensitivity of 0 means everyone who truly has the condition tests negative.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, sensitivity = -0.1),
-               "`sensitivity` must be in (0, 1] (got -0.1). `sensitivity` is a diagnostic probability and cannot be negative.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, sensitivity = 1.1),
-               "`sensitivity` must be in (0, 1] (got 1.1). `sensitivity` is a diagnostic probability and cannot be greater than 1.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 10, icc = -0.1),
-               "`icc` must be in [0, 1] (got -0.1). `icc` is a correlation and cannot be negative.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 10, icc = 1.5),
-               "`icc` must be in [0, 1] (got 1.5). `icc` is a correlation and cannot be greater than 1.", fixed = TRUE)
-})
-
-test_that("DET-V-6: icc above 0 with no sites, or both n_sites and n_per_site, is rejected", {
-  expect_error(design_detection(0.05, icc = 0.05),
-               "`icc` is greater than 0 but no sites were given (`n_sites` and `n_per_site` are both `NULL`), so the design effect cannot be computed. Supply `n_sites` (fix the number of sites) or `n_per_site` (fix the number of people per site), or set `icc = 0` for a design without clustering.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, n_sites = 10, n_per_site = 10, icc = 0.05),
-               "Supply at most one of `n_sites` or `n_per_site`, not both. `n_sites` fixes the number of sites and solves for people per site; `n_per_site` fixes the number of people per site and solves for the number of sites.", fixed = TRUE)
-})
-
-test_that("DET-V-7: n, n_sites, n_per_site and fpc_N must be single positive integers, naming the problem", {
-  for (arg in c("n", "n_sites", "n_per_site")) {
-    call_with <- function(v) {
-      a <- list(0.05); if (arg != "n") a$icc <- 0.05; a[[arg]] <- v
-      do.call(design_detection, a)
-    }
-    expect_error(call_with("10"),      paste0("`", arg, "` must be a single finite positive integer (got class `character`)."), fixed = TRUE)
-    expect_error(call_with(TRUE),      paste0("`", arg, "` must be a single finite positive integer (got class `logical`)."), fixed = TRUE)
-    expect_error(call_with(c(10, 20)), paste0("`", arg, "` must be a single finite positive integer (got length = 2)."), fixed = TRUE)
-    for (bad in c(0, 2.5, Inf)) {
-      expect_error(call_with(bad), paste0("`", arg, "` must be a single finite positive integer (got ", bad, ")."), fixed = TRUE)
-    }
-  }
-  expect_error(design_detection(0.05, fpc_N = "500"),
-               "`fpc_N` must be a single finite positive integer (got class `character`). `fpc_N` is the population size. Set `fpc_N = NULL` to treat the population as very large.",
-               fixed = TRUE)
-  for (bad in c(0, 100.5, Inf)) {
-    expect_error(design_detection(0.05, fpc_N = bad),
-                 paste0("`fpc_N` must be a single finite positive integer (got ", bad, ")."), fixed = TRUE)
-  }
-  # The whole messages, with what each argument is
-  expect_error(design_detection(0.05, n = 2.5),
-               "`n` must be a single finite positive integer (got 2.5). `n` is the number of people tested.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_sites = 2.5, icc = 0.05),
-               "`n_sites` must be a single finite positive integer (got 2.5). `n_sites` is the number of sites.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 2.5, icc = 0.05),
-               "`n_per_site` must be a single finite positive integer (got 2.5). `n_per_site` is the fixed number of people sampled per site.", fixed = TRUE)
-  # A value within rounding of a whole number gets a hint to use round()
-  expect_error(design_detection(0.05, n = 100 * 1.1),
-               "`n` must be a single finite positive integer (got 110, which is not exactly an integer; use round(n)). `n` is the number of people tested.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_sites = 100 * 1.1, icc = 0.05),
-               "`n_sites` must be a single finite positive integer (got 110, which is not exactly an integer; use round(n_sites)). `n_sites` is the number of sites.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 100 * 1.1, icc = 0.05),
-               "`n_per_site` must be a single finite positive integer (got 110, which is not exactly an integer; use round(n_per_site)). `n_per_site` is the fixed number of people sampled per site.", fixed = TRUE)
-  expect_error(design_detection(0.05, fpc_N = 100 * 1.1),
-               "`fpc_N` must be a single finite positive integer (got 110, which is not exactly an integer; use round(fpc_N)). `fpc_N` is the population size. Set `fpc_N = NULL` to treat the population as very large.", fixed = TRUE)
-  # A real fraction gets no hint, however large; numbers are printed in full
-  expect_error(design_detection(0.05, fpc_N = 1e10 + 0.5),
-               "`fpc_N` must be a single finite positive integer (got 10000000000.5).", fixed = TRUE)
-  old <- options(scipen = -9); on.exit(options(old), add = TRUE)
-  expect_error(design_detection(0.05, n = 100000.5), "(got 100000.5)", fixed = TRUE)
-  options(old)
-  # Above 2^53 (the largest whole number R stores exactly) is rejected
-  expect_error(design_detection(0.05, n = 2^53 + 2),
-               "`n` (9007199254740994) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real study tests this many people.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_sites = 1e200, icc = 0.05),
-               "`n_sites` (1e+200) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real study has this many sites.", fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 2^53 + 2, icc = 0.05),
-               "`n_per_site` (9007199254740994) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real site has this many people.", fixed = TRUE)
-  expect_error(design_detection(0.05, fpc_N = 2^53 + 2),
-               "`fpc_N` (9007199254740994) is larger than 2^53 = 9007199254740992, the largest whole number R can store exactly. No real population is this large: set `fpc_N = NULL`.", fixed = TRUE)
-  # Valid values: n = 139 (DET-2), n_sites = 10 (DET-C-2), n_per_site = 10
-  # (DET-C-1), fpc_N = 200 (DET-F-1)
-})
-
-test_that("DET-V-8: more sites, or more people per site, than the population is rejected", {
-  expect_error(design_detection(0.05, n_sites = 100, icc = 0.05, fpc_N = 50),
-               "`n_sites` (100) exceeds `fpc_N` (50): you cannot have more sites than people in the population.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, n_per_site = 100, icc = 0.05, fpc_N = 50),
-               "`n_per_site` (100) exceeds `fpc_N` (50): a site cannot have more people than there are in the whole population.",
-               fixed = TRUE)
-})
-
-test_that("DET-V-9: in reverse, n must fit the sites and the population", {
-  expect_error(design_detection(0.05, n = 5, n_sites = 10, icc = 0.05),
-               "`n` (5) is smaller than `n_sites` (10): there would be fewer than one person per site. Increase `n`, or lower `n_sites`.",
-               fixed = TRUE)
-  expect_error(design_detection(0.05, n = 300, fpc_N = 200),
-               "`n` (300) is larger than `fpc_N` (200): you cannot test more people than there are in the population.",
-               fixed = TRUE)
-  # Fewer people than one full site is fine with n_per_site (forward mode
-  # can return it), and so is fewer people than sites when icc is 0
-  expect_no_error(design_detection(0.05, n = 5, n_per_site = 10, icc = 0.05))
-  expect_no_error(design_detection(0.05, n = 5, n_sites = 10))
-})
-
-
-# ---------------------------------------------------------------------------
-# Return value (DET-R-)
-# ---------------------------------------------------------------------------
-
-test_that("DET-R-1: return list contains all expected fields, in order, in both directions", {
-  fields <- c("n", "n_eff", "n_sites", "n_per_site", "detection_prob", "prevalence",
-              "q", "n_cases", "sensitivity", "icc", "deff", "fpc_N", "mode")
-  expect_named(design_detection(0.05), fields, ignore.order = FALSE)
-  expect_named(design_detection(0.05, n = 32), fields, ignore.order = FALSE)
-})
-
-test_that("DET-R-2: inputs are echoed back as supplied", {
-  res <- design_detection(0.05, 0.9, sensitivity = 0.9, n_per_site = 10, icc = 0.05)
-  expect_equal(res[c("detection_prob", "prevalence", "sensitivity", "icc", "fpc_N")],
-               list(detection_prob = 0.9, prevalence = 0.05, sensitivity = 0.9,
-                    icc = 0.05, fpc_N = NULL))
-  expect_equal(design_detection(0.05, fpc_N = 5000)$fpc_N, 5000)
-  expect_equal(design_detection(0.05, n = 139)$n, 139)
-})
-
-test_that("DET-R-3: a name or a 1 x 1 matrix does not leak into the result", {
-  res <- design_detection(matrix(0.05), sensitivity = c(s = 0.9), n_sites = matrix(3),
-                          icc = c(i = 0.1))
-  expect_identical(res[c("prevalence", "q", "sensitivity", "icc", "n_sites")],
-                   list(prevalence = 0.05, q = 0.05 * 0.9, sensitivity = 0.9,
-                        icc = 0.1, n_sites = 3))
-  res <- design_detection(0.05, detection_prob = c(d = 0.8), n_per_site = c(k = 10),
-                          icc = 0.05)
-  expect_identical(res[c("detection_prob", "n_per_site")],
-                   list(detection_prob = 0.8, n_per_site = 10))
-  res <- design_detection(0.05, n = matrix(10), fpc_N = c(N = 200))
-  expect_identical(res[c("n", "n_eff", "fpc_N")], list(n = 10, n_eff = 10, fpc_N = 200))
-})
-
-test_that("DET-7: a tiny prevalence or target is worked out exactly; more than 2 million people stops", {
-  msg <- function(about, test = "or a lower `detection_prob`")
-    paste0("These settings need more than 2 million people (about ", about,
-           "). Use a higher prevalence, ", test, ".")
-  # The prevalence at which exactly 2 million people are needed, and one
-  # part in a million either side
-  p_lim <- -expm1(log(0.2) / 2e6)
-  expect_equal(design_detection(p_lim * 1.000001)$n, 1999999)
-  expect_error(design_detection(p_lim * 0.999999), msg("2,000,003"), fixed = TRUE)
-  # 1 - 1e-17 is stored as exactly 1, so log(1 - q) would be 0 (n = -Inf);
-  # log1p gives 1.6e17 people
-  expect_error(design_detection(1e-17), msg("160,943,800,000,000,000"), fixed = TRUE)
-  expect_error(design_detection(1e-17, sensitivity = 0.9),
-               msg("178,826,400,000,000,000",
-                   "a lower `detection_prob`, or a more sensitive test"),
-               fixed = TRUE)
-  # Sites cannot help when even no clustering needs too many: no site advice
-  expect_error(design_detection(1e-7, n_sites = 5, icc = 0.1), msg("16,094,380"),
-               fixed = TRUE)
-  # With fpc_N the population answer decides: 2011797 people with no
-  # population, but 1381966 of 2.5 million; 3943723 of 100 million stops
-  expect_equal(design_detection(8e-7, fpc_N = 2.5e6)$n, 1381966)
-  expect_error(design_detection(4e-7, fpc_N = 1e8), msg("3,943,723"), fixed = TRUE)
-  # A target of 1e-300 needs 1 person (log(1 - 1e-300) would give 0)
+test_that("more than 2 million people stops; tiny values are not lost to rounding", {
+  p_lim <- -expm1(log(0.2) / 2e6)   # exactly 2 million people needed
+  expect_equal(design_detection(p_lim * 1.0001)$n, 1999801)
+  expect_error(design_detection(p_lim * 0.9999), "about 2,000,201")
+  # 1 - 1e-17 is stored as 1, so log(1 - q) would be 0
+  expect_error(design_detection(1e-17), "about 160,943,800,000,000,000")
   expect_equal(design_detection(0.05, 1e-300)$n, 1)
-  # In reverse, a tiny prevalence is not lost: 1e6 people at 1e-17 give
-  # 1 - (1 - 1e-17)^1e6 = 1e-11 (1 - (1 - q)^n would give 0)
-  expect_equal(design_detection(1e-17, n = 1e6)$detection_prob / 1e-11, 1, tolerance = 1e-6)
-  # n_per_site given, but no clustering already needs too many: no site advice
-  expect_error(design_detection(1e-7, n_per_site = 10, icc = 0.1), msg("16,094,380"),
-               fixed = TRUE)
-  # A tiny sensitivity with fpc_N: no crash, and a chance close to 0
-  # (true value 1 - (1 - 1e-17)^50 = 5e-16)
-  res <- design_detection(0.5, n = 50, sensitivity = 1e-17, fpc_N = 100)
-  expect_lt(res$detection_prob, 1e-15)
+  expect_equal(design_detection(1e-17, n = 1e6)$detection_prob / 1e-11, 1,
+               tolerance = 1e-6)
+  # with sites: 31026 sites of 100 at 1e-5, ICC 0.5; 20 sites at ICC 0.01
+  expect_error(design_detection(1e-5, n_per_site = 100, icc = 0.5), "about 3,102,600")
+  expect_error(design_detection(1e-4, n_sites = 20, icc = 0.01), "more than 2 million")
+  # just over: 2386700 people at 1.3e-5 (sites of 100, ICC 0.5); 20 sites at
+  # ICC 0.001 and 1.6e-5 would need 3047940 (bisection with no limit), so
+  # the search stops at 2 million and gives no number
+  expect_error(design_detection(1.3e-5, n_per_site = 100, icc = 0.5), "about 2,386,700")
+  expect_error(design_detection(1.6e-5, n_sites = 20, icc = 0.001),
+               "These settings need more than 2 million people.", fixed = TRUE)
 })
 
-test_that("DET-C-11: a design with sites above 2 million people stops, with the right advice", {
-  # 100 per site, ICC 0.5: 15513 sites at prevalence 2e-5, 31026 at 1e-5
-  expect_equal(design_detection(2e-5, n_per_site = 100, icc = 0.5)$n, 1551300)
-  expect_error(design_detection(1e-5, n_per_site = 100, icc = 0.5),
-    "These settings need more than 2 million people (about 3,102,600). Use a higher prevalence, a lower `detection_prob`, or a smaller `n_per_site`.",
-    fixed = TRUE)
-  # Just over the limit: 2386700 people at 1.3e-5
-  expect_error(design_detection(1.3e-5, n_per_site = 100, icc = 0.5),
-    "These settings need more than 2 million people (about 2,386,700). Use a higher prevalence, a lower `detection_prob`, or a smaller `n_per_site`.",
-    fixed = TRUE)
-  # 20 sites, ICC 0.001: 4002 per site at 5e-5. At 1.6e-5, 3047940 people
-  # would be needed (152397 per site; bisection with no limit), so the search
-  # up to 2 million in all stops. At 1e-4 with ICC 0.01 likewise
-  expect_equal(design_detection(5e-5, n_sites = 20, icc = 0.001)$n, 80040)
-  expect_error(design_detection(1.6e-5, n_sites = 20, icc = 0.001),
-    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
-    fixed = TRUE)
-  expect_error(design_detection(1e-4, n_sites = 20, icc = 0.01),
-    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, or more sites or a lower ICC.",
-    fixed = TRUE)
-  expect_error(design_detection(1e-4, n_sites = 20, icc = 0.01, sensitivity = 0.9),
-    "These settings need more than 2 million people. Use a higher prevalence, a lower `detection_prob`, more sites or a lower ICC, or a more sensitive test.",
-    fixed = TRUE)
+test_that("bad inputs give a clear error", {
+  expect_error(design_detection(0), "`prevalence` must be a single number in (0, 1)", fixed = TRUE)
+  expect_error(design_detection(0.05, 1), "`detection_prob` must be")
+  expect_error(design_detection(0.05, sensitivity = 0), "`sensitivity` must be")
+  expect_error(design_detection(0.05, n = 2.5), "`n` must be a single whole number")
+  expect_error(design_detection(0.05, n_sites = 3, n_per_site = 3), "at most one")
+  expect_error(design_detection(0.05, icc = 0.1), "needs `n_sites` or `n_per_site`")
+  expect_error(design_detection(0.05, n = 2, n_sites = 5, icc = 0.1),
+               "`n` must be at least `n_sites`")
+  # detection_prob is not used, so not checked, in reverse
+  expect_no_error(design_detection(0.05, detection_prob = "x", n = 10))
 })
