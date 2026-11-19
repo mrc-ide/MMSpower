@@ -69,6 +69,7 @@ test_that("invalid inputs are rejected", {
   expect_error(design_difference(0.2, 0.2), "differ")
   expect_error(design_difference(0.1, 0.2, alternative = "greater"), "above")
   expect_error(design_difference(0.1, 0.2, power = 0.4), "power")
+  expect_error(design_difference(0.1, 0.2, conf_level = 0.3), "conf_level")
   expect_error(design_difference(0.1, 0.2, icc = 0.05), "needs")
   expect_error(design_difference(0.1, 0.2, n_sites = c(10, 20, 30)), "one value")
   expect_error(design_difference(0.1, 0.2, n_sites = 10, n_per_site = 10), "at most one")

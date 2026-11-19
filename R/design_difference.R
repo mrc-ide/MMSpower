@@ -37,8 +37,10 @@
 #' @param specificity Diagnostic specificity in (0, 1]; default 1. Assumed
 #'   the same in both groups. \code{sensitivity + specificity} must exceed
 #'   1.
-#' @param conf_level Confidence level, in (0, 1); default 0.95. The
-#'   significance level of the test is 1 - \code{conf_level}.
+#' @param conf_level Confidence level, in \[0.5, 1); default 0.95. The
+#'   significance level of the test is 1 - \code{conf_level}. Below 0.5 the
+#'   one-sided z value turns negative and the sample size shrinks towards
+#'   nonsense, so it is not allowed.
 #' @param n_sites Optional. Number of sites in each group: one whole number
 #'   for both groups, or two, \code{c(group 1, group 2)}. The function solves
 #'   for the number of people per site, the same in both groups. Cannot be
@@ -166,7 +168,7 @@ design_difference <- function(prevalence1,
   .check_number(prevalence1, "prevalence1", 0, 1)
   .check_number(prevalence2, "prevalence2", 0, 1)
   .check_number(power, "power", 0.5, 1, upper_open = TRUE)
-  .check_number(conf_level, "conf_level", 0, 1, lower_open = TRUE, upper_open = TRUE)
+  .check_number(conf_level, "conf_level", 0.5, 1, upper_open = TRUE)
   .check_test(sensitivity, specificity)
   # n_sites, n_per_site and icc: one value for both groups, or two
   for (nm in c("n_sites", "n_per_site", "icc"))
