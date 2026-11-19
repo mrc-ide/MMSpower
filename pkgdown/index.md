@@ -1,39 +1,40 @@
 # MMSpower
 
-**Status: early development.** This site is a working test build of the
-`MMSpower` R package, currently used to trial the documentation and CI/CD
-setup ahead of the package containing real statistical functionality.
+MMSpower provides simple sample size, power and analysis calculations for
+malaria molecular surveillance (MMS) studies. It allows for imperfect
+diagnostic tests (sensitivity and specificity) and for clustered sampling
+across sites (intra-cluster correlation and the design effect).
 
-## What this package will do
+## What it covers
 
-`MMSpower` is being developed to provide power calculations for MMS
-(Malaria Molecular Surveillance) Study design. The scope of exactly which calculations are included is still
-being finalised — see the [package overview](reference/MMSpower-package.html)
-for the current agreed scope note.
+Each common study question has a **design** function, which tells you how
+many samples you need, and a matching **analysis** function, which tells you
+what your data show.
 
-## Current state
+| Question | Design | Analysis |
+|---|---|---|
+| How precisely can I estimate prevalence? | [`design_precision()`](reference/design_precision.html) | [`estimate_prevalence()`](reference/estimate_prevalence.html) |
+| Is prevalence above (or below) a threshold? | [`design_threshold()`](reference/design_threshold.html) | [`test_threshold()`](reference/test_threshold.html) |
+| Does prevalence differ between two groups? | [`design_difference()`](reference/design_difference.html) | [`test_difference()`](reference/test_difference.html) |
+| What will the study cost? | [`estimate_cost()`](reference/estimate_cost.html) | |
 
-At this stage, the package contains a placeholder function
-([`hello_mmspower()`](reference/hello_mmspower.html)) used to confirm that
-the package builds, documents, tests, and deploys correctly end to end.
-No statistical functions have been added yet.
-
-## Getting started
+## Installation
 
 ```r
-# install a specific released version
-remotes::install_github("mrc-ide/MMSpower@v0.1.0")
-
-# or install the latest development version
+# install.packages("remotes")
 remotes::install_github("mrc-ide/MMSpower")
 ```
 
-See the [Articles](articles/index.html) section for a walkthrough, and the
-[Reference](reference/index.html) section for full function documentation.
+## Where next
+
+- **[Get started](articles/MMSpower.html)**: a short tour of the package.
+- **Tutorials**: worked examples for each type of study (coming soon).
+- **[Reference](reference/index.html)**: full documentation for every
+  function, including the methods and formulas behind each calculation.
 
 ## Development
 
-This package is developed by Sequoia Leuba and Bob Verity, following a GitFlow
-workflow (`main` / `develop` / feature branches) with continuous
-integration on every pull request. See the repository's `develop` branch
-for the latest in-progress work.
+MMSpower is developed by Sequoia Leuba and Bob Verity at Imperial College
+London. The latest in-progress work is on the `develop` branch of the
+[GitHub repository](https://github.com/mrc-ide/MMSpower), where you can also
+[report issues](https://github.com/mrc-ide/MMSpower/issues).

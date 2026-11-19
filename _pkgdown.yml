@@ -1,7 +1,40 @@
 url: https://mrc-ide.github.io/MMSpower/
+
+template:
+  bootstrap: 5
+
 home:
-  sidebar: no
   links:
   - text: Browse source code
     href: https://github.com/mrc-ide/MMSpower
 
+navbar:
+  structure:
+    left:  [intro, reference, articles]
+    right: [search, github]
+
+reference:
+- title: Estimating prevalence
+  desc: How many samples for a target margin of error, and the estimate with its confidence interval.
+  contents:
+  - design_precision
+  - estimate_prevalence
+- title: Testing against a threshold
+  desc: Is prevalence above (or below) a decision threshold, such as the WHO pfhrp2/3 deletion threshold?
+  contents:
+  - design_threshold
+  - test_threshold
+- title: Comparing two groups
+  desc: Does prevalence differ between two groups, such as two regions?
+  contents:
+  - design_difference
+  - test_difference
+- title: Costing a study
+  contents:
+  - estimate_cost
+
+articles:
+- title: Get started
+  navbar: ~
+  contents:
+  - MMSpower
