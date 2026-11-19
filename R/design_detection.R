@@ -62,7 +62,8 @@
 #'
 #' **Too many sites.** One person per site gives the chance of `n_sites`
 #' people with no clustering. If fewer people are needed, fewer sites are
-#' used, with 1 person at each, and a warning says so.
+#' used, with 1 person at each, and a warning says so. A site larger than
+#' needed gives 1 site of that size.
 #'
 #' **Limit and rounding.** A design that needs more than 2 million people
 #' stops with an error. With sites, the returned `n` is the number actually
@@ -76,8 +77,9 @@
 #'   \item{deff}{Design effect: `n` divided by the number of people with no
 #'     clustering who give the same chance of finding a case; 1 if
 #'     unclustered.}
-#'   \item{n_eff}{Unclustered sample size \eqn{n_0} in a very large
-#'     population, rounded up.}
+#'   \item{n_eff}{Number of people needed with no clustering, \eqn{n_0}
+#'     rounded up (in reverse, the number with no clustering who give the
+#'     same chance of finding a case).}
 #'   \item{detection_prob}{The target (forward), or the chance achieved
 #'     with `n` people (reverse).}
 #'
