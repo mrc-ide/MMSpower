@@ -15,6 +15,7 @@ what your data show.
 |---|---|---|
 | How precisely can I estimate prevalence? | [`design_precision()`](reference/design_precision.html) | [`estimate_prevalence()`](reference/estimate_prevalence.html) |
 | Is prevalence above (or below) a threshold? | [`design_threshold()`](reference/design_threshold.html) | [`test_threshold()`](reference/test_threshold.html) |
+| Is a variant present at all? | [`design_detection()`](reference/design_detection.html) | |
 | Does prevalence differ between two groups? | [`design_difference()`](reference/design_difference.html) | [`test_difference()`](reference/test_difference.html) |
 | What will the study cost? | [`estimate_cost()`](reference/estimate_cost.html) | |
 
