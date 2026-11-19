@@ -34,7 +34,7 @@ function solves for people per site. Cannot be used with \code{n_per_site}.}
 site; the function solves for the number of sites. Cannot be used with
 \code{n_sites}.}
 
-\item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
+\item{icc}{Intra-cluster correlation, in [0, 1); default 0 (no
 clustering). An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
 }
 \value{
@@ -90,20 +90,20 @@ found among \eqn{m} people at one site is
   \alpha = q \left(\frac{1}{ICC} - 1\right), \quad
   \beta = (1 - q) \left(\frac{1}{ICC} - 1\right),}
 
-and at \eqn{k} sites it is \eqn{P_0(m)^k}. The function finds the
-smallest number of sites (or people per site) that reaches
-\code{detection_prob}. With an ICC of 1 everyone at a site has the same
-result, so \eqn{k} sites give at most \eqn{1 - (1 - q)^k}. An ICC below
-about 1.5e-8 is treated as 0, where the beta formula loses accuracy.
+and at \eqn{k} sites it is \eqn{P_0(m)^k}. With \code{n_per_site} fixed, the
+number of sites is
+\eqn{\lceil \log(1 - detection\_prob) / \log P_0(n_{per site}) \rceil}.
+With \code{n_sites} fixed there is no formula for the people per site, so
+the smallest whole number that reaches \code{detection_prob} is found by a
+numerical search. \eqn{P_0(m)} always falls towards 0 as \eqn{m} grows,
+but very slowly when the ICC is high and cases are rare; if even
+\eqn{10^{15}} people per site fall short, the function stops.
 
-\strong{Too many sites.} One person per site gives the chance of \code{n_sites}
-people with no clustering. If fewer people are needed, fewer sites are
-used, with 1 person at each, and a warning says so. A site larger than
-needed gives 1 site of that size.
-
-\strong{Limit and rounding.} A design that needs more than 2 million people
-stops with an error. With sites, the returned \code{n} is the number actually
-sampled, \code{n_sites * n_per_site}.
+\strong{Sites and rounding.} With \code{n_sites} fixed, every site is used, with at
+least 1 person each, even if fewer people would do (as in the other
+design functions). A site larger than needed gives 1 site of that size.
+With sites, the returned \code{n} is the number actually sampled,
+\code{n_sites * n_per_site}.
 }
 \examples{
 # 80 percent chance of finding a case at 5 percent prevalence

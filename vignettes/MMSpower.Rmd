@@ -18,12 +18,12 @@ knitr::opts_chunk$set(
 library(MMSpower)
 ```
 
-MMSpower answers three common questions in malaria molecular surveillance
-studies. For each, a **design** function says how many samples are needed,
+MMSpower answers four common questions in malaria molecular surveillance
+studies. For most, a **design** function says how many samples are needed,
 and a matching **analysis** function says what the data show. Every
-function allows for an imperfect diagnostic test (`sensitivity`,
-`specificity`) and for clustered sampling across sites (`icc`, with
-`n_sites` or `n_per_site`).
+function allows for an imperfect diagnostic test (`sensitivity`, and
+`specificity` where it applies) and for clustered sampling across sites
+(`icc`, with `n_sites` or `n_per_site`).
 
 This page is a short tour. Each function's reference page explains its
 methods and formulas in full.
@@ -56,6 +56,15 @@ Then test the data against the threshold:
 
 ```{r}
 test_threshold(x = 18, n = 191, threshold = 0.05)
+```
+
+## Detecting a rare variant
+
+How many people are needed for an 80% chance of finding at least one case
+of a variant present in 1% of infections?
+
+```{r}
+design_detection(prevalence = 0.01)
 ```
 
 ## Comparing two groups

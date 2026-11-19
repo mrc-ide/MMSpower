@@ -54,11 +54,13 @@ test_that("groups can differ in sites and ICC", {
   expect_gt(.diff_gap(m, c(0.1, 0.2), z_a, z_b), 0)
 })
 
-test_that("more sites than needed: 1 person at each of just enough sites", {
+test_that("more sites than needed: every site is used, with 1 person each", {
   res <- design_difference(0.10, 0.20, n_sites = 500, icc = 0.05)
   expect_equal(res$n_per_site, c(1, 1))
-  expect_equal(res$n_sites, c(199, 199))
-  expect_equal(res$n_per_group, c(199, 199))
+  expect_equal(res$n_sites, c(500, 500))
+  expect_equal(res$n_per_group, c(500, 500))
+  expect_equal(res$deff, c(1, 1))
+  expect_equal(res$n_eff, c(199, 199))
 })
 
 test_that("too few sites stops, giving the highest power they can reach", {
