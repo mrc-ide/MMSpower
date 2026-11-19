@@ -11,7 +11,7 @@ estimate_prevalence(
   specificity = 1,
   conf_level = 0.95,
   icc = NULL,
-  ci_method = c("wald", "clopper-pearson", "agresti-coull")
+  ci_method = c("clopper-pearson", "wald", "agresti-coull")
 )
 }
 \arguments{
@@ -34,8 +34,10 @@ never gives a false positive). \code{sensitivity + specificity} must exceed
 (default), ICC is estimated from the data. Set to \code{0} for no
 clustering. A supplied value is also used with a single site.}
 
-\item{ci_method}{CI method: \code{"wald"} (default), \code{"clopper-pearson"}, or
-\code{"agresti-coull"}. See Description.}
+\item{ci_method}{CI method: \code{"clopper-pearson"} (default), \code{"wald"}, or
+\code{"agresti-coull"}. See Description. \code{design_precision()} sizes a
+study from the Wald formula, so the default interval comes out a
+little wider than the margin of error it was designed for.}
 }
 \value{
 A list with:
@@ -47,19 +49,23 @@ scale.}
 \item{n_eff}{Effective sample size, \code{sum(n) / deff}.}
 \item{icc}{ICC used: as supplied, or estimated from the data.}
 \item{deff}{Design effect applied (1 when there is no clustering).}
+\item{df}{Degrees of freedom of the estimated design effect, sites - 1;
+\code{Inf} when \code{icc} is supplied or not estimated.}
 }
 \description{
 Analysis function: given observed counts, returns a prevalence point
 estimate and confidence interval. Three CI methods are available:
 
 \describe{
-\item{\code{"wald"} (default)}{Symmetric unless an end is moved to 0 or 1.
+\item{\code{"clopper-pearson"} (default)}{Asymmetric. Exact binomial
+interval, via the beta distribution. For a simple random sample, its
+coverage is at least the stated confidence level, so it is usually
+wider than the Wald interval. It is also the interval that matches
+the exact test in \code{test_threshold()}.}
+\item{\code{"wald"}}{Symmetric unless an end is moved to 0 or 1.
 \eqn{\hat{p} \pm z \cdot SE}. Can be too narrow for small samples or
-prevalence near 0 or 1.}
-\item{\code{"clopper-pearson"}}{Asymmetric. Exact binomial interval, via
-the beta distribution. For a simple random sample, its coverage is
-at least the stated confidence level, so it is usually wider than
-the Wald interval.}
+prevalence near 0 or 1, and has zero width when no one (or everyone)
+tests positive.}
 \item{\code{"agresti-coull"}}{Asymmetric. A Wald interval calculated after
 adding \eqn{z^2/2} positive and \eqn{z^2/2} negative cases to the data
 (about 1.92 of each at 95 percent). This moves the interval towards
@@ -109,21 +115,32 @@ proportions to the variance expected under simple random sampling,
 
 \deqn{\widehat{D} = \frac{\mathrm{Var}(\hat{p}_i)}{\;\overline{\hat{p}(1 - \hat{p}) / n_i}\;}, \qquad \hat{p}_i = \frac{x_i}{n_i}}
 
-and the ICC recovered by inverting the Kish formula,
-\eqn{\hat{\rho} = (\widehat{D} - 1) / (\bar{n} - 1)}, kept between 0 and
-\enumerate{
-\item \eqn{D_{eff}} is then computed from \eqn{\hat{\rho}} as above. With a
+and the ICC recovered from \eqn{\widehat{D} = 1 + (n_h - 1)\,\hat{\rho}},
+
+\deqn{\hat{\rho} = \frac{\widehat{D} - 1}{n_h - 1}, \qquad
+  n_h = \frac{k}{\sum_i 1 / n_i}}
+
+kept between 0 and 1, where \eqn{k} is the number of sites and
+\eqn{n_h} the harmonic mean site size. The harmonic mean is the one that
+links \eqn{\widehat{D}} to the ICC when sites differ in size: the
+variance of a site's prevalence is \eqn{p(1-p)(1 + (n_i - 1)\rho) / n_i},
+and averaging over sites gives \eqn{n_h}. \eqn{D_{eff}} is then computed
+from \eqn{\hat{\rho}} as above, with the size-weighted mean \eqn{n_w},
+because that is the design effect of the pooled prevalence
+\eqn{\hat{p}}. With equal sites the two means are the same. With a
 single site, one person per site, or nobody (or everybody) positive, the
 ICC is 0. If everyone tested comes from one site, supply \code{icc}.
-}
 
-An ICC estimated from only a few sites is uncertain, and the interval
-then tends to be too narrow. In simulations with a true ICC of 0.1, 50
-people per site and a prevalence of 0.3, a 95 percent Wald interval
-contained the true prevalence about 76 percent of the time with 2 sites,
-87 percent with 5 and 90 percent with 10 (Clopper-Pearson: 80, 89 and
-92 percent). With the true ICC supplied it was 92 to 95 percent.
-Supplying \code{icc} from other studies avoids this.
+\emph{Few sites.} An ICC estimated from \eqn{k} sites rests on only
+\eqn{k - 1} degrees of freedom (returned as \code{df}), so the design
+effect is itself uncertain. The interval allows for this as in Korn and
+Graubard (1998): see step 4. In simulations with a true ICC of 0.1, 50
+people per site and a prevalence of 0.3, the 95 percent Clopper-Pearson
+interval contained the true prevalence 99 percent of the time with 3
+sites, 96 with 5 and 95 to 96 with 10 or more (Wald: 97, 94 and 94). With
+2 sites (1 degree of freedom) the interval is very wide, which is an
+honest picture of how little 2 sites say. Supplying \code{icc} from
+other studies gives narrower intervals when it can be trusted.
 
 \strong{3. Effective sample size.}
 
@@ -133,10 +150,19 @@ the number of independent observations carrying the same information as
 the clustered sample.
 
 \strong{4. Confidence interval on apparent prevalence.} Let
-\eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level},
-and \eqn{x_{eff} = \hat{p}\,n_{eff}}, the number of positives scaled to
-the effective sample size. Any end below 0 is set to 0 and any end above
-1 is set to 1.
+\eqn{z = \Phi^{-1}(1 - \alpha/2)}, \eqn{\alpha = 1 - } \code{conf_level}.
+When the ICC is estimated, the effective sample size used for the
+interval is shrunk to
+
+\deqn{n_{eff} \left(\frac{z}{t_{k-1}}\right)^2}
+
+where \eqn{t_{k-1}} is the matching quantile of a t distribution with
+\eqn{k - 1} degrees of freedom (Korn and Graubard, 1998). For the Wald
+interval this is the same as using \eqn{t_{k-1}} in place of \eqn{z}.
+With \code{icc} supplied, or one site, nothing changes. Below,
+\eqn{n_{eff}} stands for this adjusted size, and
+\eqn{x_{eff} = \hat{p}\,n_{eff}} is the number of positives scaled to
+it. Any end below 0 is set to 0 and any end above 1 is set to 1.
 
 \emph{\code{"wald"}} -- the normal-approximation interval,
 
@@ -192,8 +218,8 @@ estimate_prevalence(
   n = c(60, 80, 70, 100, 40, 60, 50, 90)
 )
 
-# Clopper-Pearson interval
-estimate_prevalence(x = 3, n = 30, ci_method = "clopper-pearson")
+# Wald interval instead of the default Clopper-Pearson
+estimate_prevalence(x = 3, n = 30, ci_method = "wald")
 
 # Imperfect diagnostic test
 estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
@@ -213,6 +239,11 @@ limits illustrated in the case of the binomial. \emph{Biometrika}
 Agresti, A. & Coull, B. A. (1998) Approximate is better than "exact" for
 interval estimation of binomial proportions. \emph{The American
 Statistician} \strong{52}(2), 119-126. \doi{10.1080/00031305.1998.10480550}
+
+Korn, E. L. & Graubard, B. I. (1998) Confidence intervals for
+proportions with small expected number of positive counts estimated
+from survey data. \emph{Survey Methodology} \strong{24}(2), 193-201.
+(Degrees-of-freedom adjustment.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}

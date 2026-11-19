@@ -56,7 +56,8 @@ clustering). An \code{icc} above 0 needs \code{n_sites} or
 \code{n_per_site}.}
 }
 \value{
-A list with:
+A list with (every value \code{NA}, with a warning, if more than
+100,000 people are needed without clustering):
 \item{n}{Total number of people needed. With sites,
 \code{n_sites * n_per_site}.}
 \item{n_sites}{Number of sites (\code{NULL} with no clustering).}
@@ -105,8 +106,10 @@ every number from 203 on gives at least 80 percent. The function returns
 the larger number (203): the smallest \eqn{n} from which every larger
 \eqn{n} also reaches the target power. This is the safe choice, as a few
 extra (or a few lost) people never drop the study below the target.
-Sample sizes up to 10,000 are checked; a design needing more than that
-without clustering stops with an error.
+Sample sizes up to 100,000 are checked. A design needing more than that
+without clustering (a prevalence very close to the threshold) gives a
+warning that reports the power 100,000 people would reach, and returns
+\code{NA} for every value.
 
 \strong{Imperfect test.} The test is worked out on the measured scale: a
 true prevalence \eqn{p} is measured as

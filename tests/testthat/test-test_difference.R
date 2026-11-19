@@ -39,7 +39,10 @@ test_that("clustering makes the same counts less convincing", {
   x2 <- c(4, 18, 9); n2 <- c(55, 70, 45)
   plain <- test_difference(x1, n1, x2, n2, alternative = "less", icc = 0)
   est   <- test_difference(x1, n1, x2, n2, alternative = "less")
-  expect_equal(c(est$deff1, est$deff2), c(2.66, 3.36), tolerance = 0.01)
+  # harmonic mean site size for the ICC, size-weighted for the design effect
+  expect_equal(c(est$deff1, est$deff2), c(2.708268, 3.434308), tolerance = 1e-5)
+  expect_true(is.finite(est$df) && est$df >= 2 && est$df <= 4)
+  expect_equal(plain$df, Inf)
   expect_gt(est$p_value, 10 * plain$p_value)
   two_icc <- test_difference(x1, n1, x2, n2, icc = c(0.02, 0.08))
   expect_equal(two_icc$deff1, 1 + (sum(n1^2) / sum(n1) - 1) * 0.02)
@@ -58,13 +61,23 @@ test_that("reject is TRUE exactly when the interval leaves out 0", {
   for (method in c("score", "wald")) {
     for (alt in c("two.sided", "greater", "less")) {
       for (x2 in c(2, 6, 10, 14, 20)) {
-        res <- test_difference(c(5, 6), c(60, 60), c(x2, x2 + 1), c(60, 60),
-                               alternative = alt, icc = 0.02, method = method)
-        expect_identical(res$reject, res$ci_lower > 0 || res$ci_upper < 0,
-                         info = paste(method, alt, x2))
+        for (icc in list(0.02, NULL)) {
+          res <- test_difference(c(5, 9), c(60, 60), c(x2, x2 + 4), c(60, 60),
+                                 alternative = alt, icc = icc, method = method)
+          expect_identical(res$reject, res$ci_lower > 0 || res$ci_upper < 0,
+                           info = paste(method, alt, x2, is.null(icc)))
+        }
       }
     }
   }
+})
+
+test_that("Satterthwaite combines the groups' degrees of freedom", {
+  expect_equal(.satterthwaite(c(1, 1), c(2, 2)), 4)
+  expect_equal(.satterthwaite(c(1, 1), c(Inf, Inf)), Inf)
+  expect_equal(.satterthwaite(c(1, 0), c(3, 5)), 3)
+  # one known variance: df grows with its share
+  expect_equal(.satterthwaite(c(1, 1), c(2, Inf)), 8)
 })
 
 test_that("invalid inputs are rejected", {

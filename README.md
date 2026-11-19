@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# MMSpower
+# MMSpower <img src="man/figures/logo.png" align="right" height="139" alt="MMSpower hex logo" />
 
 <!-- badges: start -->
 
@@ -16,20 +16,6 @@ for malaria molecular surveillance (MMS) studies. It allows for
 imperfect diagnostic tests (sensitivity and specificity) and for
 clustered sampling across sites (intra-cluster correlation and the
 design effect).
-
-The package covers common study questions, each with a design function
-(how many samples do I need?) and, where there is data to analyse, a
-matching analysis function (what do my data show?), plus a simple
-costing function:
-
-| Question | Design | Analysis |
-|----|----|----|
-| How precisely can I estimate prevalence? | `design_precision()` | `estimate_prevalence()` |
-| Is prevalence above (or below) a threshold? | `design_threshold()` | `test_threshold()` |
-| Is a variant present at all? | `design_detection()` |  |
-| Does prevalence differ between two groups? | `design_difference()` | `test_difference()` |
-| Is prevalence changing over time? | `design_trend()` | `test_trend()` |
-| What will the study cost? | `estimate_cost()` |  |
 
 ## Installation
 

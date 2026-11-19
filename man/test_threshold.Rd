@@ -65,6 +65,8 @@ for \code{"less"}.}
 \item{n_eff}{Effective sample size, \code{sum(n) / deff}.}
 \item{icc}{ICC used: as supplied, or estimated from the data.}
 \item{deff}{Design effect used (1 with no clustering).}
+\item{df}{Degrees of freedom of the estimated design effect, sites - 1;
+\code{Inf} when \code{icc} is supplied or not estimated.}
 }
 \description{
 Analysis function: given the number of positives and the number tested
@@ -119,6 +121,19 @@ interest, leave \code{icc = NULL}. With \code{icc = NULL}, the ICC is
 estimated from the data as in \code{estimate_prevalence()}; this needs
 at least two sites, and with one site the design effect is 1.
 
+\strong{Few sites.} An ICC estimated from \eqn{k} sites rests on
+\eqn{k - 1} degrees of freedom (returned as \code{df}), so the design
+effect is itself uncertain. The tests allow for this, as
+\code{estimate_prevalence()} does: the exact test and its interval use
+the effective sample size shrunk to \eqn{m (z / t_{k-1})^2} (Korn and
+Graubard, 1998), with \eqn{z} and \eqn{t_{k-1}} the normal and t
+quantiles for the tail area of the test (\eqn{\alpha}, or
+\eqn{\alpha / 2} for two-sided); the Wald test uses a t distribution
+with \eqn{k - 1} degrees of freedom in place of the normal. With
+\code{icc} supplied, or one site, nothing changes. Because the shrink
+depends on \eqn{\alpha}, the exact p-value then depends a little on
+\code{conf_level}; \code{reject} and the interval always agree.
+
 \strong{Effective sample size.} \eqn{m} (returned as \code{n_eff}) is the
 number tested divided by the design effect. The number of positives is
 scaled the same way, to \eqn{\hat{p} m}, where
@@ -141,7 +156,8 @@ one-sided p-values are exactly those of R's \code{binom.test()}.
 
 with the standard error worked out at the measured prevalence
 \eqn{\hat{p}}. The one-sided p-values are the normal tail areas above
-and below \eqn{z}. It can be too optimistic for small samples or a
+and below \eqn{z} (t tail areas when the ICC is estimated; see Few
+sites). It can be too optimistic for small samples or a
 prevalence near 0; with no positives (or all positive) the standard
 error is 0, and any threshold on the other side counts as rejected.
 
@@ -167,17 +183,21 @@ interval,
 with \eqn{x_{eff} = \hat{p} m} and \eqn{B^{-1}} the beta quantile
 function; for the Wald test it is \eqn{\hat{p} \pm z_{1-\alpha}
 \sqrt{\hat{p}(1 - \hat{p}) / m}} (\eqn{\alpha/2} in place of \eqn{\alpha}
-for two-sided). It is built on the measured scale and then corrected for
+for two-sided). With an estimated ICC, \eqn{m} is the shrunk size in the
+Clopper-Pearson interval and the t quantile replaces \eqn{z} in the Wald
+interval. It is built on the measured scale and then corrected for
 an imperfect test, with ends kept within [0, 1]; if the whole
 corrected interval lies outside [0, 1], the function warns that the
 data do not fit the assumed sensitivity and specificity.
 
 \strong{When to use DRpower instead.} With the ICC supplied, this
 function keeps the chance of a false alarm at or below the significance
-level. With \code{icc = NULL} and few sites of very different sizes, the
-ICC is poorly estimated and the false alarm rate can be well above it
-(13 to 28 percent at a 5 percent level in simulation); with an ICC
-estimated from few sites it also has low power. For pfhrp2/3 deletion
+level. With \code{icc = NULL} the degrees-of-freedom adjustment keeps it
+there too: in simulation, with the true prevalence at a 5 percent
+threshold, an ICC of 0.05 and 2 to 10 sites (equal or very different
+sizes), false alarms at a 5 percent level were at most 4.6 percent. The
+price is low power with few sites, as an ICC estimated from them says
+little. For pfhrp2/3 deletion
 surveys with several sites and an unknown ICC, where the question is
 whether prevalence is above the threshold, consider DRpower
 (\url{https://mrc-ide.github.io/DRpower/}). It estimates prevalence and
@@ -218,6 +238,11 @@ for discrete data. \emph{The R Journal} \strong{2}(1), 53-58.
 \doi{10.32614/RJ-2010-008}
 
 Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
+
+Korn, E. L. & Graubard, B. I. (1998) Confidence intervals for
+proportions with small expected number of positive counts estimated
+from survey data. \emph{Survey Methodology} \strong{24}(2), 193-201.
+(Degrees-of-freedom adjustment.)
 
 Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 of a screening test. \emph{American Journal of Epidemiology}

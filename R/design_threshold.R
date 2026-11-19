@@ -67,8 +67,10 @@
 #' the larger number (203): the smallest \eqn{n} from which every larger
 #' \eqn{n} also reaches the target power. This is the safe choice, as a few
 #' extra (or a few lost) people never drop the study below the target.
-#' Sample sizes up to 10,000 are checked; a design needing more than that
-#' without clustering stops with an error.
+#' Sample sizes up to 100,000 are checked. A design needing more than that
+#' without clustering (a prevalence very close to the threshold) gives a
+#' warning that reports the power 100,000 people would reach, and returns
+#' \code{NA} for every value.
 #'
 #' \strong{Imperfect test.} The test is worked out on the measured scale: a
 #' true prevalence \eqn{p} is measured as
@@ -95,7 +97,8 @@
 #' saw-tooth exactly where \eqn{n_0} does. The power assumes the analysis
 #' uses the same ICC.
 #'
-#' @return A list with:
+#' @return A list with (every value \code{NA}, with a warning, if more than
+#'   100,000 people are needed without clustering):
 #'   \item{n}{Total number of people needed. With sites,
 #'     \code{n_sites * n_per_site}.}
 #'   \item{n_sites}{Number of sites (\code{NULL} with no clustering).}
@@ -160,7 +163,7 @@ design_threshold <- function(threshold,
          call. = FALSE)
 
   # exact power for every unclustered sample size up to n_max
-  n_max     <- 10000
+  n_max     <- 100000
   theta_app <- .apparent_prev(threshold, sensitivity, specificity)
   p_app     <- .apparent_prev(prevalence, sensitivity, specificity)
   pw <- .threshold_power(seq_len(n_max), theta_app, p_app, alternative,
@@ -168,10 +171,17 @@ design_threshold <- function(threshold,
 
   # n0: the smallest n from which every larger n reaches the target power
   below <- which(pw < power)
-  if (length(below) > 0 && max(below) == n_max)
-    stop("These settings need more than ", format(n_max, big.mark = ","),
-         " people without clustering. Use a prevalence further from the ",
-         "threshold, a lower power, or a more accurate test.", call. = FALSE)
+  if (length(below) > 0 && max(below) == n_max) {
+    warning(sprintf(paste0("These settings need more than %s people without ",
+                           "clustering (%s people give %.1f%% power), so no ",
+                           "design is returned. Use a prevalence further from ",
+                           "the threshold, a lower power, or a more accurate test."),
+                    formatC(n_max, format = "d", big.mark = ","),
+                    formatC(n_max, format = "d", big.mark = ","),
+                    100 * pw[n_max]), call. = FALSE)
+    return(list(n = NA_real_, n_sites = NA_real_, n_per_site = NA_real_,
+                deff = NA_real_, n_eff = NA_real_))
+  }
   n0 <- if (length(below) == 0) 1 else max(below) + 1
 
   # clustered sample size, as in design_precision()

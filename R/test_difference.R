@@ -65,12 +65,24 @@
 #' needs at least two sites, and a group with one site gets a design effect
 #' of 1.
 #'
-#' An ICC estimated from only a few sites is uncertain, and the interval
-#' then tends to be too narrow. In simulations with a true ICC of 0.1, 50
-#' people per site and prevalences of 0.2 to 0.5, a 95 percent interval
-#' contained the true difference about 83 to 85 percent of the time with 2
-#' sites per group, 87 to 89 percent with 3 and 90 to 92 percent with 5.
-#' Supplying \code{icc} from other studies avoids this.
+#' \strong{Few sites.} An ICC estimated from \eqn{k} sites rests on only
+#' \eqn{k - 1} degrees of freedom, so the design effect is itself
+#' uncertain. When either group's ICC is estimated, the test statistic is
+#' compared with a t distribution in place of the normal, and the interval
+#' uses the matching t quantile. Its degrees of freedom (returned as
+#' \code{df}) combine the two groups by Satterthwaite's (1946) formula,
+#'
+#' \deqn{df = \frac{(v_1 + v_2)^2}{v_1^2 / df_1 + v_2^2 / df_2}, \qquad
+#'   v_g = \hat{p}_g (1 - \hat{p}_g) / m_g}
+#'
+#' with \eqn{df_g = k_g - 1} for a group whose ICC is estimated, and a
+#' group whose ICC is supplied (or that has one site) left out of the
+#' denominator. With both ICCs supplied, \code{df} is \code{Inf} and the
+#' test is the normal one. In simulations with a true ICC of 0.1, 50 people
+#' per site and prevalences of 0.2 to 0.5, a 95 percent interval contained
+#' the true difference 96 to 97 percent of the time with 3 sites per group
+#' and 95 to 96 percent with 5. With 2 sites per group it is very wide (99
+#' percent), an honest picture of how little 2 sites say.
 #'
 #' \strong{Effective sample size.} For group \eqn{g}, \eqn{m_g} (returned as
 #' \code{n_eff1} and \code{n_eff2}) is the number tested divided by the
@@ -99,7 +111,9 @@
 #' each group's measured prevalence is 0 or 1 the standard error is 0.
 #'
 #' For both, the one-sided p-values are the normal tail areas above and
-#' below \eqn{z}, and the two-sided p-value is twice the smaller of them.
+#' below \eqn{z} (t tail areas with \code{df} degrees of freedom when an
+#' ICC is estimated), and the two-sided p-value is twice the smaller of
+#' them.
 #'
 #' \strong{Interval.} The interval is the test turned around: it holds the
 #' differences \eqn{\delta} the test would not reject, so it leaves out 0
@@ -148,6 +162,8 @@
 #'     from that group's data.}
 #'   \item{deff1, deff2}{Design effect used for each group (1 with no
 #'     clustering).}
+#'   \item{df}{Degrees of freedom of the test (see Few sites); \code{Inf}
+#'     when neither ICC is estimated.}
 #'
 #' @references
 #' MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
@@ -169,6 +185,10 @@
 #'
 #' Kish, L. (1965) \emph{Survey Sampling}. Wiley. (Design effect.)
 #'
+#' Satterthwaite, F. E. (1946) An approximate distribution of estimates of
+#' variance components. \emph{Biometrics Bulletin} \strong{2}(6), 110-114.
+#' \doi{10.2307/3002019}
+#'
 #' Rogan, W. J. & Gladen, B. (1978) Estimating prevalence from the results
 #' of a screening test. \emph{American Journal of Epidemiology}
 #' \strong{107}(1), 71-76. \doi{10.1093/oxfordjournals.aje.a112510}
@@ -182,8 +202,8 @@
 #' test_difference(x1 = 8, n1 = 100, x2 = 20, n2 = 120)
 #'
 #' # Three sites per group, one-sided, imperfect diagnostic test. The sites
-#' # differ, so the estimated design effects are above 1 (about 2.6 and 3.3)
-#' # and p is 0.07; treating everyone as independent would give 0.007.
+#' # differ, so the estimated design effects are above 1 (about 2.7 and 3.4)
+#' # and p is 0.12; treating everyone as independent would give 0.007.
 #' test_difference(
 #'   x1 = c(1, 9, 3), n1 = c(50, 60, 40),
 #'   x2 = c(4, 18, 9), n2 = c(55, 70, 45),
@@ -230,6 +250,13 @@ test_difference <- function(x1, n1, x2, n2,
   m2 <- sum(n2) / g2$deff
   d  <- p1 - p2
 
+  # With an estimated ICC each design effect is uncertain (sites - 1
+  # degrees of freedom); the groups are combined by Satterthwaite's
+  # formula, and the statistic is compared with a t distribution. With
+  # both ICCs supplied (or not estimated) df is Inf, the normal.
+  df <- .satterthwaite(c(p1 * (1 - p1) / m1, p2 * (1 - p2) / m2),
+                       c(g1$df, g2$df))
+
   # z-statistic. The score version uses the pooled prevalence (the
   # restricted estimate at delta = 0); the Wald version each group's own.
   if (method == "score") {
@@ -239,9 +266,9 @@ test_difference <- function(x1, n1, x2, n2,
     z  <- if (d == 0) 0 else d / se     # +/-Inf when se is 0
   }
   p_value <- switch(alternative,
-    greater   = stats::pnorm(z, lower.tail = FALSE),
-    less      = stats::pnorm(z),
-    two.sided = 2 * stats::pnorm(-abs(z)))
+    greater   = stats::pt(z, df, lower.tail = FALSE),
+    less      = stats::pt(z, df),
+    two.sided = 2 * stats::pt(-abs(z), df))
   alpha <- 1 - conf_level
 
   # The interval is the test turned around: alpha in the one closed tail
@@ -249,8 +276,8 @@ test_difference <- function(x1, n1, x2, n2,
   # runs to -1 or 1.
   alpha_lo <- switch(alternative, greater = alpha, less = 0, two.sided = alpha / 2)
   alpha_hi <- switch(alternative, greater = 0, less = alpha, two.sided = alpha / 2)
-  z_lo <- if (alpha_lo > 0) stats::qnorm(alpha_lo, lower.tail = FALSE)
-  z_hi <- if (alpha_hi > 0) stats::qnorm(alpha_hi, lower.tail = FALSE)
+  z_lo <- if (alpha_lo > 0) stats::qt(alpha_lo, df, lower.tail = FALSE)
+  z_hi <- if (alpha_hi > 0) stats::qt(alpha_hi, df, lower.tail = FALSE)
   if (method == "score") {
     ci_app <- c(if (is.null(z_lo)) -1 else .score_bound(p1, m1, p2, m2, z_lo, "lower"),
                 if (is.null(z_hi))  1 else .score_bound(p1, m1, p2, m2, z_hi, "upper"))
@@ -277,8 +304,17 @@ test_difference <- function(x1, n1, x2, n2,
     icc1        = g1$icc,
     icc2        = g2$icc,
     deff1       = g1$deff,
-    deff2       = g2$deff
+    deff2       = g2$deff,
+    df          = df
   )
+}
+
+# Satterthwaite degrees of freedom for a sum of variances `v` estimated
+# with `df` degrees of freedom each (Inf when known). Inf when no variance
+# is estimated or all are 0.
+.satterthwaite <- function(v, df) {
+  den <- sum(ifelse(is.finite(df), v^2 / df, 0))
+  if (den == 0) Inf else sum(v)^2 / den
 }
 
 

@@ -11,7 +11,7 @@
 #   CI = 0.3 +/- 0.108154 = [0.191846, 0.408154]
 
 test_that("one site, perfect test gives the hand-checked Wald interval", {
-  res <- estimate_prevalence(x = 30, n = 100)
+  res <- estimate_prevalence(x = 30, n = 100, ci_method = "wald")
   expect_equal(res$prevalence, 0.3)
   expect_equal(res$ci_lower, 0.210183, tolerance = 1e-4)
   expect_equal(res$ci_upper, 0.389817, tolerance = 1e-4)
@@ -20,14 +20,16 @@ test_that("one site, perfect test gives the hand-checked Wald interval", {
 })
 
 test_that("an imperfect test corrects the estimate and both ends", {
-  res <- estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95)
+  res <- estimate_prevalence(x = 30, n = 100, sensitivity = 0.9, specificity = 0.95,
+                             ci_method = "wald")
   expect_equal(res$prevalence, 0.294118, tolerance = 1e-4)
   expect_equal(res$ci_lower, 0.188451, tolerance = 1e-4)
   expect_equal(res$ci_upper, 0.399785, tolerance = 1e-4)
 })
 
 test_that("a supplied icc widens the interval through the design effect", {
-  res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05)
+  res <- estimate_prevalence(x = rep(3, 10), n = rep(10, 10), icc = 0.05,
+                             ci_method = "wald")
   expect_equal(res$deff, 1.45)
   expect_equal(res$n_eff, 100 / 1.45)
   expect_equal(res$ci_lower, 0.191846, tolerance = 1e-4)
@@ -36,17 +38,32 @@ test_that("a supplied icc widens the interval through the design effect", {
 
 test_that("icc estimated from the data (8-site example)", {
   # var of site prevalences 0.042917; expected under SRS 0.002101;
-  # ratio 20.43 -> icc = 19.43 / 67.75 = 0.2867; size-weighted site size 74,
-  # deff = 1 + 73 * 0.2867 = 21.93
-  res <- estimate_prevalence(
-    x = c(0, 4, 0, 22, 25, 16, 12, 8),
-    n = c(60, 80, 70, 100, 40, 60, 50, 90)
-  )
+  # ratio 20.4258; harmonic mean site size 63.3763 ->
+  # icc = 19.4258 / 62.3763 = 0.311430; size-weighted site size 74,
+  # deff = 1 + 73 * 0.311430 = 23.734366, n_eff = 23.1731.
+  # 8 sites -> 7 df: Wald 0.158182 +/- qt(0.975, 7) * se
+  #   = [-0.021067, 0.337431], lower end set to 0.
+  # Clopper-Pearson on n_eff * (qnorm(0.975) / qt(0.975, 7))^2:
+  #   [0.027517, 0.423857]
+  x <- c(0, 4, 0, 22, 25, 16, 12, 8)
+  n <- c(60, 80, 70, 100, 40, 60, 50, 90)
+  res <- suppressMessages(estimate_prevalence(x, n, ci_method = "wald"))
   expect_equal(res$prevalence, 0.158182, tolerance = 1e-4)
-  expect_equal(res$icc, 0.286728, tolerance = 1e-4)
-  expect_equal(res$deff, 21.931152, tolerance = 1e-4)
-  expect_equal(res$ci_lower, 0.015363, tolerance = 1e-4)
-  expect_equal(res$ci_upper, 0.301000, tolerance = 1e-4)
+  expect_equal(res$icc, 0.311430, tolerance = 1e-4)
+  expect_equal(res$deff, 23.734366, tolerance = 1e-4)
+  expect_equal(res$df, 7)
+  expect_equal(res$ci_lower, 0)
+  expect_equal(res$ci_upper, 0.337431, tolerance = 1e-4)
+  cp <- estimate_prevalence(x, n)
+  expect_equal(cp$ci_lower, 0.027517, tolerance = 1e-4)
+  expect_equal(cp$ci_upper, 0.423857, tolerance = 1e-4)
+})
+
+test_that("a supplied icc, or one site, leaves the degrees of freedom infinite", {
+  x <- c(0, 4, 0, 22); n <- c(60, 80, 70, 100)
+  expect_equal(estimate_prevalence(x, n, icc = 0.1)$df, Inf)
+  expect_equal(estimate_prevalence(30, 100)$df, Inf)
+  expect_equal(estimate_prevalence(x, n)$df, 3)
 })
 
 test_that("identical sites, or a single site, give an estimated icc of 0", {
@@ -54,8 +71,8 @@ test_that("identical sites, or a single site, give an estimated icc of 0", {
   expect_equal(estimate_prevalence(30, 100)$deff, 1)
 })
 
-test_that("clopper-pearson matches binom.test", {
-  res <- estimate_prevalence(x = 30, n = 100, ci_method = "clopper-pearson")
+test_that("the default interval is clopper-pearson and matches binom.test", {
+  res <- estimate_prevalence(x = 30, n = 100)
   expect_equal(c(res$ci_lower, res$ci_upper), binom.test(30, 100)$conf.int[1:2])
 })
 
@@ -67,9 +84,9 @@ test_that("agresti-coull matches the hand-check", {
 })
 
 test_that("no positives: the interval is kept within [0, 1]", {
-  wald <- estimate_prevalence(x = 0, n = 50)
+  wald <- estimate_prevalence(x = 0, n = 50, ci_method = "wald")
   expect_equal(c(wald$ci_lower, wald$ci_upper), c(0, 0))
-  cp <- estimate_prevalence(x = 0, n = 50, ci_method = "clopper-pearson")
+  cp <- estimate_prevalence(x = 0, n = 50)
   expect_equal(cp$ci_lower, 0)
   expect_gt(cp$ci_upper, 0)
 })
@@ -82,9 +99,10 @@ test_that("data that do not fit the test accuracy warn", {
 
 test_that("the n from design_precision gives back the target moe", {
   # design_precision(0.3, 0.05) -> 323
-  expect_equal(estimate_prevalence(x = 97, n = 323)$moe, 0.05, tolerance = 0.01)
+  expect_equal(estimate_prevalence(x = 97, n = 323, ci_method = "wald")$moe, 0.05, tolerance = 0.01)
   # design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05) -> 47 sites of 10
-  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+  res <- estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05,
+                             ci_method = "wald")
   expect_equal(res$moe, 0.05, tolerance = 0.01)
 })
 
