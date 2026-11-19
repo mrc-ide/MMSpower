@@ -1,0 +1,93 @@
+/* MMSpower site styles, on top of the Bootstrap 5 theme in _pkgdown.yml.
+   Palette from the logo: navy #1B2A41, red #C0392B, cream #F3E9DC. */
+
+:root {
+  --mms-navy: #1B2A41;
+  --mms-red: #C0392B;
+  --mms-cream: #F3E9DC;
+  --mms-grey: #6B7280;
+  --mms-tint: #F8F2EA;          /* light cream for callouts */
+}
+[data-bs-theme="dark"] {
+  --mms-tint: #222F45;
+  /* the red is too dark to read on a dark background: lighten links */
+  --bs-link-color: #E8796D;
+  --bs-link-color-rgb: 232, 121, 109;
+  --bs-link-hover-color: #F2A79F;
+  --bs-link-hover-color-rgb: 242, 167, 159;
+}
+[data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: #E8796D;
+  --bs-btn-border-color: #E8796D;
+  --bs-btn-hover-bg: #E8796D;
+  --bs-btn-hover-border-color: #E8796D;
+  --bs-btn-hover-color: #1B2A41;
+}
+[data-bs-theme="dark"] .btn-outline-secondary {
+  --bs-btn-color: #F3E9DC;
+  --bs-btn-border-color: #C9BFB2;
+}
+
+/* navbar in the logo's navy with cream text, in both themes */
+.navbar {
+  background-color: var(--mms-navy) !important;
+  --bs-navbar-color: rgba(243, 233, 220, 0.85);
+  --bs-navbar-hover-color: #F3E9DC;
+  --bs-navbar-active-color: #F3E9DC;
+  --bs-navbar-brand-color: #F3E9DC;
+  --bs-navbar-brand-hover-color: #F3E9DC;
+  --bs-navbar-toggler-border-color: rgba(243, 233, 220, 0.4);
+}
+.navbar .nav-text, .navbar .text-muted { color: rgba(243, 233, 220, 0.6) !important; }
+.navbar .navbar-toggler-icon { filter: invert(1); }
+
+/* ---- home page ---- */
+
+/* The hero replaces pkgdown's own page title on the home page. */
+.template-home .page-header { display: none; }
+
+.mms-hero {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  padding: 3rem 0 2.5rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.mms-hero img { width: 170px; flex-shrink: 0; }
+.mms-hero h1 {
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+  color: var(--mms-navy);
+}
+[data-bs-theme="dark"] .mms-hero h1 { color: var(--mms-cream); }
+.mms-hero .lead {
+  font-size: 1.25rem;
+  color: var(--mms-grey);
+  max-width: 38rem;
+  hyphens: manual;
+}
+[data-bs-theme="dark"] .mms-hero .lead { color: var(--bs-body-color); opacity: 0.85; }
+.mms-hero .btn { margin: 0.75rem 0.5rem 0 0; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .mms-hero { flex-direction: column; text-align: center; gap: 1rem; padding-top: 1.5rem; }
+  .mms-hero img { width: 120px; }
+  .mms-hero .lead { margin: 0 auto; }
+}
+
+/* ---- everywhere ---- */
+
+h2 { font-weight: 700; margin-top: 2.2rem; }
+
+/* tinted callout for notes in articles: ::: {.mms-note} ... ::: */
+.mms-note {
+  background: var(--mms-tint);
+  border-left: 4px solid var(--mms-red);
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+.mms-note p:last-child { margin-bottom: 0; }

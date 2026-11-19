@@ -83,24 +83,40 @@
 
 # ICC and design effect for observed counts `x` out of `n`, one per site.
 # A supplied `icc` is used as given. With `icc = NULL` it is estimated from
-# the between-site variance of the site prevalences, compared with the
-# variance expected if everyone were independent; with one site, or one
-# person per site, there is nothing to estimate from and it is 0. The design
-# effect uses the size-weighted mean site size sum(n^2) / sum(n), which is
-# the plain mean when all sites are the same size. Returns list(icc, deff).
+# the ratio R of the between-site variance of the site prevalences to the
+# variance expected if everyone were independent. Under the usual model
+# R = 1 + (n_h - 1) * icc, where n_h is the harmonic mean site size, so that
+# is the mean used to recover the ICC. With one site, or one person per
+# site, there is nothing to estimate from and it is 0. The design effect of
+# the pooled prevalence uses the size-weighted mean site size
+# sum(n^2) / sum(n) (both means are the plain mean when all sites are the
+# same size). `df` is the degrees of freedom of the estimated variance,
+# sites - 1, or Inf when the ICC was supplied or not estimated.
+# Returns list(icc, deff, df).
 .estimate_deff <- function(x, n, icc = NULL) {
   n_w <- sum(n^2) / sum(n)
+  df  <- Inf
   if (is.null(icc)) {
     icc <- 0
-    if (length(n) > 1 && mean(n) > 1) {
+    n_h <- 1 / mean(1 / n)
+    if (length(n) > 1 && n_h > 1) {
+      df      <- length(n) - 1
       p_hat   <- sum(x) / sum(n)
       var_obs <- stats::var(x / n)
       var_srs <- mean(p_hat * (1 - p_hat) / n)
       if (var_srs > 0)
-        icc <- min(max((var_obs / var_srs - 1) / (mean(n) - 1), 0), 1)
+        icc <- min(max((var_obs / var_srs - 1) / (n_h - 1), 0), 1)
     }
   }
-  list(icc = icc, deff = .deff(n_w, icc))
+  list(icc = icc, deff = .deff(n_w, icc), df = df)
+}
+
+# Effective sample size for an interval or test with tail area `a`, when
+# the design effect was estimated with `df` degrees of freedom: n_eff
+# shrunk by (z / t)^2 (Korn & Graubard, 1998). For a Wald interval this is
+# the same as using a t value in place of z. Unchanged when df is Inf.
+.df_adjust <- function(n_eff, a, df) {
+  n_eff * (stats::qnorm(a, lower.tail = FALSE) / stats::qt(a, df, lower.tail = FALSE))^2
 }
 
 # Total sample size with `n_sites` fixed, given the unclustered size `n0`.

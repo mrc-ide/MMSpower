@@ -47,6 +47,23 @@ test_that("clustering makes the same counts less convincing", {
   expect_gt(clus$p_value, plain$p_value)
 })
 
+test_that("an estimated icc uses sites - 1 degrees of freedom", {
+  # 5 sites -> 4 df. Exact: n_eff shrunk by (qnorm(0.95) / qt(0.95, 4))^2;
+  # Wald: t distribution with 4 df.
+  x <- c(1, 6, 2, 9, 4); n <- rep(50, 5)
+  res <- test_threshold(x, n, threshold = 0.05)
+  expect_equal(res$df, 4)
+  m <- res$n_eff * (qnorm(0.95) / qt(0.95, 4))^2
+  p <- sum(x) / sum(n)
+  expect_equal(res$p_value, pbeta(0.05, p * m, m - p * m + 1))
+  expect_equal(res$ci_lower, qbeta(0.05, p * m, m - p * m + 1))
+  w <- test_threshold(x, n, threshold = 0.05, method = "wald")
+  se <- sqrt(p * (1 - p) / w$n_eff)
+  expect_equal(w$p_value, pt((p - 0.05) / se, 4, lower.tail = FALSE))
+  expect_equal(w$ci_lower, p - qt(0.95, 4) * se)
+  expect_equal(test_threshold(x, n, threshold = 0.05, icc = 0.05)$df, Inf)
+})
+
 test_that("Wald test and interval match the hand-check", {
   # se = sqrt(0.08 * 0.92 / 100) = 0.027129, z = 0.03 / 0.027129 = 1.10583,
   # p = pnorm(-1.10583) = 0.13441, L = 0.08 - 1.644854 * 0.027129 = 0.035376
@@ -60,11 +77,14 @@ test_that("Wald test and interval match the hand-check", {
 test_that("reject is TRUE exactly when the threshold is outside the interval", {
   for (method in c("exact", "wald")) {
     for (alt in c("greater", "less", "two.sided")) {
-      for (x in list(c(0, 0), c(2, 3), c(5, 6), c(9, 10), c(15, 16))) {
-        res <- test_threshold(x = x, n = c(60, 60), threshold = 0.07,
-                              alternative = alt, icc = 0.02, method = method)
-        outside <- 0.07 < res$ci_lower || 0.07 > res$ci_upper
-        expect_identical(res$reject, outside, info = paste(method, alt, x[1]))
+      for (x in list(c(0, 0), c(2, 3), c(3, 7), c(9, 10), c(13, 18))) {
+        for (icc in list(0.02, NULL)) {
+          res <- test_threshold(x = x, n = c(60, 60), threshold = 0.07,
+                                alternative = alt, icc = icc, method = method)
+          outside <- 0.07 < res$ci_lower || 0.07 > res$ci_upper
+          expect_identical(res$reject, outside,
+                           info = paste(method, alt, x[1], is.null(icc)))
+        }
       }
     }
   }

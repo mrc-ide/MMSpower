@@ -2,16 +2,47 @@ url: https://mrc-ide.github.io/MMSpower/
 
 template:
   bootstrap: 5
+  light-switch: true
+  bslib:
+    primary: "#C0392B"
+    secondary: "#1B2A41"
+    link-color: "#C0392B"
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
+    code_font: {google: "JetBrains Mono"}
+    font-size-base: "1rem"
+    border-radius: "0.5rem"
 
 home:
-  links:
-  - text: Browse source code
-    href: https://github.com/mrc-ide/MMSpower
+  sidebar: false
 
 navbar:
   structure:
-    left:  [intro, reference, articles]
-    right: [search, github]
+    left:  [intro, tutorials, concepts, reference]
+    right: [search, lightswitch, github]
+  components:
+    tutorials:
+      text: Tutorials
+      menu:
+      - text: Estimating prevalence
+        href: articles/tutorial-prevalence.html
+      - text: Testing against a threshold
+        href: articles/tutorial-threshold.html
+      - text: Comparing two groups
+        href: articles/tutorial-difference.html
+      - text: Costing a study
+        href: articles/tutorial-cost.html
+    concepts:
+      text: Concepts
+      menu:
+      - text: Imperfect diagnostic tests
+        href: articles/concept-diagnostic-tests.html
+      - text: Clustering, ICC and the design effect
+        href: articles/concept-clustering.html
+    github:
+      icon: fa-github
+      href: https://github.com/mrc-ide/MMSpower
+      aria-label: GitHub
 
 reference:
 - title: Estimating prevalence
@@ -24,11 +55,20 @@ reference:
   contents:
   - design_threshold
   - test_threshold
+- title: Detecting presence
+  desc: How many samples to find at least one case of a rare variant, such as an early drug-resistance marker?
+  contents:
+  - design_detection
 - title: Comparing two groups
   desc: Does prevalence differ between two groups, such as two regions?
   contents:
   - design_difference
   - test_difference
+- title: Trends over time
+  desc: Is prevalence rising or falling across survey rounds?
+  contents:
+  - design_trend
+  - test_trend
 - title: Costing a study
   contents:
   - estimate_cost
@@ -38,3 +78,20 @@ articles:
   navbar: ~
   contents:
   - MMSpower
+- title: Tutorials
+  desc: Worked examples, one for each type of study.
+  contents:
+  - articles/tutorial-prevalence
+  - articles/tutorial-threshold
+  - articles/tutorial-difference
+  - articles/tutorial-cost
+- title: Concepts
+  desc: The ideas behind the calculations.
+  contents:
+  - articles/concept-diagnostic-tests
+  - articles/concept-clustering
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with

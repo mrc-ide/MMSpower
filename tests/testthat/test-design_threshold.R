@@ -66,10 +66,16 @@ test_that("fixed number of sites uses the closed-form solve", {
   expect_error(design_threshold(0.05, 0.10, n_sites = 5, icc = 0.05), "unreachable")
 })
 
+test_that("more than 100,000 people needed warns and returns NA", {
+  expect_warning(res <- design_threshold(0.05, 0.051), "100,000")
+  expect_true(all(is.na(unlist(res))))
+  # just inside the limit: 5 versus 5.2 percent
+  expect_lt(design_threshold(0.05, 0.052)$n, 1e5)
+})
+
 test_that("invalid inputs are rejected", {
   expect_error(design_threshold(0.05, 0.05), "differ")
   expect_error(design_threshold(0.10, 0.05), "above")
   expect_error(design_threshold(0.05, 0.10, alternative = "less"), "below")
-  expect_error(design_threshold(0.05, 0.051), "10,000")
   expect_error(design_threshold(0.05, 0.10, icc = 0.05), "needs")
 })

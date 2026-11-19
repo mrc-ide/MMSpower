@@ -65,6 +65,12 @@
 #' des <- design_precision(prevalence = 0.15, moe = 0.05, n_per_site = 30, icc = 0.05)
 #' estimate_cost(n = des$n, cost_per_sample = 50, n_sites = des$n_sites,
 #'               fixed_cost_per_site = 5000, transport_cost_per_site = 1200)
+#'
+#' # Cost a two-group design: design_difference() gives one n_sites per
+#' # group, so add them up
+#' des2 <- design_difference(0.10, 0.20, n_per_site = 30, icc = 0.05)
+#' estimate_cost(n = des2$n, cost_per_sample = 50, n_sites = sum(des2$n_sites),
+#'               fixed_cost_per_site = 5000)
 estimate_cost <- function(n,
                           cost_per_sample,
                           n_sites                 = NULL,

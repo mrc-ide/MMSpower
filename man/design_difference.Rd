@@ -38,8 +38,10 @@ the same in both groups.}
 the same in both groups. \code{sensitivity + specificity} must exceed
 1.}
 
-\item{conf_level}{Confidence level, in (0, 1); default 0.95. The
-significance level of the test is 1 - \code{conf_level}.}
+\item{conf_level}{Confidence level, in [0.5, 1); default 0.95. The
+significance level of the test is 1 - \code{conf_level}. Below 0.5 the
+one-sided z value turns negative and the sample size shrinks towards
+nonsense, so it is not allowed.}
 
 \item{n_sites}{Optional. Number of sites in each group: one whole number
 for both groups, or two, \code{c(group 1, group 2)}. The function solves
