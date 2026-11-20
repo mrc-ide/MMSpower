@@ -23,16 +23,18 @@ the data. Both use an exact binomial test by default.
 
 ## How many samples?
 
-Power is the chance that the survey shows prevalence is above the
-threshold, when it really is. The usual target is 80%:
+Power is the chance that the survey correctly shows prevalence is above the
+threshold, when the true prevalence is above it. The usual target is 80%.
+Take the simplest case first: no clustering, a perfect test, a 5% threshold,
+and an expected prevalence of 10%:
 
 ```{r}
 d0 <- design_threshold(threshold = 0.05, prevalence = 0.10)
 d0
 ```
 
-So `r d0$n` samples are needed, with no clustering and a perfect test.
-`power` is the power this rounded design actually achieves,
+So `r d0$n` samples are needed. `power` is the power this rounded design
+actually achieves,
 `r round(d0$power, 3)`, just above the 0.8 target. The
 gap between the expected prevalence and the threshold is what matters most:
 the closer the true prevalence is to 5%, the harder it is to tell apart from
@@ -41,15 +43,20 @@ the closer the true prevalence is to 5%, the harder it is to tell apart from
 ## Why power is a saw-tooth
 
 With an exact test, power does not always go up when samples are added.
-The number of positives is a whole number, so the count needed to declare
-"above 5%" jumps up by one every so often, and each time it does, power
-drops a little. The plot shows exact power for every sample size from 1 to
-300, for a true prevalence of 10% against the 5% threshold.
+The test declares "above 5%" only once the number of positive samples
+reaches a cut-off. That cut-off is a whole number, so as the sample size
+grows it holds steady and then steps up by one; each step makes "above 5%"
+harder to reach, so power dips a little before climbing again. The plot
+shows exact power for every sample size from 2 to 300, for a true prevalence
+of 10% against the 5% threshold.
 
 ```{r}
-n_grid <- 1:300
-pw <- MMSpower:::.threshold_power(n_grid, theta = 0.05, p = 0.10,
-                                  alternative = "greater", alpha = 0.05)
+n_grid <- 2:300
+pw <- numeric(length(n_grid))
+for (i in seq_along(n_grid)) {
+  pw[i] <- design_threshold(threshold = 0.05, prevalence = 0.10,
+                            n_sites = 1, n_per_site = n_grid[i])$power
+}
 n_first <- min(n_grid[pw >= 0.8])
 
 par(mar = c(4.5, 4.5, 1, 1), las = 1, bty = "l")
@@ -68,28 +75,29 @@ sizes it falls back below 80%. `design_threshold()` returns `r d0$n`, the
 smallest sample size from which power **never** drops back below the
 target. This is the safe choice: in the field, a few samples are always
 lost or added (failed extractions, an extra day at a site), and with the
-returned size none of this can push the study below 80% power. Planning for
-`r n_first` would leave the study on a knife edge.
+returned size none of this can push the study below 80% power.
 
 ## Showing prevalence is below a threshold
 
-The question can also run the other way. After a switch of test, or to
-confirm that HRP2-based tests remain suitable, a programme may want to show
-that deletions are **below** 5%. Use `alternative = "less"`, with the
-expected prevalence below the threshold:
+The question can also run the other way. After a switch of test, a
+programme may want to confirm that deletions are now **below** 5%. Use
+`alternative = "less"`, with the expected prevalence below the threshold:
 
 ```{r}
 design_threshold(threshold = 0.05, prevalence = 0.02, alternative = "less")$n
 ```
 
-Note that the burden of proof is reversed. Failing to show prevalence is
-above 5% is not the same as showing it is below 5%; each needs its own
-test, and its own sample size.
+The burden of proof is reversed. A one-sided test only concludes what it
+sets out to show when the evidence is strong, so failing to show prevalence
+is *above* 5% is not the same as showing it is *below* 5%, the data may
+simply be inconclusive. Each direction is a separate test with its own
+sample size.
 
 ## An imperfect test
 
-Deletions are usually confirmed by PCR, which is not perfect either.
-Suppose sensitivity is 90% and specificity 98%:
+The assay used to call a deletion is not perfect. Suppose it detects 90% of
+true deletions (sensitivity) and correctly clears 98% of true non-deletions
+(specificity):
 
 ```{r}
 d_test <- design_threshold(threshold = 0.05, prevalence = 0.10,
@@ -97,11 +105,11 @@ d_test <- design_threshold(threshold = 0.05, prevalence = 0.10,
 d_test$n
 ```
 
-The sample size rises from `r d0$n` to `r d_test$n`. The test works on the
-measured scale: a true prevalence of 10% and a threshold of 5% are both
-converted to the share of samples that would test positive. That squeezes
-the gap between them by a factor of $Se + Sp - 1$, and a smaller gap needs
-more samples.
+The sample size rises from `r d0$n` to `r d_test$n`. Power depends on the
+gap between the prevalence (10%) and the threshold (5%): a smaller gap needs
+more samples. An imperfect test measures both on the scale of what would
+test positive, which pulls 10% and 5% closer together by a factor of
+$Se + Sp - 1$, so the gap shrinks and more samples are needed.
 
 ## Clustering
 
@@ -111,26 +119,37 @@ means more samples are needed. With 20 samples
 per site and an ICC of 0.05, solve for the number of sites:
 
 ```{r}
-design_threshold(threshold = 0.05, prevalence = 0.10,
-                 n_per_site = 20, icc = 0.05)
+d_ps <- design_threshold(threshold = 0.05, prevalence = 0.10,
+                         n_per_site = 20, icc = 0.05)
+d_ps
 ```
 
-Or fix the number of sites and solve for samples per site:
+This needs `r d_ps$n_sites` sites of 20 samples, `r d_ps$n` in total,
+against the `r d0$n` a simple random sample would need.
+
+Or fix the number of sites at 15 and solve for the samples per site:
 
 ```{r}
-design_threshold(threshold = 0.05, prevalence = 0.10,
-                 n_sites = 15, icc = 0.05)
+d_ns <- design_threshold(threshold = 0.05, prevalence = 0.10,
+                         n_sites = 15, icc = 0.05)
+d_ns
 ```
 
-`n_eff` is the unclustered answer, `r d0$n_eff`.
+This needs `r d_ns$n_per_site` samples per site, `r d_ns$n` in total. Both
+examples report the same `n_eff`, `r d_ps$n_eff`.
 
 To find the power of a design you already have, give the full design and
-leave out `power`. Fifteen sites of 20 samples fall a little short:
+leave out `power`:
 
 ```{r}
-design_threshold(threshold = 0.05, prevalence = 0.10,
-                 n_sites = 15, n_per_site = 20, icc = 0.05)$power
+p15 <- design_threshold(threshold = 0.05, prevalence = 0.10,
+                        n_sites = 15, n_per_site = 20, icc = 0.05)$power
+p15
 ```
+
+Fifteen sites of 20 samples give a power of `r round(p15, 2)`, short of the
+0.80 target: this design is a little too small, which is why solving for the
+number of sites above returned `r d_ps$n_sites` sites.
 
 As with
 `design_precision()`, too few sites make the target unreachable, because
@@ -141,12 +160,17 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
                  n_sites = 8, icc = 0.05)
 ```
 
-The power calculation assumes the analysis uses the same ICC.
+These sample sizes assume the data will be analysed with the same ICC used
+to design them (0.05). If the analysis instead estimates the ICC and it
+comes out higher, the effective sample size is smaller and the true power
+falls below the target.
 
 ## Analysing the data
 
-Suppose the survey used 19 sites of 20 samples, and records the number of
-samples with a deletion (`x`) and the number tested (`n`) at each site:
+The survey is now complete: 19 sites of 20 samples. We want to assess
+whether the prevalence is above the 5% threshold. `test_threshold()` takes
+the number of samples with a deletion (`x`) and the number tested (`n`) at
+each site:
 
 ```{r}
 x <- c(0, 4, 1, 0, 5, 3, 1, 4, 2, 6, 0, 2, 4, 0, 1, 5, 1, 3, 2)
@@ -170,23 +194,25 @@ Because the question is one-sided ("is it above 5%?"), the interval is
 one-sided too: it runs from `ci_lower` = `r round(100 * res$ci_lower, 1)`%
 up to 100%. It holds every threshold the test would not reject, so
 `reject` is `TRUE` exactly when the threshold lies outside the interval.
-Here 5% is below `ci_lower`, which agrees with the test. This gives a
-useful way to report the result: "we are 95% confident prevalence is at
-least `r round(100 * res$ci_lower, 1)`%".
+Here 5% is below `ci_lower`, which agrees with the test.
 
 ### Exact or Wald?
 
-The Wald test uses a normal approximation instead of the binomial
-distribution (a t distribution with `df` degrees of freedom when the ICC is
-estimated):
+The Wald test uses a normal approximation in place of the exact test's
+binomial distribution when the ICC is supplied. When the ICC is estimated,
+it uses a t distribution with `df` (sites minus one) instead of the normal,
+to allow for the uncertainty in the estimated clustering. `res_wald` is the
+previous analysis redone with the Wald method; compare its p-value and lower
+bound with the exact test's (`res`):
 
 ```{r}
 res_wald <- test_threshold(x, n, threshold = 0.05, method = "wald")
-round(unlist(res_wald[c("p_value", "ci_lower")]), 4)
+rbind(exact = unlist(res[c("p_value", "ci_lower")]),
+      wald  = unlist(res_wald[c("p_value", "ci_lower")]))
 ```
 
 With this much data the two reach the same conclusion, with similar lower
-bounds, although their p-values differ. They can differ with small samples or a
+bounds, although their p-values differ. They can differ especially with small samples or a
 prevalence near 0, which is common for deletion surveys. An extreme case is
 a single site of 20 samples with no deletions, tested for being below 5%:
 
@@ -202,30 +228,42 @@ With no positives, the Wald standard error is 0, so the Wald interval has
 zero width and any threshold above 0 is rejected: it claims proof that
 prevalence is below 5% from just 20 samples. The exact test does not, and
 its interval runs up to `r round(100 * exact$ci_upper, 1)`%. This is why
-`"exact"` is the default, and it matches the power calculation in
-`design_threshold()`.
+`"exact"` is the default.
 
 ### Supplying the ICC
 
-Here the ICC was estimated from the data. It can also be supplied, for
-example from earlier surveys:
+Previously the ICC was estimated from the data. It can also be supplied, for
+example from earlier studies; here we assume an ICC of 0.05:
 
 ```{r}
-round(unlist(test_threshold(x, n, threshold = 0.05, icc = 0.05)), 4)
+res_icc <- test_threshold(x, n, threshold = 0.05, icc = 0.05)
+round(unlist(res_icc), 4)
 ```
 
-Either way the test keeps the false-alarm rate at or below 5%. The
-difference is power: an ICC estimated from only a few sites is uncertain,
-the test allows for that by becoming more cautious, and so it is less
-likely to detect a real excess. With few sites, a trustworthy ICC from
-earlier surveys gives a more powerful test.
+The supplied ICC appears as `icc` in the output, and `df` is now `Inf`: a
+known ICC carries no uncertainty, so the test adds no extra caution for it.
+When the ICC was estimated, `df` was the number of sites minus one, which
+made the test more cautious, and `n_eff` differs too because it depends on
+the ICC.
+
+Supplying the ICC or estimating it makes no difference to the false-alarm
+rate: either way the test wrongly declares "above 5%" at most 5% of the
+time. What changes is power. The caution the test takes for an uncertain
+estimated ICC, the finite `df` above, costs power, so a real excess is
+harder to detect. A trustworthy ICC from earlier surveys avoids that cost.
 
 ## When to use DRpower instead
 
-For *pfhrp2/3* deletion surveys with several sites and an unknown ICC, the
-help page for `test_threshold()` suggests considering the
-[DRpower](https://mrc-ide.github.io/DRpower/) package. It estimates
-prevalence and ICC together, and has more power, especially with few sites,
-at the cost of more false alarms when prevalence is close to the threshold.
-MMSpower is the simpler tool when the ICC can be supplied, or when a
-standard frequentist test is wanted.
+For *pfhrp2/3* deletion surveys with several sites and an unknown ICC,
+consider the [DRpower](https://mrc-ide.github.io/DRpower/) package instead.
+DRpower fits a Bayesian beta-binomial model that estimates the prevalence
+and the ICC together, rather than fixing the ICC or plugging in a single
+estimate. It carries the uncertainty about the ICC through to the
+prevalence, and answers the threshold question directly, from the posterior
+probability that prevalence is above 5%. The pay-off is more power,
+especially with few sites; the cost is more false alarms when the true
+prevalence is close to the threshold.
+
+MMSpower is the better choice when you can supply the ICC from earlier
+surveys, or when you want a standard frequentist test whose false-alarm rate
+is held at or below the stated level.
