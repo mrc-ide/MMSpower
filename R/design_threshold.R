@@ -5,16 +5,17 @@
 #' expected in the population, returns the number of people needed for
 #' \code{test_threshold()} (with its default exact binomial test) to show
 #' that the prevalence is above (or below) the threshold with the target
-#' power.
+#' power; or, given a full design, returns the power it gives.
 #'
-#' Three designs are supported:
+#' \strong{What is solved for} -- leave out the one quantity you want:
 #' \describe{
-#'   \item{No clustering (\code{n_sites} and \code{n_per_site} both
-#'     \code{NULL}, default)}{Returns the number of people.}
-#'   \item{Fixed number of people per site (\code{n_per_site})}{Solves for
-#'     the number of sites needed.}
-#'   \item{Fixed number of sites (\code{n_sites})}{Solves for the number of
-#'     people needed per site.}
+#'   \item{No sites}{Returns the number of people.}
+#'   \item{\code{n_per_site}}{Returns the number of sites.}
+#'   \item{\code{n_sites}}{Returns the number of people per site.}
+#'   \item{A full design}{Returns the power: give \code{n} (no sites),
+#'     \code{n_sites} and \code{n_per_site}, or a vector \code{n_per_site}
+#'     with one size per site (for sites of different sizes). Leave
+#'     \code{power} at its default.}
 #' }
 #'
 #' @param threshold Decision threshold for the true prevalence, strictly
@@ -23,7 +24,8 @@
 #' @param prevalence The true prevalence expected in the population, in
 #'   (0, 1). It must be above \code{threshold} for
 #'   \code{alternative = "greater"} and below it for \code{"less"}.
-#' @param power Target power, in (0, 1); default 0.80.
+#' @param power Target power, in (0, 1); default 0.80. Not used, and not to
+#'   be given, with a full design.
 #' @param alternative Which side of the threshold to look for, the same as
 #'   in the \code{test_threshold()} call. \code{"greater"} (default) looks
 #'   for a prevalence above the threshold, \code{"less"} for one below it,
@@ -35,12 +37,14 @@
 #'   exceed 1.
 #' @param conf_level Confidence level, in (0, 1); default 0.95. The
 #'   significance level of the test is 1 - \code{conf_level}.
-#' @param n_sites Optional whole number. Fixes the number of sites; the
-#'   function solves for the number of people per site. Cannot be used with
-#'   \code{n_per_site}.
-#' @param n_per_site Optional whole number. Fixes the number of people per
-#'   site; the function solves for the number of sites. Cannot be used with
-#'   \code{n_sites}.
+#' @param n Optional whole number: the number of people in a full design
+#'   with no sites. Cannot be used with \code{n_sites} or \code{n_per_site}.
+#' @param n_sites Optional whole number. Fixes the number of sites; alone,
+#'   the function solves for the number of people per site.
+#' @param n_per_site Optional. People per site: one whole number (alone, the
+#'   function solves for the number of sites), or a vector with one size per
+#'   site, a full design with sites of different sizes (then leave out
+#'   \code{n_sites}).
 #' @param icc Intra-cluster correlation, in \[0, 1\]; default 0 (no
 #'   clustering). An \code{icc} above 0 needs \code{n_sites} or
 #'   \code{n_per_site}.
@@ -97,6 +101,15 @@
 #' saw-tooth exactly where \eqn{n_0} does. The power assumes the analysis
 #' uses the same ICC.
 #'
+#' \strong{Power of a full design.} The exact power above needs a whole
+#' number of independent people, so the power of a design with sites is
+#' worked out at its effective size \eqn{n / D_{eff}} rounded down, which
+#' is slightly cautious. For sites of different sizes,
+#' \eqn{D_{eff} = 1 + (n_w - 1) ICC} with \eqn{n_w = \sum s^2 / \sum s} the
+#' size-weighted mean site size, as in \code{test_threshold()}. The returned
+#' \code{power} of a design that was solved for is worked out the same way,
+#' so it is at least the target.
+#'
 #' @return A list with (every value \code{NA}, with a warning, if more than
 #'   100,000 people are needed without clustering):
 #'   \item{n}{Total number of people needed. With sites,
@@ -106,7 +119,8 @@
 #'   \item{deff}{Design effect of the returned design,
 #'     \code{1 + (n_per_site - 1) * icc} (1 with no clustering).}
 #'   \item{n_eff}{Number of independent people needed: the exact answer
-#'     with no clustering.}
+#'     with no clustering; for a full design, \code{n / deff}.}
+#'   \item{power}{Power of the returned design.}
 #'
 #' @references
 #' MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}
@@ -135,6 +149,10 @@
 #' # Fixed number of people per site: how many sites?
 #' design_threshold(threshold = 0.05, prevalence = 0.10,
 #'                  n_per_site = 20, icc = 0.05)
+#'
+#' # Full design: the power of 6 sites of 50
+#' design_threshold(threshold = 0.05, prevalence = 0.10,
+#'                  n_sites = 6, n_per_site = 50, icc = 0.05)
 design_threshold <- function(threshold,
                              prevalence,
                              power       = 0.80,
@@ -142,16 +160,20 @@ design_threshold <- function(threshold,
                              sensitivity = 1,
                              specificity = 1,
                              conf_level  = 0.95,
+                             n           = NULL,
                              n_sites     = NULL,
                              n_per_site  = NULL,
                              icc         = 0) {
 
   .check_number(threshold, "threshold", 0, 1, lower_open = TRUE, upper_open = TRUE)
   .check_number(prevalence, "prevalence", 0, 1, lower_open = TRUE, upper_open = TRUE)
-  .check_number(power, "power", 0, 1, lower_open = TRUE, upper_open = TRUE)
   .check_number(conf_level, "conf_level", 0, 1, lower_open = TRUE, upper_open = TRUE)
   .check_test(sensitivity, specificity)
-  .check_sites(n_sites, n_per_site, icc)
+  .check_number(icc, "icc", 0, 1)
+  des <- .site_design(n, n_sites, n_per_site, icc)
+  .check_target(des$full, !missing(power), "power")
+  if (!des$full)
+    .check_number(power, "power", 0, 1, lower_open = TRUE, upper_open = TRUE)
   alternative <- match.arg(alternative)
   if (prevalence == threshold)
     stop("`prevalence` and `threshold` must differ.", call. = FALSE)
@@ -162,12 +184,24 @@ design_threshold <- function(threshold,
     stop("`prevalence` must be below `threshold` for alternative = 'less'.",
          call. = FALSE)
 
-  # exact power for every unclustered sample size up to n_max
-  n_max     <- 100000
   theta_app <- .apparent_prev(threshold, sensitivity, specificity)
   p_app     <- .apparent_prev(prevalence, sensitivity, specificity)
-  pw <- .threshold_power(seq_len(n_max), theta_app, p_app, alternative,
-                         1 - conf_level)
+  # power at n people and design effect deff, at the effective size rounded
+  # down (exact power needs a whole number of independent people)
+  power_of  <- function(n, deff)
+    .threshold_power(floor(n / deff), theta_app, p_app, alternative, 1 - conf_level)
+
+  # ---- full design: its power ----
+  if (des$full) {
+    deff <- .deff(des$n_w, icc)
+    return(c(list(n = des$n), .report_sizes(des$sizes),
+             list(deff = deff, n_eff = des$n / deff, power = power_of(des$n, deff))))
+  }
+
+  # exact power for every unclustered sample size up to n_max
+  n_max <- 100000
+  pw    <- .threshold_power(seq_len(n_max), theta_app, p_app, alternative,
+                            1 - conf_level)
 
   # n0: the smallest n from which every larger n reaches the target power
   below <- which(pw < power)
@@ -180,7 +214,7 @@ design_threshold <- function(threshold,
                     formatC(n_max, format = "d", big.mark = ","),
                     100 * pw[n_max]), call. = FALSE)
     return(list(n = NA_real_, n_sites = NA_real_, n_per_site = NA_real_,
-                deff = NA_real_, n_eff = NA_real_))
+                deff = NA_real_, n_eff = NA_real_, power = NA_real_))
   }
   n0 <- if (length(below) == 0) 1 else max(below) + 1
 
@@ -199,13 +233,15 @@ design_threshold <- function(threshold,
   }
 
   design <- .allocate(n, n_sites, n_per_site)
+  deff   <- if (is.null(design$n_per_site)) 1 else .deff(design$n_per_site, icc)
 
   list(
     n          = design$n,
     n_sites    = design$n_sites,
     n_per_site = design$n_per_site,
-    deff       = if (is.null(design$n_per_site)) 1 else .deff(design$n_per_site, icc),
-    n_eff      = n0
+    deff       = deff,
+    n_eff      = n0,
+    power      = power_of(design$n, deff)
   )
 }
 

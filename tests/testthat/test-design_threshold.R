@@ -78,4 +78,40 @@ test_that("invalid inputs are rejected", {
   expect_error(design_threshold(0.10, 0.05), "above")
   expect_error(design_threshold(0.05, 0.10, alternative = "less"), "below")
   expect_error(design_threshold(0.05, 0.10, icc = 0.05), "needs")
+  expect_error(design_threshold(0.05, 0.10, power = 0.9, n = 100), "not both")
+})
+
+test_that("a full design returns its exact power", {
+  # no sites: the power of n people is .threshold_power() at n
+  res <- design_threshold(0.05, 0.10, n = 150)
+  expect_equal(res$power, .threshold_power(150, 0.05, 0.10, "greater", 0.05))
+  expect_equal(res$deff, 1)
+  # the saw-tooth example: 179 people give 81.3%, 182 give less than 80%
+  expect_equal(design_threshold(0.10, 0.05, alternative = "less", n = 179)$power,
+               0.813, tolerance = 1e-3)
+  expect_lt(design_threshold(0.10, 0.05, alternative = "less", n = 182)$power, 0.8)
+  # with sites: power at the effective size rounded down
+  res <- design_threshold(0.05, 0.10, n_sites = 6, n_per_site = 50, icc = 0.05)
+  expect_equal(res$deff, 1 + 49 * 0.05)
+  expect_equal(res$power, .threshold_power(floor(300 / res$deff), 0.05, 0.10,
+                                           "greater", 0.05))
+})
+
+test_that("sites of different sizes use the size-weighted mean site size", {
+  s   <- c(113, 113, 60, 60, 40, 40)
+  res <- design_threshold(0.05, 0.10, n_per_site = s, icc = 0.05)
+  expect_equal(res$deff, 1 + (sum(s^2) / sum(s) - 1) * 0.05)
+  expect_equal(res$n_eff, sum(s) / res$deff)
+})
+
+test_that("a solved design reports its own power, at least the target", {
+  for (args in list(list(), list(n_per_site = 20, icc = 0.05),
+                    list(n_sites = 30, icc = 0.05))) {
+    res  <- do.call(design_threshold, c(list(0.05, 0.10), args))
+    back <- if (is.null(res$n_sites)) design_threshold(0.05, 0.10, n = res$n)
+            else design_threshold(0.05, 0.10, n_sites = res$n_sites,
+                                  n_per_site = res$n_per_site, icc = args$icc)
+    expect_gte(res$power, 0.8)
+    expect_equal(back$power, res$power)
+  }
 })

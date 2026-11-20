@@ -50,16 +50,64 @@
     stop("`sensitivity` + `specificity` must be greater than 1.", call. = FALSE)
 }
 
-# Checks shared by the design functions: at most one of n_sites and
-# n_per_site, and an icc above 0 only with one of them.
-.check_sites <- function(n_sites, n_per_site, icc) {
-  .check_count(n_sites, "n_sites")
-  .check_count(n_per_site, "n_per_site")
-  .check_number(icc, "icc", 0, 1)
-  if (!is.null(n_sites) && !is.null(n_per_site))
-    stop("Supply at most one of `n_sites` and `n_per_site`.", call. = FALSE)
+# Checks and reads the design given to a design function (`suffix` "1" or
+# "2" names a group's arguments in design_difference()). A design is either
+# solved for, or given in full:
+#   - nothing: solve for the number of people (no sites)
+#   - n: a full design with no sites
+#   - n_per_site alone: solve for the number of sites
+#   - n_sites alone: solve for the number of people per site
+#   - n_sites and n_per_site, or a vector n_per_site of one size per site:
+#     a full design with sites
+# Returns list(full, n, n_w, sizes): for a full design the number of people,
+# the size-weighted mean site size sum(s^2) / sum(s) (1 with no sites) and
+# the site sizes (NULL with no sites); NULL entries otherwise.
+.site_design <- function(n, n_sites, n_per_site, icc, suffix = "") {
+  nm <- function(x) paste0("`", x, suffix, "`")
+  .check_count(n, paste0("n", suffix))
+  .check_count(n_sites, paste0("n_sites", suffix))
+  if (!is.null(n_per_site) &&
+      (!is.numeric(n_per_site) || length(n_per_site) < 1 ||
+       !all(is.finite(n_per_site)) || any(n_per_site != round(n_per_site)) ||
+       any(n_per_site < 1)))
+    stop(nm("n_per_site"), " must be whole numbers of at least 1.", call. = FALSE)
+  if (!is.null(n) && (!is.null(n_sites) || !is.null(n_per_site)))
+    stop(nm("n"), " is for a design without sites; with sites, give ",
+         nm("n_sites"), " and ", nm("n_per_site"), ".", call. = FALSE)
+  if (length(n_per_site) > 1 && !is.null(n_sites))
+    stop("Give ", nm("n_sites"), " with one ", nm("n_per_site"), ", or a vector ",
+         nm("n_per_site"), " with one size per site, not both.", call. = FALSE)
   if (icc > 0 && is.null(n_sites) && is.null(n_per_site))
-    stop("`icc` > 0 needs `n_sites` or `n_per_site`.", call. = FALSE)
+    stop("`icc` > 0 needs ", nm("n_sites"), " or ", nm("n_per_site"), ".",
+         call. = FALSE)
+
+  sizes <- if (length(n_per_site) > 1) n_per_site
+           else if (!is.null(n_sites) && !is.null(n_per_site)) rep(n_per_site, n_sites)
+  if (!is.null(n)) return(list(full = TRUE, n = n, n_w = 1, sizes = NULL))
+  if (!is.null(sizes))
+    return(list(full = TRUE, n = sum(sizes), n_w = sum(sizes^2) / sum(sizes),
+                sizes = sizes))
+  list(full = FALSE, n = NULL, n_w = NULL, sizes = NULL)
+}
+
+# Stop if both the target and a full design are given, or (for a target
+# with no default) neither. `given` says whether the target was typed in;
+# a default does not count.
+.check_target <- function(full, given, target, has_default = TRUE) {
+  if (full && given)
+    stop("Give either `", target, "` or a full design, not both: with a full ",
+         "design the function returns `", target, "`.", call. = FALSE)
+  if (!full && !given && !has_default)
+    stop("Give `", target, "`, or a full design (`n`, or `n_sites` and ",
+         "`n_per_site`) to get the `", target, "` it gives.", call. = FALSE)
+}
+
+# Sites and people per site to report for a full design: one size if all
+# sites are the same, otherwise the vector of sizes.
+.report_sizes <- function(sizes) {
+  if (is.null(sizes)) return(list(n_sites = NULL, n_per_site = NULL))
+  list(n_sites    = as.numeric(length(sizes)),
+       n_per_site = if (all(sizes == sizes[1])) sizes[1] else sizes)
 }
 
 # ---- diagnostic test ----
@@ -159,6 +207,26 @@
 }
 
 # ---- intervals ----
+
+# Interval c(lower, upper) on the apparent-prevalence scale for measured
+# prevalence p_hat and effective sample size n (not always whole), by
+# `method`, kept within [0, 1]. Shared by estimate_prevalence() and
+# design_precision().
+.ci_app <- function(p_hat, n, alpha, method) {
+  z <- stats::qnorm(1 - alpha / 2)
+  x <- p_hat * n
+  ci <- switch(method,
+    wald = p_hat + c(-1, 1) * z * sqrt(p_hat * (1 - p_hat) / n),
+    "clopper-pearson" = c(
+      if (p_hat == 0) 0 else stats::qbeta(alpha / 2, x, n - x + 1),
+      if (p_hat == 1) 1 else stats::qbeta(1 - alpha / 2, x + 1, n - x)),
+    "agresti-coull" = {
+      n_t <- n + z^2
+      p_t <- (x + z^2 / 2) / n_t
+      p_t + c(-1, 1) * z * sqrt(p_t * (1 - p_t) / n_t)
+    })
+  pmin(pmax(ci, 0), 1)
+}
 
 # Interval c(lower, upper) on the apparent-prevalence scale -> true scale
 # (Rogan-Gladen), kept within [0, 1]. Warns when the whole corrected

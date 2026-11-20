@@ -7,8 +7,8 @@
 design_detection(
   prevalence,
   detection_prob = 0.8,
-  n = NULL,
   sensitivity = 1,
+  n = NULL,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0
@@ -19,54 +19,55 @@ design_detection(
 prevalence the study should be able to detect.}
 
 \item{detection_prob}{Target chance of finding at least one case, in
-(0, 1); default 0.80. Not used when \code{n} is supplied.}
-
-\item{n}{Optional whole number. If supplied, the function runs in reverse
-and reports the chance of finding at least one case among \code{n} people.}
+(0, 1); default 0.80. Not used, and not to be given, with a full design.}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (the test
 never misses a case).}
 
-\item{n_sites}{Optional whole number. Fixes the number of sites; the
-function solves for people per site. Cannot be used with \code{n_per_site}.}
+\item{n}{Optional whole number: the number of people in a full design
+with no sites. Cannot be used with \code{n_sites} or \code{n_per_site}.}
 
-\item{n_per_site}{Optional whole number. Fixes the number of people per
-site; the function solves for the number of sites. Cannot be used with
-\code{n_sites}.}
+\item{n_sites}{Optional whole number. Fixes the number of sites; alone,
+the function solves for people per site.}
+
+\item{n_per_site}{Optional. People per site: one whole number (alone, the
+function solves for the number of sites), or a vector with one size per
+site, a full design with sites of different sizes (then leave out
+\code{n_sites}).}
 
 \item{icc}{Intra-cluster correlation, in [0, 1); default 0 (no
 clustering). An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
 }
 \value{
 A list with:
-\item{n}{Total sample size (or \code{n} as supplied, in reverse). With
-sites, \code{n_sites * n_per_site}.}
+\item{n}{Total sample size. With sites, \code{n_sites * n_per_site}, or
+the sum of the site sizes.}
 \item{n_sites}{Number of sites (\code{NULL} if unclustered).}
 \item{n_per_site}{People per site (\code{NULL} if unclustered).}
 \item{deff}{Design effect: \code{n} divided by the number of people with no
 clustering who give the same chance of finding a case; 1 if
 unclustered.}
 \item{n_eff}{Number of people needed with no clustering, \eqn{n_0}
-rounded up (in reverse, the number with no clustering who give the
-same chance of finding a case).}
-\item{detection_prob}{The target (forward), or the chance achieved
-with \code{n} people (reverse).}
+rounded up; for a full design, \code{n / deff}, the number with no
+clustering who give the same chance of finding a case.}
+\item{detection_prob}{Chance of finding at least one case with the
+returned design.}
 }
 \description{
 Given the expected true prevalence of a (possibly rare) variant or
 condition, returns the number of people needed so that the chance of
-finding at least one case reaches a target (\code{detection_prob}). Supply \code{n}
-instead to run it in reverse: the function then reports the chance of
-finding at least one case with that many people.
+finding at least one case reaches a target (\code{detection_prob}); or, given
+a full design, returns the chance of finding at least one case with it.
 
-\strong{Three design modes} -- controlled by \code{n_sites} and \code{n_per_site}:
+\strong{What is solved for} -- leave out the one quantity you want:
 \describe{
-\item{Unclustered (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Returns the
-number of people.}
-\item{Fixed site size (\code{n_per_site} supplied)}{Solves for the number of
-sites.}
-\item{Fixed number of sites (\code{n_sites} supplied)}{Solves for the number
-of people per site.}
+\item{No sites}{Returns the number of people.}
+\item{\code{n_per_site}}{Returns the number of sites.}
+\item{\code{n_sites}}{Returns the number of people per site.}
+\item{A full design}{Returns \code{detection_prob}: give \code{n} (no sites),
+\code{n_sites} and \code{n_per_site}, or a vector \code{n_per_site} with one size per
+site (for sites of different sizes). Leave \code{detection_prob} at its
+default.}
 }
 }
 \details{
@@ -104,6 +105,11 @@ least 1 person each, even if fewer people would do (as in the other
 design functions). A site larger than needed gives 1 site of that size.
 With sites, the returned \code{n} is the number actually sampled,
 \code{n_sites * n_per_site}.
+
+\strong{Full design.} The chance of no case is the product of
+\eqn{P_0(s_i)} over the sites, so sites of different sizes are exact:
+with sizes \eqn{s_1, \dots, s_k} the chance of finding a case is
+\eqn{1 - \prod_i P_0(s_i)}, as in DRpower's \code{get_power_presence()}.
 }
 \examples{
 # 80 percent chance of finding a case at 5 percent prevalence
@@ -112,8 +118,12 @@ design_detection(prevalence = 0.05)
 # Imperfect test
 design_detection(prevalence = 0.05, sensitivity = 0.8)
 
-# Reverse: the chance of finding a 1 percent variant with 139 people
+# Full design: the chance of finding a 1 percent variant with 139 people
 design_detection(prevalence = 0.01, n = 139)
+
+# Sites of different sizes
+design_detection(prevalence = 0.01, n_per_site = c(250, 250, 60, 60, 40, 40),
+                 icc = 0.05)
 
 # Fixed site size: how many sites?
 design_detection(prevalence = 0.05, n_per_site = 10, icc = 0.05)
