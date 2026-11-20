@@ -94,13 +94,16 @@ $m = n / k$ gives the closed form used by `design_precision()`,
 
 $$n = \frac{n_0 \, k \, (1 - \rho)}{k - n_0 \rho},$$
 
-which needs $k > n_0 \rho$. Checking it by hand with 50 sites:
+which needs $k > n_0 \rho$. Checking it by hand with 50 sites, using the
+Wald formula for $n_0$ (the default Clopper-Pearson sizing finds $n_0$ by a
+numerical search instead, then applies the same step):
 
 ```{r}
 n0 <- qnorm(0.975)^2 * 0.3 * 0.7 / 0.05^2
 k  <- 50
 n0 * k * (1 - 0.05) / (k - n0 * 0.05)
-design_precision(prevalence = 0.3, moe = 0.05, n_sites = 50, icc = 0.05)
+design_precision(prevalence = 0.3, moe = 0.05, n_sites = 50, icc = 0.05,
+                 ci_method = "wald")
 ```
 
 The function rounds the number of people per site up, so its `n` is the
@@ -196,8 +199,12 @@ With 3 sites they range from 0 to `r round(max(icc_3), 2)`, and
 allows for this uncertainty: when it estimates the ICC, it widens the
 interval according to the number of sites (`df`, the number of sites minus
 one), so that intervals keep close to their stated coverage even with few
-sites. The price is width: with 3 sites the interval is very wide, an honest
-picture of how little 3 sites can say about clustering.
+sites. In the simulations reported in `?estimate_prevalence` (true ICC 0.1,
+50 people per site, prevalence 0.3), the 95% Clopper-Pearson interval
+contained the true prevalence 99% of the time with 3 sites, 96% with 5, and
+95 to 96% with 10 or more. The price is width: with 3 sites the interval is
+very wide, an honest picture of how little 3 sites can say about
+clustering.
 
 ## Practical advice
 

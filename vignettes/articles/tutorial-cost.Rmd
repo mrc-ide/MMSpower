@@ -20,23 +20,45 @@ unit. Replace them with figures from your own budget.
 
 ## The cost model
 
-`estimate_cost()` splits a study's cost into two parts:
+`estimate_cost()` splits a study's cost into two parts.
 
-- a **variable cost**, paid for every person enrolled: sample collection,
-  laboratory testing, consumables and data management;
-- a **site cost**, paid once for every site: a fixed cost (training,
-  equipment, administration) plus a transport cost.
+**Stage costs.** A sample passes through up to three stages, each with its
+own cost per person or sample:
 
-With samples only:
+- **screened** (`n_screened`, `cost_per_screened`): everyone screened at
+  enrolment, covering consent, interview and a rapid test or microscopy;
+- **collected** (`n_collected`, `cost_per_collected`): everyone a sample is
+  collected from, covering a dried blood spot or blood draw, storage and
+  shipping;
+- **sequenced** (`n_sequenced`, `cost_per_sequenced`): every sample taken
+  through the molecular laboratory, covering extraction, PCR or sequencing
+  and data management.
+
+The stages are nested, not added on top of each other. `n_collected` is a
+subset of `n_screened`: for example, only those who test positive at
+screening have a sample collected. `n_sequenced` is a subset of
+`n_collected`: what is left after lost or failed samples. A person is
+counted at every stage they reach, so `n_screened` is at least
+`n_collected`, which is at least `n_sequenced`, and the function stops with
+an error otherwise. Each stage's cost is the cost of that stage alone, not
+of everything up to it.
+
+**Site costs.** Each site has a fixed cost (training, equipment,
+administration) and a transport cost.
+
+Give only the stages a study has. The design functions return the number of
+samples needed at analysis, so their `n` is `n_sequenced`. With a single
+all-in cost per sample, that one stage is enough:
 
 ```{r}
-estimate_cost(n = 400, cost_per_sample = 40)
+estimate_cost(n_sequenced = 400, cost_per_sequenced = 40)
 ```
 
+`stage_cost` gives the cost of each stage, and adds up to `variable_cost`.
 With sites, give the number of sites and the cost per site:
 
 ```{r}
-estimate_cost(n = 400, cost_per_sample = 40, n_sites = 20,
+estimate_cost(n_sequenced = 400, cost_per_sequenced = 40, n_sites = 20,
               fixed_cost_per_site = 2000, transport_cost_per_site = 600)
 ```
 
@@ -47,10 +69,67 @@ study is over budget):
 
 ```{r}
 transport <- c(200, 200, 300, 400, 600, 800, 1200, 1500)
-estimate_cost(n = 240, cost_per_sample = 40, n_sites = 8,
+estimate_cost(n_sequenced = 240, cost_per_sequenced = 40, n_sites = 8,
               fixed_cost_per_site = 2000, transport_cost_per_site = transport,
               budget = 35000)
 ```
+
+## Costing the people actually enrolled
+
+A design's `n` is only the last stage. To reach it, a study has to collect
+samples from more people, to allow for losses, and screen more people
+still, if only those who test positive go on to have a sample collected.
+"Allowing for dropout and suspected cases" in the
+[Estimating prevalence](tutorial-prevalence.html) tutorial works out these
+numbers; here we cost them.
+
+That tutorial's design has 20 people per site, with an ICC of 0.05:
+
+```{r}
+d_prev <- design_precision(prevalence = 0.2, moe = 0.05, n_per_site = 20, icc = 0.05)
+c(n_sites = d_prev$n_sites, n = d_prev$n)
+```
+
+Work back from the analysis one stage at a time, per site so that every
+site delivers its share. With 10% of samples expected to be lost, divide by
+0.9 to get the number collected; with 40% of those screened expected to
+test positive, divide again by 0.4 to get the number screened:
+
+```{r}
+per_site_sequenced <- d_prev$n_per_site
+per_site_collected <- ceiling(per_site_sequenced / 0.9)
+per_site_screened  <- ceiling(per_site_collected / 0.4)
+
+n_sequenced <- d_prev$n
+n_collected <- d_prev$n_sites * per_site_collected
+n_screened  <- d_prev$n_sites * per_site_screened
+c(screened = n_screened, collected = n_collected, sequenced = n_sequenced)
+```
+
+Then cost all three stages, here 3 per person screened, 10 per sample
+collected and 40 per sample sequenced:
+
+```{r}
+staged <- estimate_cost(n_screened  = n_screened,  cost_per_screened  = 3,
+                        n_collected = n_collected, cost_per_collected = 10,
+                        n_sequenced = n_sequenced, cost_per_sequenced = 40,
+                        n_sites = d_prev$n_sites, fixed_cost_per_site = 2000,
+                        transport_cost_per_site = 600)
+staged$stage_cost
+staged$total_cost
+```
+
+Screening `r format(n_screened, big.mark = ",")` people and collecting
+`r n_collected` samples add
+`r format(sum(staged$stage_cost[c("screened", "collected")]), big.mark = ",")`
+to the `r format(staged$stage_cost[["sequenced"]], big.mark = ",")` spent on
+sequencing. Costing only the `r n_sequenced` samples at analysis would have
+missed both stages.
+
+If samples are expected to fail in the laboratory rather than be lost
+before it, the failed ones are still paid for: cost `n_sequenced` as the
+number of samples sent to the laboratory, here `n_collected`, rather than
+the number expected to succeed.
 
 ## Comparing designs
 
@@ -65,14 +144,14 @@ Work out the design for each number of people per site from 5 to 60, and
 cost each one:
 
 ```{r}
-cost_per_sample <- 40
+cost_per_sample <- 40     # all-in cost per sample sequenced
 site_cost       <- 2000   # fixed cost per site
 transport_cost  <- 600    # transport cost per site
 
 per_site <- 5:60
 designs <- do.call(rbind, lapply(per_site, function(s) {
   des  <- design_precision(prevalence = 0.3, moe = 0.05, n_per_site = s, icc = 0.05)
-  cost <- estimate_cost(n = des$n, cost_per_sample = cost_per_sample,
+  cost <- estimate_cost(n_sequenced = des$n, cost_per_sequenced = cost_per_sample,
                         n_sites = des$n_sites,
                         fixed_cost_per_site = site_cost,
                         transport_cost_per_site = transport_cost)
@@ -87,7 +166,7 @@ best <- designs[which.min(designs$total_cost), ]
 best
 ```
 
-```{r, fig.alt = "Total study cost against people per site, falling steeply then levelling off, with the cheapest design marked."}
+```{r, warning = FALSE, fig.alt = "Total study cost against people per site, falling steeply then levelling off, with the cheapest design marked."}
 library(ggplot2)
 
 ggplot(designs, aes(x = n_per_site, y = total_cost / 1000)) +
@@ -129,10 +208,10 @@ per group, so the number of sites to cost is `sum(n_sites)`:
 
 ```{r}
 dd <- design_difference(prevalence1 = 0.10, prevalence2 = 0.20,
-                        n_per_site = 20, icc = 0.05)
+                        n_per_site1 = 20, icc = 0.05)
 dd$n
 dd$n_sites
-estimate_cost(n = dd$n, cost_per_sample = cost_per_sample,
+estimate_cost(n_sequenced = dd$n, cost_per_sequenced = cost_per_sample,
               n_sites = sum(dd$n_sites),
               fixed_cost_per_site = site_cost,
               transport_cost_per_site = transport_cost)
@@ -144,10 +223,10 @@ call `estimate_cost()` once per region and add the totals.
 ## Fitting a budget
 
 To find which designs fit a fixed budget, keep the rows of the table above
-that come in under it. With a budget of 105,000:
+that come in under it. With a budget of 110,000:
 
 ```{r}
-budget <- 105000
+budget <- 110000
 fits <- designs[designs$total_cost <= budget, ]
 range(fits$n_per_site)
 ```
@@ -161,7 +240,7 @@ error, or a cheaper laboratory method. For the chosen design, `budget`
 shows what is left for contingencies:
 
 ```{r}
-estimate_cost(n = best$n, cost_per_sample = cost_per_sample,
+estimate_cost(n_sequenced = best$n, cost_per_sequenced = cost_per_sample,
               n_sites = best$n_sites,
               fixed_cost_per_site = site_cost,
               transport_cost_per_site = transport_cost,

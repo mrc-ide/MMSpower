@@ -12,6 +12,7 @@ design_threshold(
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
+  n = NULL,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0
@@ -26,7 +27,8 @@ threshold). This is the value \code{test_threshold()} tests against.}
 (0, 1). It must be above \code{threshold} for
 \code{alternative = "greater"} and below it for \code{"less"}.}
 
-\item{power}{Target power, in (0, 1); default 0.80.}
+\item{power}{Target power, in (0, 1); default 0.80. Not used, and not to
+be given, with a full design.}
 
 \item{alternative}{Which side of the threshold to look for, the same as
 in the \code{test_threshold()} call. \code{"greater"} (default) looks
@@ -43,13 +45,16 @@ exceed 1.}
 \item{conf_level}{Confidence level, in (0, 1); default 0.95. The
 significance level of the test is 1 - \code{conf_level}.}
 
-\item{n_sites}{Optional whole number. Fixes the number of sites; the
-function solves for the number of people per site. Cannot be used with
-\code{n_per_site}.}
+\item{n}{Optional whole number: the number of people in a full design
+with no sites. Cannot be used with \code{n_sites} or \code{n_per_site}.}
 
-\item{n_per_site}{Optional whole number. Fixes the number of people per
-site; the function solves for the number of sites. Cannot be used with
-\code{n_sites}.}
+\item{n_sites}{Optional whole number. Fixes the number of sites; alone,
+the function solves for the number of people per site.}
+
+\item{n_per_site}{Optional. People per site: one whole number (alone, the
+function solves for the number of sites), or a vector with one size per
+site, a full design with sites of different sizes (then leave out
+\code{n_sites}).}
 
 \item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
 clustering). An \code{icc} above 0 needs \code{n_sites} or
@@ -65,23 +70,25 @@ A list with (every value \code{NA}, with a warning, if more than
 \item{deff}{Design effect of the returned design,
 \code{1 + (n_per_site - 1) * icc} (1 with no clustering).}
 \item{n_eff}{Number of independent people needed: the exact answer
-with no clustering.}
+with no clustering; for a full design, \code{n / deff}.}
+\item{power}{Power of the returned design.}
 }
 \description{
 Design function: given a decision threshold and the true prevalence
 expected in the population, returns the number of people needed for
 \code{test_threshold()} (with its default exact binomial test) to show
 that the prevalence is above (or below) the threshold with the target
-power.
+power; or, given a full design, returns the power it gives.
 
-Three designs are supported:
+\strong{What is solved for} -- leave out the one quantity you want:
 \describe{
-\item{No clustering (\code{n_sites} and \code{n_per_site} both
-\code{NULL}, default)}{Returns the number of people.}
-\item{Fixed number of people per site (\code{n_per_site})}{Solves for
-the number of sites needed.}
-\item{Fixed number of sites (\code{n_sites})}{Solves for the number of
-people needed per site.}
+\item{No sites}{Returns the number of people.}
+\item{\code{n_per_site}}{Returns the number of sites.}
+\item{\code{n_sites}}{Returns the number of people per site.}
+\item{A full design}{Returns the power: give \code{n} (no sites),
+\code{n_sites} and \code{n_per_site}, or a vector \code{n_per_site}
+with one size per site (for sites of different sizes). Leave
+\code{power} at its default.}
 }
 }
 \details{
@@ -135,6 +142,15 @@ approximation: the effective sample size \eqn{n / D_{eff}} of the
 returned design is at least \eqn{n_0}, but need not sit on the
 saw-tooth exactly where \eqn{n_0} does. The power assumes the analysis
 uses the same ICC.
+
+\strong{Power of a full design.} The exact power above needs a whole
+number of independent people, so the power of a design with sites is
+worked out at its effective size \eqn{n / D_{eff}} rounded down, which
+is slightly cautious. For sites of different sizes,
+\eqn{D_{eff} = 1 + (n_w - 1) ICC} with \eqn{n_w = \sum s^2 / \sum s} the
+size-weighted mean site size, as in \code{test_threshold()}. The returned
+\code{power} of a design that was solved for is worked out the same way,
+so it is at least the target.
 }
 \examples{
 # Show that prevalence is above a 5 percent threshold when it is really
@@ -150,6 +166,10 @@ design_threshold(threshold = 0.10, prevalence = 0.05, alternative = "less")
 # Fixed number of people per site: how many sites?
 design_threshold(threshold = 0.05, prevalence = 0.10,
                  n_per_site = 20, icc = 0.05)
+
+# Full design: the power of 6 sites of 50
+design_threshold(threshold = 0.05, prevalence = 0.10,
+                 n_sites = 6, n_per_site = 50, icc = 0.05)
 }
 \references{
 MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}

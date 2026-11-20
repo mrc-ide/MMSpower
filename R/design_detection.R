@@ -3,33 +3,34 @@
 #' @description
 #' Given the expected true prevalence of a (possibly rare) variant or
 #' condition, returns the number of people needed so that the chance of
-#' finding at least one case reaches a target (`detection_prob`). Supply `n`
-#' instead to run it in reverse: the function then reports the chance of
-#' finding at least one case with that many people.
+#' finding at least one case reaches a target (`detection_prob`); or, given
+#' a full design, returns the chance of finding at least one case with it.
 #'
-#' **Three design modes** -- controlled by `n_sites` and `n_per_site`:
+#' **What is solved for** -- leave out the one quantity you want:
 #' \describe{
-#'   \item{Unclustered (`n_sites = NULL`, `n_per_site = NULL`)}{Returns the
-#'     number of people.}
-#'   \item{Fixed site size (`n_per_site` supplied)}{Solves for the number of
-#'     sites.}
-#'   \item{Fixed number of sites (`n_sites` supplied)}{Solves for the number
-#'     of people per site.}
+#'   \item{No sites}{Returns the number of people.}
+#'   \item{`n_per_site`}{Returns the number of sites.}
+#'   \item{`n_sites`}{Returns the number of people per site.}
+#'   \item{A full design}{Returns `detection_prob`: give `n` (no sites),
+#'     `n_sites` and `n_per_site`, or a vector `n_per_site` with one size per
+#'     site (for sites of different sizes). Leave `detection_prob` at its
+#'     default.}
 #' }
 #'
 #' @param prevalence Expected true prevalence, in (0, 1): the lowest
 #'   prevalence the study should be able to detect.
 #' @param detection_prob Target chance of finding at least one case, in
-#'   (0, 1); default 0.80. Not used when `n` is supplied.
-#' @param n Optional whole number. If supplied, the function runs in reverse
-#'   and reports the chance of finding at least one case among `n` people.
+#'   (0, 1); default 0.80. Not used, and not to be given, with a full design.
 #' @param sensitivity Diagnostic sensitivity in (0, 1]; default 1 (the test
 #'   never misses a case).
-#' @param n_sites Optional whole number. Fixes the number of sites; the
-#'   function solves for people per site. Cannot be used with `n_per_site`.
-#' @param n_per_site Optional whole number. Fixes the number of people per
-#'   site; the function solves for the number of sites. Cannot be used with
-#'   `n_sites`.
+#' @param n Optional whole number: the number of people in a full design
+#'   with no sites. Cannot be used with `n_sites` or `n_per_site`.
+#' @param n_sites Optional whole number. Fixes the number of sites; alone,
+#'   the function solves for people per site.
+#' @param n_per_site Optional. People per site: one whole number (alone, the
+#'   function solves for the number of sites), or a vector with one size per
+#'   site, a full design with sites of different sizes (then leave out
+#'   `n_sites`).
 #' @param icc Intra-cluster correlation, in \[0, 1); default 0 (no
 #'   clustering). An `icc` above 0 needs `n_sites` or `n_per_site`.
 #'
@@ -69,19 +70,24 @@
 #' With sites, the returned `n` is the number actually sampled,
 #' `n_sites * n_per_site`.
 #'
+#' **Full design.** The chance of no case is the product of
+#' \eqn{P_0(s_i)} over the sites, so sites of different sizes are exact:
+#' with sizes \eqn{s_1, \dots, s_k} the chance of finding a case is
+#' \eqn{1 - \prod_i P_0(s_i)}, as in DRpower's `get_power_presence()`.
+#'
 #' @return A list with:
-#'   \item{n}{Total sample size (or `n` as supplied, in reverse). With
-#'     sites, `n_sites * n_per_site`.}
+#'   \item{n}{Total sample size. With sites, `n_sites * n_per_site`, or
+#'     the sum of the site sizes.}
 #'   \item{n_sites}{Number of sites (`NULL` if unclustered).}
 #'   \item{n_per_site}{People per site (`NULL` if unclustered).}
 #'   \item{deff}{Design effect: `n` divided by the number of people with no
 #'     clustering who give the same chance of finding a case; 1 if
 #'     unclustered.}
 #'   \item{n_eff}{Number of people needed with no clustering, \eqn{n_0}
-#'     rounded up (in reverse, the number with no clustering who give the
-#'     same chance of finding a case).}
-#'   \item{detection_prob}{The target (forward), or the chance achieved
-#'     with `n` people (reverse).}
+#'     rounded up; for a full design, `n / deff`, the number with no
+#'     clustering who give the same chance of finding a case.}
+#'   \item{detection_prob}{Chance of finding at least one case with the
+#'     returned design.}
 #'
 #' @references
 #' Cannon, R. M. (2001) Sense and sensitivity: designing surveys based on an
@@ -105,8 +111,12 @@
 #' # Imperfect test
 #' design_detection(prevalence = 0.05, sensitivity = 0.8)
 #'
-#' # Reverse: the chance of finding a 1 percent variant with 139 people
+#' # Full design: the chance of finding a 1 percent variant with 139 people
 #' design_detection(prevalence = 0.01, n = 139)
+#'
+#' # Sites of different sizes
+#' design_detection(prevalence = 0.01, n_per_site = c(250, 250, 60, 60, 40, 40),
+#'                  icc = 0.05)
 #'
 #' # Fixed site size: how many sites?
 #' design_detection(prevalence = 0.05, n_per_site = 10, icc = 0.05)
@@ -115,20 +125,20 @@
 #' design_detection(prevalence = 0.01, n_sites = 5, icc = 0.1)
 design_detection <- function(prevalence,
                              detection_prob = 0.80,
-                             n              = NULL,
                              sensitivity    = 1,
+                             n              = NULL,
                              n_sites        = NULL,
                              n_per_site     = NULL,
                              icc            = 0) {
 
   .check_number(prevalence, "prevalence", 0, 1, lower_open = TRUE, upper_open = TRUE)
-  if (is.null(n))
-    .check_number(detection_prob, "detection_prob", 0, 1,
-                  lower_open = TRUE, upper_open = TRUE)
   .check_number(sensitivity, "sensitivity", 0, 1, lower_open = TRUE)
   .check_number(icc, "icc", 0, 1, upper_open = TRUE)
-  .check_sites(n_sites, n_per_site, icc)
-  .check_count(n, "n")
+  des <- .site_design(n, n_sites, n_per_site, icc)
+  .check_target(des$full, !missing(detection_prob), "detection_prob")
+  if (!des$full)
+    .check_number(detection_prob, "detection_prob", 0, 1,
+                  lower_open = TRUE, upper_open = TRUE)
 
   q <- prevalence * sensitivity
   # log chance of no case at k sites of m people, and the number of people
@@ -136,27 +146,14 @@ design_detection <- function(prevalence,
   log_p0  <- function(k, m) k * .log_p0_site(m, q, icc)
   n_equiv <- function(lp0) lp0 / log1p(-q)
 
-  # ---- reverse: chance of detection with n people ----
-  if (!is.null(n)) {
-    if (!is.null(n_sites) && n < n_sites)
-      stop("`n` must be at least `n_sites`.", call. = FALSE)
-    # people spread as evenly as the sites allow
-    lp0 <- if (!is.null(n_sites))
-      log_p0(n %% n_sites, n %/% n_sites + 1) +
-        log_p0(n_sites - n %% n_sites, n %/% n_sites)
-    else if (!is.null(n_per_site))
-      log_p0(n %/% n_per_site, n_per_site) + log_p0(1, n %% n_per_site)
-    else
-      log_p0(1, n)
-    design <- .allocate(n, n_sites, n_per_site)
-    return(list(
-      n              = n,
-      n_sites        = design$n_sites,
-      n_per_site     = design$n_per_site,
-      deff           = n / n_equiv(lp0),
-      n_eff          = ceiling(n_equiv(lp0)),
-      detection_prob = -expm1(lp0)
-    ))
+  # ---- full design: its chance of detection ----
+  if (des$full) {
+    lp0 <- if (is.null(des$sizes)) log_p0(1, des$n)
+           else sum(.log_p0_site(des$sizes, q, icc))
+    return(c(list(n = des$n), .report_sizes(des$sizes),
+             list(deff           = des$n / n_equiv(lp0),
+                  n_eff          = n_equiv(lp0),
+                  detection_prob = -expm1(lp0))))
   }
 
   # ---- forward ----
@@ -175,14 +172,15 @@ design_detection <- function(prevalence,
   n_total <- if (is.null(n_sites) && is.null(n_per_site)) n0
              else design$n_sites * design$n_per_site
 
+  lp0 <- if (is.null(design$n_sites)) log_p0(1, n_total)
+         else log_p0(design$n_sites, design$n_per_site)
   list(
     n              = n_total,
     n_sites        = design$n_sites,
     n_per_site     = design$n_per_site,
-    deff           = if (is.null(design$n_sites)) 1 else
-      n_total / n_equiv(log_p0(design$n_sites, design$n_per_site)),
+    deff           = n_total / n_equiv(lp0),
     n_eff          = n0,
-    detection_prob = detection_prob
+    detection_prob = -expm1(lp0)
   )
 }
 

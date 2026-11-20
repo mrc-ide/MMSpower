@@ -6,10 +6,12 @@
 \usage{
 design_precision(
   prevalence,
-  moe,
+  moe = NULL,
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
+  ci_method = c("clopper-pearson", "wald", "agresti-coull"),
+  n = NULL,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0
@@ -20,7 +22,7 @@ design_precision(
 
 \item{moe}{Target margin of error (half-width of the confidence interval)
 on the true-prevalence scale, in (0, 0.5). A decimal fraction, e.g. 0.05
-for +/-5 percentage points.}
+for +/-5 percentage points. Leave out with a full design.}
 
 \item{sensitivity}{Diagnostic sensitivity in (0, 1]; default 1 (perfect
 test).}
@@ -30,12 +32,21 @@ test).}
 
 \item{conf_level}{Confidence level, in (0, 1); default 0.95.}
 
-\item{n_sites}{Optional whole number. Fixes the number of sites; the
-function solves for people per site. Cannot be used with \code{n_per_site}.}
+\item{ci_method}{The interval the study will be analysed with, as in
+\code{\link[=estimate_prevalence]{estimate_prevalence()}}: \code{"clopper-pearson"} (default, the same default
+as \code{\link[=estimate_prevalence]{estimate_prevalence()}}), \code{"wald"} or \code{"agresti-coull"}. See
+Details.}
 
-\item{n_per_site}{Optional whole number. Fixes the number of people per
-site; the function solves for the number of sites. Cannot be used with
-\code{n_sites}.}
+\item{n}{Optional whole number: the number of people in a full design
+with no sites. Cannot be used with \code{n_sites} or \code{n_per_site}.}
+
+\item{n_sites}{Optional whole number. Fixes the number of sites; alone,
+the function solves for people per site.}
+
+\item{n_per_site}{Optional. People per site: one whole number (alone, the
+function solves for the number of sites), or a vector with one size per
+site, a full design with sites of different sizes (then leave out
+\code{n_sites}).}
 
 \item{icc}{Intra-cluster correlation, in [0, 1]; default 0 (no
 clustering). An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
@@ -47,30 +58,44 @@ A list with:
 \item{n_per_site}{People per site (\code{NULL} if unclustered).}
 \item{deff}{Design effect of the returned design,
 \code{1 + (n_per_site - 1) * icc}; 1 if unclustered.}
-\item{n_eff}{Unclustered sample size \eqn{n_0} that gives the same
-precision, rounded up.}
+\item{n_eff}{Unclustered sample size \eqn{n_0} for the target
+precision, rounded up; for a full design, \code{n / deff}.}
+\item{moe}{Margin of error of the returned design: the half-width of
+its expected interval.}
 }
 \description{
 Given a target precision (margin of error), returns the minimum total
-sample size required. Handles imperfect diagnostic tests via the
-Rogan-Gladen variance adjustment, and clustered sampling via the design
-effect (Kish formula).
+sample size required; or, given a full design, returns the margin of
+error it gives. Handles imperfect diagnostic tests via the Rogan-Gladen
+variance adjustment, and clustered sampling via the design effect (Kish
+formula).
 
-\strong{Three design modes} -- controlled by \code{n_sites} and \code{n_per_site}:
+\strong{What is solved for} -- leave out the one quantity you want:
 \describe{
-\item{Unclustered (\code{n_sites = NULL}, \code{n_per_site = NULL})}{Treats all
-observations as independent. Returns total \code{n} only.}
-\item{Fixed site size (\code{n_per_site} supplied)}{Solves for the number of
-sites.}
-\item{Fixed number of sites (\code{n_sites} supplied)}{Solves for the number
-of people per site.}
+\item{\code{moe} only}{Returns the number of people, with no sites.}
+\item{\code{moe} and \code{n_per_site}}{Returns the number of sites.}
+\item{\code{moe} and \code{n_sites}}{Returns the number of people per site.}
+\item{A full design, without \code{moe}}{Returns the margin of error: give
+\code{n} (no sites), \code{n_sites} and \code{n_per_site}, or a vector \code{n_per_site}
+with one size per site (for sites of different sizes).}
 }
 }
 \details{
+\strong{Margin of error and the interval method}: the margin of error is the
+half-width of the interval \code{\link[=estimate_prevalence]{estimate_prevalence()}} would report if the
+measured prevalence came out exactly as expected, so a design sized here
+gives back the target when analysed with the same \code{ci_method}. For
+\code{"wald"} it is the usual closed form below. For \code{"clopper-pearson"} and
+\code{"agresti-coull"} there is no formula: the unclustered size \eqn{n_0} is
+found by a numerical search, and the clustering steps below then work as
+for Wald. Clopper-Pearson is the widest of the three, so it needs the
+most people (341 against Wald's 323 for 30 percent +/- 5); the gap is
+largest at low prevalence.
+
 \strong{Rogan-Gladen variance adjustment}: the Rogan-Gladen transform is
 linear in the apparent prevalence, so scaling its variance by the
 (constant) RG slope is exact -- not a delta-method approximation. The
-unclustered sample size is
+unclustered Wald sample size is
 
 \deqn{n_0 = \frac{z^2 \, p_{app}(1-p_{app})}{MOE^2 \cdot (Se + Sp - 1)^2}}
 
@@ -91,19 +116,28 @@ the closed form:
 A solution exists only when \eqn{n_{sites} > n_0 \cdot ICC}. Otherwise
 the target MOE is unachievable: each site is worth at most \eqn{1/ICC}
 independent people however many are sampled there, so the MOE floors at
-
-\deqn{MOE_{min} = z\sqrt{\frac{p_{app}(1-p_{app}) \cdot ICC}
-{n_{sites} \cdot (Se + Sp - 1)^2}}}
-
+the margin of error of \eqn{n_{sites} / ICC} independent people (for
+Wald, \eqn{z\sqrt{p_{app}(1-p_{app}) ICC / n_{sites}} / (Se + Sp - 1)}),
 and the function stops and reports this minimum.
 
 \strong{Rounding}: the number of sites (or people per site) is rounded up, and
 the returned \code{n} is the number actually sampled, \code{n_sites * n_per_site},
-so it can be slightly above the continuous solution.
+so it can be slightly above the continuous solution. The returned \code{moe}
+is that of the rounded design, so it can be slightly below the target.
+
+\strong{Full design}: the margin of error is that of \eqn{n / D_{eff}}
+independent people, for Wald
+\eqn{z \sqrt{p_{app}(1-p_{app}) D_{eff} / n} / (Se + Sp - 1)}. For sites
+of different sizes, \eqn{D_{eff} = 1 + (n_w - 1) ICC} with
+\eqn{n_w = \sum s^2 / \sum s} the size-weighted mean site size, as in
+\code{\link[=estimate_prevalence]{estimate_prevalence()}}.
 }
 \examples{
 # Unclustered, perfect test
 design_precision(prevalence = 0.3, moe = 0.05)
+
+# Sized for a Wald interval instead of the default Clopper-Pearson
+design_precision(prevalence = 0.3, moe = 0.05, ci_method = "wald")
 
 # Imperfect test (sensitivity 90\%, specificity 95\%)
 design_precision(0.3, 0.05, sensitivity = 0.9, specificity = 0.95)
@@ -113,6 +147,12 @@ design_precision(0.3, 0.05, n_per_site = 10, icc = 0.05)
 
 # Fixed number of sites: how many people per site?
 design_precision(0.3, 0.05, n_sites = 50, icc = 0.05)
+
+# Full design: what margin of error do 6 sites of 40 give?
+design_precision(0.2, n_sites = 6, n_per_site = 40, icc = 0.05)
+
+# Sites of different sizes
+design_precision(0.2, n_per_site = c(250, 250, 60, 60, 40, 40), icc = 0.05)
 }
 \references{
 Rogan WJ, Gladen B (1978). Estimating prevalence from the results of a

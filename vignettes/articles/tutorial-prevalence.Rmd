@@ -30,8 +30,23 @@ d0 <- design_precision(prevalence = 0.2, moe = 0.05)
 d0
 ```
 
-So `r d0$n` samples are needed. This is the familiar
-$z^2 p(1-p) / \text{MOE}^2$ formula, rounded up. Two things drive it: the
+So `r d0$n` samples are needed. By default `design_precision()` sizes the
+study for a Clopper-Pearson interval, the same default as
+`estimate_prevalence()`, so the analysis gives back the margin of error
+that was planned. There is no formula for this, so the function finds the
+sample size by a numerical search. The familiar $z^2 p(1-p) / \text{MOE}^2$
+formula, rounded up, is the Wald version, which you get with
+`ci_method = "wald"`:
+
+```{r}
+design_precision(prevalence = 0.2, moe = 0.05, ci_method = "wald")$n
+```
+
+This is the number most textbooks and the MMS-SD workshop give. The
+Clopper-Pearson interval is a little wider, so it needs a few more samples.
+The result also gives
+`moe`, the margin of error the rounded design actually achieves, here
+`r round(d0$moe, 5)`, just inside the target. Two things drive it: the
 margin of error (halving it roughly quadruples the sample size) and the
 expected prevalence (the sample size is largest at 50%). If the expected
 prevalence is uncertain, using a value closer to 50% is the cautious choice.
@@ -135,6 +150,90 @@ logistics allow, aim for more sites with fewer people at each. Site visits
 cost money too, and the [Costing a study](tutorial-cost.html) tutorial shows
 how to find the cheapest design.
 
+### The precision of a design you already have
+
+Sometimes the design is set by circumstances: a network of sentinel sites
+that can each collect a fixed number of samples, say. Give the full design
+and leave out `moe`, and `design_precision()` returns the margin of error
+that design achieves:
+
+```{r}
+d_have <- design_precision(prevalence = 0.2, n_sites = 20, n_per_site = 20, icc = 0.05)
+d_have$moe
+```
+
+Twenty sites of 20 people give a margin of error of
+±`r round(100 * d_have$moe, 1)` percentage points, a little wider than the
+5-point target.
+
+Sites do not have to be the same size. Give `n_per_site` as one value per
+site:
+
+```{r}
+d_uneven <- design_precision(prevalence = 0.2, n_per_site = c(250, 250, 60, 60, 40, 40),
+                             icc = 0.05)
+d_uneven$moe
+
+d_even <- design_precision(prevalence = 0.2, n_sites = 6, n_per_site = 117, icc = 0.05)
+d_even$moe
+```
+
+These six sites hold `r d_uneven$n` people and give a margin of error of
+±`r round(100 * d_uneven$moe, 1)` points. Spreading about the same number
+evenly, `r d_even$n_sites` sites of `r d_even$n_per_site`, gives
+±`r round(100 * d_even$moe, 1)`. Large sites dominate the estimate, and
+many of their people repeat what that site has already shown, so uneven
+site sizes cost precision.
+
+### Allowing for dropout and suspected cases
+
+The design functions give the number of samples needed **at analysis**.
+More people than that have to be enrolled, for two reasons.
+
+First, some samples are lost: consent is withdrawn, a sample is lost in
+transit, or the assay fails. If about 10% are expected to be lost, divide
+by $1 - 0.1$ and round up. Do this per site, not only for the total, so
+that every site still delivers its share. Taking the design with
+`r d_per$n_per_site` samples at each of `r d_per$n_sites` sites:
+
+```{r}
+per_site_analysis  <- d_per$n_per_site
+per_site_confirmed <- ceiling(per_site_analysis / (1 - 0.1))
+per_site_confirmed
+```
+
+Second, the marker is measured only in confirmed *P. falciparum*
+infections, but people are enrolled as suspected cases, before the test
+result is known. If about 40% of suspected cases are confirmed, divide
+again by 0.4:
+
+```{r}
+per_site_suspected <- ceiling(per_site_confirmed / 0.4)
+per_site_suspected
+```
+
+So each site enrols `r per_site_suspected` suspected cases, expecting
+`r per_site_confirmed` of them to be confirmed, and `r per_site_analysis`
+samples to reach the analysis. Across the `r d_per$n_sites` sites that is
+`r d_per$n_sites * per_site_suspected` suspected cases enrolled,
+`r d_per$n_sites * per_site_confirmed` confirmed cases enrolled and
+`r d_per$n` samples expected at analysis. Keep the three numbers apart when
+planning and reporting: the design was calculated for the last one.
+
+The confirmed fraction often differs between sites, for example with
+transmission intensity. Use each site's own value:
+
+```{r}
+ceiling(per_site_confirmed / c(0.6, 0.4, 0.25))
+```
+
+A site where only a quarter of suspected cases are confirmed has to enrol
+`r ceiling(per_site_confirmed / 0.25)` suspected cases to deliver the same
+`r per_site_analysis` samples. When budgeting, cost the inflated numbers,
+since those are the people enrolled and tested: in `estimate_cost()`, the
+suspected cases are `n_screened`, the confirmed cases `n_collected` and the
+samples at analysis `n_sequenced` (see [Costing a study](tutorial-cost.html)).
+
 ## Part 2: Analysing the data
 
 Suppose the programme settles on 20 sites of about 30 people, and records
@@ -187,10 +286,10 @@ its limits can fall below 0 or above 1. `estimate_prevalence()` sets such
 limits to 0 or 1, which keeps the interval sensible, but the result is
 still less reliable than the other two methods in these situations.
 Clopper-Pearson, the default, is the cautious choice, and Agresti-Coull a
-good compromise. `design_precision()` sizes a study with the simpler Wald
-formula, so a Clopper-Pearson interval usually comes out a little wider
-than the margin of error the study was designed for. See
-`?estimate_prevalence` for the details.
+good compromise. Use the same method at both stages: `design_precision()`
+takes the same `ci_method` argument, so a study sized for Clopper-Pearson
+(the default in both) gives back the planned margin of error when analysed
+with it. See `?estimate_prevalence` for the details.
 
 ### Supplied or estimated ICC?
 

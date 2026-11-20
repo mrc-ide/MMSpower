@@ -24,7 +24,8 @@ test_that("unclustered: the Module 7 example gives the slide's 32", {
   expect_equal(res$n, 32)
   expect_equal(res$n_eff, 32)
   expect_equal(res$deff, 1)
-  expect_equal(res$detection_prob, 0.8)
+  # the chance achieved by the rounded design: 1 - 0.95^32
+  expect_equal(res$detection_prob, 1 - 0.95^32)
   expect_null(res$n_sites)
   expect_null(res$n_per_site)
   expect_named(res, c("n", "n_sites", "n_per_site", "deff", "n_eff", "detection_prob"))
@@ -66,21 +67,24 @@ test_that("sites match DRpower", {
                  c(3, 0.05, 0.20, 47),  c(20, 0.01, 0.05, 10), c(10, 0.05, 0.30, 6),
                  c(4, 0.10, 0.60, 101)))
     expect_equal(design_detection(s[2], n_sites = s[1], icc = s[3])$n_per_site, s[4])
-  # reverse: DRpower::get_power_presence(rep(4, 10), 0.05, 0.05) = 85.1019
-  expect_equal(round(100 * design_detection(0.05, n = 40, n_sites = 10,
+  # full design: DRpower::get_power_presence(rep(4, 10), 0.05, 0.05) = 85.1019
+  expect_equal(round(100 * design_detection(0.05, n_sites = 10, n_per_site = 4,
                                             icc = 0.05)$detection_prob, 4), 85.1019)
+  # unequal sites, from the DRpower design tutorial:
+  # get_power_presence(c(250, 250, 60, 60, 40, 40), 0.01, 0.05) = 86.57
+  expect_equal(round(100 * design_detection(0.01, n_per_site = c(250, 250, 60, 60, 40, 40),
+                                            icc = 0.05)$detection_prob, 2), 86.57)
 })
 
-test_that("reverse with sites spreads the people as evenly as possible", {
+test_that("a full design with sites of different sizes multiplies the sites", {
   # 43 people at 10 sites: 3 sites of 5 and 7 of 4
-  expect_equal(design_detection(0.05, n = 43, n_sites = 10, icc = 0.05)$detection_prob,
-               1 - p0_direct(5, 0.05, 0.05)^3 * p0_direct(4, 0.05, 0.05)^7)
-  # 45 people in sites of 10: 4 full sites and one of 5
-  res <- design_detection(0.05, n = 45, n_per_site = 10, icc = 0.05)
+  s   <- c(5, 5, 5, 4, 4, 4, 4, 4, 4, 4)
+  res <- design_detection(0.05, n_per_site = s, icc = 0.05)
   expect_equal(res$detection_prob,
-               1 - p0_direct(10, 0.05, 0.05)^4 * p0_direct(5, 0.05, 0.05))
-  expect_equal(res$n_sites, 5)
-  expect_equal(res$deff, 45 / (log(1 - res$detection_prob) / log(0.95)))
+               1 - p0_direct(5, 0.05, 0.05)^3 * p0_direct(4, 0.05, 0.05)^7)
+  expect_equal(c(res$n, res$n_sites), c(43, 10))
+  expect_equal(res$deff, 43 / (log(1 - res$detection_prob) / log(0.95)))
+  expect_equal(res$n_eff, 43 / res$deff)
 })
 
 test_that("icc 0 with sites spreads the unclustered n", {
@@ -119,11 +123,9 @@ test_that("bad inputs give a clear error", {
   expect_error(design_detection(0.05, 1), "`detection_prob` must be")
   expect_error(design_detection(0.05, sensitivity = 0), "`sensitivity` must be")
   expect_error(design_detection(0.05, n = 2.5), "`n` must be a single whole number")
-  expect_error(design_detection(0.05, n_sites = 3, n_per_site = 3), "at most one")
+  expect_error(design_detection(0.05, 0.9, n_sites = 3, n_per_site = 3), "not both")
   expect_error(design_detection(0.05, icc = 0.1), "needs `n_sites` or `n_per_site`")
   expect_error(design_detection(0.05, n_sites = 5, icc = 1), "`icc` must be")
-  expect_error(design_detection(0.05, n = 2, n_sites = 5, icc = 0.1),
-               "`n` must be at least `n_sites`")
-  # detection_prob is not used, so not checked, in reverse
-  expect_no_error(design_detection(0.05, detection_prob = "x", n = 10))
+  expect_error(design_detection(0.05, n = 20, n_sites = 5, icc = 0.1), "without sites")
+  expect_error(design_detection(0.05, detection_prob = 0.9, n = 10), "not both")
 })
