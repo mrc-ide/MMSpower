@@ -34,13 +34,15 @@ How many people are needed to estimate a prevalence of around 30% to
 within ±5 percentage points, with 10 people per site and an ICC of 0.05?
 
 ```{r}
-design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+des <- design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+des
 ```
 
-Once the data are in, estimate the prevalence and its confidence interval:
+Once the data are in, estimate the prevalence and its confidence interval
+(here, 3 positives at each of the `r des$n_sites` sites):
 
 ```{r}
-estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+estimate_prevalence(x = rep(3, des$n_sites), n = rep(10, des$n_sites), icc = 0.05)
 ```
 
 ## Testing against a threshold
@@ -73,7 +75,7 @@ How many people per group are needed to detect a difference between 10% and
 20% prevalence, with 30 sites per group and an ICC of 0.02?
 
 ```{r}
-design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites = 30, icc = 0.02)
+design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites1 = 30, icc = 0.02)
 ```
 
 Then test for a difference:
@@ -84,9 +86,13 @@ test_difference(x1 = 24, n1 = 240, x2 = 48, n2 = 240, icc = 0.02)
 
 ## Costing a study
 
-Finally, cost a design from its sample size and number of sites:
+Finally, cost a design from its sample size and number of sites. The
+design's `n` is the number of samples sequenced; here each costs 50 in all:
 
 ```{r}
-estimate_cost(n = 470, cost_per_sample = 50, n_sites = 47,
+estimate_cost(n_sequenced = des$n, cost_per_sequenced = 50, n_sites = des$n_sites,
               fixed_cost_per_site = 500, transport_cost_per_site = 200)
 ```
+
+`estimate_cost()` can also cost screening and sample collection as separate
+stages; see the [Costing a study](tutorial-cost.html) tutorial.

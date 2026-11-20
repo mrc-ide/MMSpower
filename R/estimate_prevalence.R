@@ -43,9 +43,9 @@
 #'   (default), ICC is estimated from the data. Set to `0` for no
 #'   clustering. A supplied value is also used with a single site.
 #' @param ci_method CI method: `"clopper-pearson"` (default), `"wald"`, or
-#'   `"agresti-coull"`. See Description. \code{design_precision()} sizes a
-#'   study from the Wald formula, so the default interval comes out a
-#'   little wider than the margin of error it was designed for.
+#'   `"agresti-coull"`. See Description. \code{design_precision()} takes the
+#'   same `ci_method`, with the same default, so a design sized there gives
+#'   back its margin of error here.
 #'
 #' @details
 #' The interval is built in five steps: apparent prevalence, a design
@@ -253,26 +253,10 @@ estimate_prevalence <- function(x,
   # effective sample size for the interval (Korn-Graubard), which makes the
   # Wald interval use a t value with sites - 1 degrees of freedom.
   alpha <- 1 - conf_level
-  z     <- stats::qnorm(1 - alpha / 2)
   n_ci  <- .df_adjust(n_eff, alpha / 2, clus$df)
-  x_ci  <- p_hat * n_ci      # positives scaled to n_ci (not always whole)
 
   # interval on the apparent prevalence
-  if (ci_method == "wald") {
-    se     <- sqrt(p_hat * (1 - p_hat) / n_ci)
-    ci_app <- c(p_hat - z * se, p_hat + z * se)
-  } else if (ci_method == "clopper-pearson") {
-    ci_app <- c(if (p_hat == 0) 0 else
-                  stats::qbeta(alpha / 2, x_ci, n_ci - x_ci + 1),
-                if (p_hat == 1) 1 else
-                  stats::qbeta(1 - alpha / 2, x_ci + 1, n_ci - x_ci))
-  } else {
-    n_tilde <- n_ci + z^2
-    p_tilde <- (x_ci + z^2 / 2) / n_tilde
-    se      <- sqrt(p_tilde * (1 - p_tilde) / n_tilde)
-    ci_app  <- c(p_tilde - z * se, p_tilde + z * se)
-  }
-  ci_app <- pmin(pmax(ci_app, 0), 1)
+  ci_app <- .ci_app(p_hat, n_ci, alpha, ci_method)
 
   # Rogan-Gladen correction to the true-prevalence scale, kept in [0, 1]
   ci_true    <- .correct_ci(ci_app, sensitivity, specificity)

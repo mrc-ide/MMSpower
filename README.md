@@ -37,10 +37,10 @@ library(MMSpower)
 
 design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
 #> $n
-#> [1] 470
+#> [1] 500
 #> 
 #> $n_sites
-#> [1] 47
+#> [1] 50
 #> 
 #> $n_per_site
 #> [1] 10
@@ -49,7 +49,10 @@ design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
 #> [1] 1.45
 #> 
 #> $n_eff
-#> [1] 323
+#> [1] 341
+#> 
+#> $moe
+#> [1] 0.04965355
 ```
 
 See the [website](https://mrc-ide.github.io/MMSpower/) for worked

@@ -12,8 +12,12 @@ design_difference(
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
-  n_sites = NULL,
-  n_per_site = NULL,
+  n1 = NULL,
+  n2 = n1,
+  n_sites1 = NULL,
+  n_sites2 = n_sites1,
+  n_per_site1 = NULL,
+  n_per_site2 = n_per_site1,
   icc = 0
 )
 }
@@ -23,7 +27,8 @@ design_difference(
 \item{prevalence2}{Expected true prevalence in group 2, in [0, 1].
 The two prevalences must differ.}
 
-\item{power}{Target power, in [0.5, 1); default 0.80.}
+\item{power}{Target power, in [0.5, 1); default 0.80. Not used, and not
+to be given, with a full design.}
 
 \item{alternative}{Which kind of difference to look for.
 \code{"two.sided"} (default) looks for any difference; \code{"greater"}
@@ -43,19 +48,22 @@ significance level of the test is 1 - \code{conf_level}. Below 0.5 the
 one-sided z value turns negative and the sample size shrinks towards
 nonsense, so it is not allowed.}
 
-\item{n_sites}{Optional. Number of sites in each group: one whole number
-for both groups, or two, \code{c(group 1, group 2)}. The function solves
-for the number of people per site, the same in both groups. Cannot be
-used with \code{n_per_site}.}
+\item{n1, n2}{Optional whole numbers: the number of people in each group,
+for a full design with no sites. \code{n2} defaults to \code{n1}.}
 
-\item{n_per_site}{Optional. Number of people per site: one whole number
-for both groups, or two, \code{c(group 1, group 2)}. The function solves
-for the number of sites, the same in both groups. Cannot be used with
-\code{n_sites}.}
+\item{n_sites1, n_sites2}{Optional whole numbers: the number of sites in
+each group. Alone, the function solves for the number of people per
+site. \code{n_sites2} defaults to \code{n_sites1}.}
+
+\item{n_per_site1, n_per_site2}{Optional: people per site in each group.
+One whole number (alone, the function solves for the number of sites),
+or a vector with one size per site, a full design with sites of
+different sizes (then leave out that group's \code{n_sites}).
+\code{n_per_site2} defaults to \code{n_per_site1}.}
 
 \item{icc}{Intra-cluster correlation, in [0, 1]: one number for both
 groups, or two, \code{c(group 1, group 2)}. Default 0 (no clustering).
-An \code{icc} above 0 needs \code{n_sites} or \code{n_per_site}.}
+An \code{icc} above 0 needs sites in that group.}
 }
 \value{
 A list with:
@@ -64,33 +72,42 @@ With sites, \code{n_sites * n_per_site}.}
 \item{n}{Total number of people, \code{sum(n_per_group)}.}
 \item{n_sites}{Sites in each group (\code{NULL} with no clustering).}
 \item{n_per_site}{People per site in each group (\code{NULL} with no
-clustering).}
+clustering); a list of each group's site sizes if they differ within
+a group.}
 \item{deff}{Design effect of each group (1 with no clustering).}
 \item{n_eff}{People each group would need with no clustering, keeping
-the groups in the same ratio as the design.}
+the groups in the same ratio as the design; for a full design,
+\code{n_per_group / deff}.}
+\item{power}{Power of the returned design.}
 }
 \description{
 Design function: given the expected true prevalence in two groups, returns
 the sample size needed in each group for \code{test_difference()} (with
-its default score test) to detect that difference with the target power.
+its default score test) to detect that difference with the target power;
+or, given a full design for both groups, returns the power it gives.
 
-Each group can have its own number of sites, people per site and ICC:
-give one value for both groups, or two, \code{c(group 1, group 2)}. The
-function solves for one unknown, the same in both groups:
+Each group has its own arguments, \code{n1}, \code{n_sites1},
+\code{n_per_site1} for group 1 and \code{n2}, \code{n_sites2},
+\code{n_per_site2} for group 2, as in \code{test_difference()}. Each
+group-2 argument defaults to its group-1 value, so for two groups with the
+same design only the group-1 arguments are needed.
+
+\strong{What is solved for} -- leave out the one quantity you want, the
+same in both groups:
 \describe{
-\item{No clustering (\code{n_sites} and \code{n_per_site} both
-\code{NULL}, default)}{Solves for the number of people per group.}
-\item{Fixed number of people per site (\code{n_per_site})}{Solves for
-the number of sites per group.}
-\item{Fixed number of sites (\code{n_sites})}{Solves for the number of
-people per site.}
+\item{No sites}{Returns the number of people per group.}
+\item{\code{n_per_site1} (and \code{n_per_site2})}{Returns the number
+of sites per group, the same in both.}
+\item{\code{n_sites1} (and \code{n_sites2})}{Returns the number of
+people per site, the same in both.}
+\item{A full design for both groups}{Returns the power. For each group
+give \code{n} (no sites), \code{n_sites} and \code{n_per_site}, or a
+vector \code{n_per_site} with one size per site (for sites of
+different sizes). Leave \code{power} at its default.}
 }
-So with one value of \code{n_sites} or \code{n_per_site} the two groups
-are the same size, and with two values their sizes follow those values.
-For example, \code{n_sites = c(10, 20)} gives group 2 twice as many people
-as group 1 (the same number of people per site in both groups), and so
-does \code{n_per_site = c(10, 20)} (the same number of sites in both
-groups).
+When solving, the groups' sizes follow their fixed values: for example,
+\code{n_sites1 = 10, n_sites2 = 20} gives group 2 twice as many people as
+group 1.
 }
 \details{
 \strong{Sample size.} Write \eqn{m_1}, \eqn{m_2} for the effective sizes
@@ -117,19 +134,27 @@ sample size.
 
 \strong{Effective size.} For group \eqn{g} with \eqn{n_g} people in sites
 of \eqn{s_g} people, \eqn{m_g = n_g / D_g} with design effect
-\eqn{D_g = 1 + (s_g - 1)\,ICC_g}. With one unknown \eqn{x}, each design
-gives \eqn{m_g} directly:
+\eqn{D_g = 1 + (s_g - 1)\,ICC_g}. For sites of different sizes, \eqn{s_g}
+is the size-weighted mean site size \eqn{\sum s^2 / \sum s}, as in
+\code{test_difference()}. With one unknown \eqn{x}, each design gives
+\eqn{m_g} directly:
 \describe{
 \item{No clustering}{\eqn{m_g = x}, people per group.}
-\item{Fixed \code{n_per_site}}{\eqn{m_g = x \, s_g / D_g}, with \eqn{x}
-sites per group.}
-\item{Fixed \code{n_sites}}{\eqn{m_g = k_g x / (1 + (x - 1) ICC_g)},
-with \eqn{k_g} sites and \eqn{x} people per site.}
+\item{Fixed \code{n_per_site1}, \code{n_per_site2}}{\eqn{m_g = x \,
+    s_g / D_g}, with \eqn{x} sites per group.}
+\item{Fixed \code{n_sites1}, \code{n_sites2}}{\eqn{m_g = k_g x / (1 +
+    (x - 1) ICC_g)}, with \eqn{k_g} sites and \eqn{x} people per site.}
 }
 Each \eqn{m_g} grows with \eqn{x}, so the left side of the equation
 above falls as \eqn{x} grows, and the function finds the smallest
 \eqn{x} that meets it with a single root search (\code{uniroot()}),
 then rounds up to a whole number.
+
+\strong{Power.} For a full design, or the rounded design that was solved
+for, the power is the equation above solved for \eqn{z_\beta}:
+\eqn{\Phi((|p_{1,app} - p_{2,app}| - z_\alpha \sqrt{\bar{p}(1-\bar{p})
+(1/m_1 + 1/m_2)}) / \sqrt{p_{1,app}(1-p_{1,app})/m_1 +
+p_{2,app}(1-p_{2,app})/m_2})}.
 
 \strong{Highest power.} With \code{n_sites} fixed, adding people to each
 site cannot raise the power past a limit: each site is worth at most
@@ -159,13 +184,22 @@ design_difference(0.10, 0.20, power = 0.90)
 design_difference(0.10, 0.20, sensitivity = 0.9, specificity = 0.95)
 
 # Fixed number of people per site: how many sites per group?
-design_difference(0.10, 0.20, n_per_site = 30, icc = 0.02)
+design_difference(0.10, 0.20, n_per_site1 = 30, icc = 0.02)
 
 # Fixed number of sites: how many people per site?
-design_difference(0.10, 0.20, n_sites = 30, icc = 0.02)
+design_difference(0.10, 0.20, n_sites1 = 30, icc = 0.02)
 
 # Twice as many sites in group 2, and more clustering there
-design_difference(0.10, 0.20, n_sites = c(20, 40), icc = c(0.02, 0.05))
+design_difference(0.10, 0.20, n_sites1 = 20, n_sites2 = 40,
+                  icc = c(0.02, 0.05))
+
+# Full design: the power of 200 people per group
+design_difference(0.10, 0.20, n1 = 200)
+
+# Full design with sites of different sizes in each group
+design_difference(0.10, 0.20,
+                  n_per_site1 = c(80, 60, 40, 40), n_per_site2 = c(100, 50, 50),
+                  icc = 0.02)
 }
 \references{
 MMS-SD Study Design Workshop. \url{https://mrc-ide.github.io/MMS-SD_workshop/}

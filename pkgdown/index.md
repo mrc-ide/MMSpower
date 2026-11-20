@@ -30,10 +30,10 @@ library(MMSpower)
 
 design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
 #> $n
-#> [1] 470
+#> [1] 500
 #>
 #> $n_sites
-#> [1] 47
+#> [1] 50
 #>
 #> $n_per_site
 #> [1] 10
@@ -42,12 +42,15 @@ design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
 #> [1] 1.45
 #>
 #> $n_eff
-#> [1] 323
+#> [1] 341
+#>
+#> $moe
+#> [1] 0.04965355
 ```
 
-47 sites of 10 people. Without clustering, 323 people would be enough; the
-design effect of 1.45 accounts for people at the same site resembling each
-other.
+50 sites of 10 people, giving a margin of error just under the 5-point
+target. Without clustering, 341 people would be enough; the design effect of
+1.45 accounts for people at the same site resembling each other.
 
 The [tutorials](articles/index.html) take each type of study from design
 through to analysis, starting with

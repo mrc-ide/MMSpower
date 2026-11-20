@@ -35,9 +35,9 @@ never gives a false positive). \code{sensitivity + specificity} must exceed
 clustering. A supplied value is also used with a single site.}
 
 \item{ci_method}{CI method: \code{"clopper-pearson"} (default), \code{"wald"}, or
-\code{"agresti-coull"}. See Description. \code{design_precision()} sizes a
-study from the Wald formula, so the default interval comes out a
-little wider than the margin of error it was designed for.}
+\code{"agresti-coull"}. See Description. \code{design_precision()} takes the
+same \code{ci_method}, with the same default, so a design sized there gives
+back its margin of error here.}
 }
 \value{
 A list with:
