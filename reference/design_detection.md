@@ -2,23 +2,28 @@
 
 Given the expected true prevalence of a (possibly rare) variant or
 condition, returns the number of people needed so that the chance of
-finding at least one case reaches a target (`detection_prob`). Supply
-`n` instead to run it in reverse: the function then reports the chance
-of finding at least one case with that many people.
+finding at least one case reaches a target (`detection_prob`); or, given
+a full design, returns the chance of finding at least one case with it.
 
-**Three design modes** – controlled by `n_sites` and `n_per_site`:
+**What is solved for** – leave out the one quantity you want:
 
-- Unclustered (`n_sites = NULL`, `n_per_site = NULL`):
+- No sites:
 
   Returns the number of people.
 
-- Fixed site size (`n_per_site` supplied):
+- `n_per_site`:
 
-  Solves for the number of sites.
+  Returns the number of sites.
 
-- Fixed number of sites (`n_sites` supplied):
+- `n_sites`:
 
-  Solves for the number of people per site.
+  Returns the number of people per site.
+
+- A full design:
+
+  Returns `detection_prob`: give `n` (no sites), `n_sites` and
+  `n_per_site`, or a vector `n_per_site` with one size per site (for
+  sites of different sizes). Leave `detection_prob` at its default.
 
 ## Usage
 
@@ -26,8 +31,8 @@ of finding at least one case with that many people.
 design_detection(
   prevalence,
   detection_prob = 0.8,
-  n = NULL,
   sensitivity = 1,
+  n = NULL,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0
@@ -44,28 +49,28 @@ design_detection(
 - detection_prob:
 
   Target chance of finding at least one case, in (0, 1); default 0.80.
-  Not used when `n` is supplied.
-
-- n:
-
-  Optional whole number. If supplied, the function runs in reverse and
-  reports the chance of finding at least one case among `n` people.
+  Not used, and not to be given, with a full design.
 
 - sensitivity:
 
   Diagnostic sensitivity in (0, 1\]; default 1 (the test never misses a
   case).
 
+- n:
+
+  Optional whole number: the number of people in a full design with no
+  sites. Cannot be used with `n_sites` or `n_per_site`.
+
 - n_sites:
 
-  Optional whole number. Fixes the number of sites; the function solves
-  for people per site. Cannot be used with `n_per_site`.
+  Optional whole number. Fixes the number of sites; alone, the function
+  solves for people per site.
 
 - n_per_site:
 
-  Optional whole number. Fixes the number of people per site; the
-  function solves for the number of sites. Cannot be used with
-  `n_sites`.
+  Optional. People per site: one whole number (alone, the function
+  solves for the number of sites), or a vector with one size per site, a
+  full design with sites of different sizes (then leave out `n_sites`).
 
 - icc:
 
@@ -78,8 +83,8 @@ A list with:
 
 - n:
 
-  Total sample size (or `n` as supplied, in reverse). With sites,
-  `n_sites * n_per_site`.
+  Total sample size. With sites, `n_sites * n_per_site`, or the sum of
+  the site sizes.
 
 - n_sites:
 
@@ -96,14 +101,13 @@ A list with:
 
 - n_eff:
 
-  Number of people needed with no clustering, \\n_0\\ rounded up (in
-  reverse, the number with no clustering who give the same chance of
-  finding a case).
+  Number of people needed with no clustering, \\n_0\\ rounded up; for a
+  full design, `n / deff`, the number with no clustering who give the
+  same chance of finding a case.
 
 - detection_prob:
 
-  The target (forward), or the chance achieved with `n` people
-  (reverse).
+  Chance of finding at least one case with the returned design.
 
 ## Details
 
@@ -140,6 +144,11 @@ at least 1 person each, even if fewer people would do (as in the other
 design functions). A site larger than needed gives 1 site of that size.
 With sites, the returned `n` is the number actually sampled,
 `n_sites * n_per_site`.
+
+**Full design.** The chance of no case is the product of \\P_0(s_i)\\
+over the sites, so sites of different sizes are exact: with sizes \\s_1,
+\dots, s_k\\ the chance of finding a case is \\1 - \prod_i P_0(s_i)\\,
+as in DRpower's `get_power_presence()`.
 
 ## References
 
@@ -178,7 +187,7 @@ design_detection(prevalence = 0.05)
 #> [1] 32
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8062885
 #> 
 
 # Imperfect test
@@ -199,10 +208,10 @@ design_detection(prevalence = 0.05, sensitivity = 0.8)
 #> [1] 40
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8046338
 #> 
 
-# Reverse: the chance of finding a 1 percent variant with 139 people
+# Full design: the chance of finding a 1 percent variant with 139 people
 design_detection(prevalence = 0.01, n = 139)
 #> $n
 #> [1] 139
@@ -223,6 +232,28 @@ design_detection(prevalence = 0.01, n = 139)
 #> [1] 0.7526613
 #> 
 
+# Sites of different sizes
+design_detection(prevalence = 0.01, n_per_site = c(250, 250, 60, 60, 40, 40),
+                 icc = 0.05)
+#> $n
+#> [1] 700
+#> 
+#> $n_sites
+#> [1] 6
+#> 
+#> $n_per_site
+#> [1] 250 250  60  60  40  40
+#> 
+#> $deff
+#> [1] 3.50402
+#> 
+#> $n_eff
+#> [1] 199.7706
+#> 
+#> $detection_prob
+#> [1] 0.865711
+#> 
+
 # Fixed site size: how many sites?
 design_detection(prevalence = 0.05, n_per_site = 10, icc = 0.05)
 #> $n
@@ -241,7 +272,7 @@ design_detection(prevalence = 0.05, n_per_site = 10, icc = 0.05)
 #> [1] 32
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8130761
 #> 
 
 # Fixed number of sites: how many people per site?
@@ -262,6 +293,6 @@ design_detection(prevalence = 0.01, n_sites = 5, icc = 0.1)
 #> [1] 161
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8000063
 #> 
 ```

@@ -4,21 +4,28 @@ Design function: given a decision threshold and the true prevalence
 expected in the population, returns the number of people needed for
 [`test_threshold()`](https://mrc-ide.github.io/MMSpower/reference/test_threshold.md)
 (with its default exact binomial test) to show that the prevalence is
-above (or below) the threshold with the target power.
+above (or below) the threshold with the target power; or, given a full
+design, returns the power it gives.
 
-Three designs are supported:
+**What is solved for** – leave out the one quantity you want:
 
-- No clustering (`n_sites` and `n_per_site` both `NULL`, default):
+- No sites:
 
   Returns the number of people.
 
-- Fixed number of people per site (`n_per_site`):
+- `n_per_site`:
 
-  Solves for the number of sites needed.
+  Returns the number of sites.
 
-- Fixed number of sites (`n_sites`):
+- `n_sites`:
 
-  Solves for the number of people needed per site.
+  Returns the number of people per site.
+
+- A full design:
+
+  Returns the power: give `n` (no sites), `n_sites` and `n_per_site`, or
+  a vector `n_per_site` with one size per site (for sites of different
+  sizes). Leave `power` at its default.
 
 ## Usage
 
@@ -31,6 +38,7 @@ design_threshold(
   sensitivity = 1,
   specificity = 1,
   conf_level = 0.95,
+  n = NULL,
   n_sites = NULL,
   n_per_site = NULL,
   icc = 0
@@ -55,7 +63,8 @@ design_threshold(
 
 - power:
 
-  Target power, in (0, 1); default 0.80.
+  Target power, in (0, 1); default 0.80. Not used, and not to be given,
+  with a full design.
 
 - alternative:
 
@@ -79,16 +88,21 @@ design_threshold(
   Confidence level, in (0, 1); default 0.95. The significance level of
   the test is 1 - `conf_level`.
 
+- n:
+
+  Optional whole number: the number of people in a full design with no
+  sites. Cannot be used with `n_sites` or `n_per_site`.
+
 - n_sites:
 
-  Optional whole number. Fixes the number of sites; the function solves
-  for the number of people per site. Cannot be used with `n_per_site`.
+  Optional whole number. Fixes the number of sites; alone, the function
+  solves for the number of people per site.
 
 - n_per_site:
 
-  Optional whole number. Fixes the number of people per site; the
-  function solves for the number of sites. Cannot be used with
-  `n_sites`.
+  Optional. People per site: one whole number (alone, the function
+  solves for the number of sites), or a vector with one size per site, a
+  full design with sites of different sizes (then leave out `n_sites`).
 
 - icc:
 
@@ -120,7 +134,11 @@ people are needed without clustering):
 - n_eff:
 
   Number of independent people needed: the exact answer with no
-  clustering.
+  clustering; for a full design, `n / deff`.
+
+- power:
+
+  Power of the returned design.
 
 ## Details
 
@@ -175,6 +193,15 @@ effective sample size \\n / D\_{eff}\\ of the returned design is at
 least \\n_0\\, but need not sit on the saw-tooth exactly where \\n_0\\
 does. The power assumes the analysis uses the same ICC.
 
+**Power of a full design.** The exact power above needs a whole number
+of independent people, so the power of a design with sites is worked out
+at its effective size \\n / D\_{eff}\\ rounded down, which is slightly
+cautious. For sites of different sizes, \\D\_{eff} = 1 + (n_w - 1) ICC\\
+with \\n_w = \sum s^2 / \sum s\\ the size-weighted mean site size, as in
+[`test_threshold()`](https://mrc-ide.github.io/MMSpower/reference/test_threshold.md).
+The returned `power` of a design that was solved for is worked out the
+same way, so it is at least the target.
+
 ## References
 
 MMS-SD Study Design Workshop.
@@ -212,6 +239,9 @@ design_threshold(threshold = 0.05, prevalence = 0.10)
 #> $n_eff
 #> [1] 191
 #> 
+#> $power
+#> [1] 0.8053581
+#> 
 
 # Higher power needs more people
 design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.90)
@@ -229,6 +259,9 @@ design_threshold(threshold = 0.05, prevalence = 0.10, power = 0.90)
 #> 
 #> $n_eff
 #> [1] 256
+#> 
+#> $power
+#> [1] 0.9017371
 #> 
 
 # Below the threshold instead
@@ -248,6 +281,9 @@ design_threshold(threshold = 0.10, prevalence = 0.05, alternative = "less")
 #> $n_eff
 #> [1] 203
 #> 
+#> $power
+#> [1] 0.8588914
+#> 
 
 # Fixed number of people per site: how many sites?
 design_threshold(threshold = 0.05, prevalence = 0.10,
@@ -266,5 +302,30 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
 #> 
 #> $n_eff
 #> [1] 191
+#> 
+#> $power
+#> [1] 0.8238663
+#> 
+
+# Full design: the power of 6 sites of 50
+design_threshold(threshold = 0.05, prevalence = 0.10,
+                 n_sites = 6, n_per_site = 50, icc = 0.05)
+#> $n
+#> [1] 300
+#> 
+#> $n_sites
+#> [1] 6
+#> 
+#> $n_per_site
+#> [1] 50
+#> 
+#> $deff
+#> [1] 3.45
+#> 
+#> $n_eff
+#> [1] 86.95652
+#> 
+#> $power
+#> [1] 0.4949123
 #> 
 ```

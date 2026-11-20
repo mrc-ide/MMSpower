@@ -84,8 +84,8 @@ estimate_prevalence(
   CI method: `"clopper-pearson"` (default), `"wald"`, or
   `"agresti-coull"`. See Description.
   [`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
-  sizes a study from the Wald formula, so the default interval comes out
-  a little wider than the margin of error it was designed for.
+  takes the same `ci_method`, with the same default, so a design sized
+  there gives back its margin of error here.
 
 ## Value
 

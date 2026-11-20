@@ -29,7 +29,7 @@ by simple random sampling across the region) and the test is perfect.
 d0 <- design_precision(prevalence = 0.2, moe = 0.05)
 d0
 #> $n
-#> [1] 246
+#> [1] 264
 #> 
 #> $n_sites
 #> NULL
@@ -41,15 +41,36 @@ d0
 #> [1] 1
 #> 
 #> $n_eff
+#> [1] 264
+#> 
+#> $moe
+#> [1] 0.04996977
+```
+
+So 264 samples are needed. By default
+[`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
+sizes the study for a Clopper-Pearson interval, the same default as
+[`estimate_prevalence()`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md),
+so the analysis gives back the margin of error that was planned. There
+is no formula for this, so the function finds the sample size by a
+numerical search. The familiar $`z^2 p(1-p) / \text{MOE}^2`$ formula,
+rounded up, is the Wald version, which you get with
+`ci_method = "wald"`:
+
+``` r
+
+design_precision(prevalence = 0.2, moe = 0.05, ci_method = "wald")$n
 #> [1] 246
 ```
 
-So 246 samples are needed. This is the familiar
-$`z^2 p(1-p) / \text{MOE}^2`$ formula, rounded up. Two things drive it:
-the margin of error (halving it roughly quadruples the sample size) and
-the expected prevalence (the sample size is largest at 50%). If the
-expected prevalence is uncertain, using a value closer to 50% is the
-cautious choice.
+This is the number most textbooks and the MMS-SD workshop give. The
+Clopper-Pearson interval is a little wider, so it needs a few more
+samples. The result also gives `moe`, the margin of error the rounded
+design actually achieves, here 0.04997, just inside the target. Two
+things drive it: the margin of error (halving it roughly quadruples the
+sample size) and the expected prevalence (the sample size is largest at
+50%). If the expected prevalence is uncertain, using a value closer to
+50% is the cautious choice.
 
 ### An imperfect test
 
@@ -62,10 +83,10 @@ some negatives are wrongly called positive.
 d_test <- design_precision(prevalence = 0.2, moe = 0.05,
                            sensitivity = 0.9, specificity = 0.95)
 d_test$n
-#> [1] 365
+#> [1] 387
 ```
 
-The sample size rises from 246 to 365. The reason is that the analysis
+The sample size rises from 264 to 387. The reason is that the analysis
 will correct the measured prevalence back to the true scale (the
 Rogan-Gladen correction), and this correction stretches the confidence
 interval by a factor of $`1 / (Se + Sp - 1)`$. To keep the same margin
@@ -96,10 +117,10 @@ samples, solve for the number of sites:
 d_per <- design_precision(prevalence = 0.2, moe = 0.05, n_per_site = 20, icc = 0.05)
 d_per
 #> $n
-#> [1] 480
+#> [1] 520
 #> 
 #> $n_sites
-#> [1] 24
+#> [1] 26
 #> 
 #> $n_per_site
 #> [1] 20
@@ -108,10 +129,13 @@ d_per
 #> [1] 1.95
 #> 
 #> $n_eff
-#> [1] 246
+#> [1] 264
+#> 
+#> $moe
+#> [1] 0.04971169
 ```
 
-The study needs 24 sites of 20 people, 480 samples in total.
+The study needs 26 sites of 20 people, 520 samples in total.
 
 **Fixing the number of sites.** If the programme already has 20 sentinel
 sites, solve for the number of people per site:
@@ -121,25 +145,28 @@ sites, solve for the number of people per site:
 d_sites <- design_precision(prevalence = 0.2, moe = 0.05, n_sites = 20, icc = 0.05)
 d_sites
 #> $n
-#> [1] 620
+#> [1] 740
 #> 
 #> $n_sites
 #> [1] 20
 #> 
 #> $n_per_site
-#> [1] 31
+#> [1] 37
 #> 
 #> $deff
-#> [1] 2.5
+#> [1] 2.8
 #> 
 #> $n_eff
-#> [1] 246
+#> [1] 264
+#> 
+#> $moe
+#> [1] 0.04994193
 ```
 
-Each of the 20 sites now needs 31 people, 620 samples in total.
+Each of the 20 sites now needs 37 people, 740 samples in total.
 
 In both cases `n_eff` is the unclustered answer from the first section:
-the clustered design carries the same information as 246 independent
+the clustered design carries the same information as 264 independent
 samples. Fixing the sites at 20 needs more samples in total than fixing
 20 people per site, because the people per site go up, and so does the
 design effect.
@@ -153,7 +180,7 @@ never reach the target precision:
 
 design_precision(prevalence = 0.2, moe = 0.05, n_sites = 10, icc = 0.05)
 #> Error:
-#> ! Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 5.5%.
+#> ! Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 5.8%.
 ```
 
 The error reports the best margin of error that 10 sites can give. The
@@ -168,21 +195,114 @@ and spreading the samples over more sites reduces the total needed:
 ``` r
 
 design_precision(prevalence = 0.2, moe = 0.05, n_sites = 15, icc = 0.05)$n
-#> [1] 1305
+#> [1] 2070
 design_precision(prevalence = 0.2, moe = 0.05, n_sites = 30, icc = 0.05)$n
-#> [1] 420
+#> [1] 450
 design_precision(prevalence = 0.2, moe = 0.05, n_sites = 100, icc = 0.05)$n
 #> [1] 300
 ```
 
-With 15 sites the study needs 1305 samples; with 100 sites, only 300,
-close to the 246 an unclustered survey would need. Each new site brings
+With 15 sites the study needs 2070 samples; with 100 sites, only 300,
+close to the 264 an unclustered survey would need. Each new site brings
 in fresh information, whereas each extra sample at a site partly repeats
 what that site has already shown. So, where the budget and logistics
 allow, aim for more sites with fewer people at each. Site visits cost
 money too, and the [Costing a
 study](https://mrc-ide.github.io/MMSpower/articles/tutorial-cost.md)
 tutorial shows how to find the cheapest design.
+
+### The precision of a design you already have
+
+Sometimes the design is set by circumstances: a network of sentinel
+sites that can each collect a fixed number of samples, say. Give the
+full design and leave out `moe`, and
+[`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
+returns the margin of error that design achieves:
+
+``` r
+
+d_have <- design_precision(prevalence = 0.2, n_sites = 20, n_per_site = 20, icc = 0.05)
+d_have$moe
+#> [1] 0.0569166
+```
+
+Twenty sites of 20 people give a margin of error of ±5.7 percentage
+points, a little wider than the 5-point target.
+
+Sites do not have to be the same size. Give `n_per_site` as one value
+per site:
+
+``` r
+
+d_uneven <- design_precision(prevalence = 0.2, n_per_site = c(250, 250, 60, 60, 40, 40),
+                             icc = 0.05)
+d_uneven$moe
+#> [1] 0.1025958
+
+d_even <- design_precision(prevalence = 0.2, n_sites = 6, n_per_site = 117, icc = 0.05)
+d_even$moe
+#> [1] 0.08123823
+```
+
+These six sites hold 700 people and give a margin of error of ±10.3
+points. Spreading about the same number evenly, 6 sites of 117, gives
+±8.1. Large sites dominate the estimate, and many of their people repeat
+what that site has already shown, so uneven site sizes cost precision.
+
+### Allowing for dropout and suspected cases
+
+The design functions give the number of samples needed **at analysis**.
+More people than that have to be enrolled, for two reasons.
+
+First, some samples are lost: consent is withdrawn, a sample is lost in
+transit, or the assay fails. If about 10% are expected to be lost,
+divide by $`1 - 0.1`$ and round up. Do this per site, not only for the
+total, so that every site still delivers its share. Taking the design
+with 20 samples at each of 26 sites:
+
+``` r
+
+per_site_analysis  <- d_per$n_per_site
+per_site_confirmed <- ceiling(per_site_analysis / (1 - 0.1))
+per_site_confirmed
+#> [1] 23
+```
+
+Second, the marker is measured only in confirmed *P. falciparum*
+infections, but people are enrolled as suspected cases, before the test
+result is known. If about 40% of suspected cases are confirmed, divide
+again by 0.4:
+
+``` r
+
+per_site_suspected <- ceiling(per_site_confirmed / 0.4)
+per_site_suspected
+#> [1] 58
+```
+
+So each site enrols 58 suspected cases, expecting 23 of them to be
+confirmed, and 20 samples to reach the analysis. Across the 26 sites
+that is 1508 suspected cases enrolled, 598 confirmed cases enrolled and
+520 samples expected at analysis. Keep the three numbers apart when
+planning and reporting: the design was calculated for the last one.
+
+The confirmed fraction often differs between sites, for example with
+transmission intensity. Use each site’s own value:
+
+``` r
+
+ceiling(per_site_confirmed / c(0.6, 0.4, 0.25))
+#> [1] 39 58 92
+```
+
+A site where only a quarter of suspected cases are confirmed has to
+enrol 92 suspected cases to deliver the same 20 samples. When budgeting,
+cost the inflated numbers, since those are the people enrolled and
+tested: in
+[`estimate_cost()`](https://mrc-ide.github.io/MMSpower/reference/estimate_cost.md),
+the suspected cases are `n_screened`, the confirmed cases `n_collected`
+and the samples at analysis `n_sequenced` (see [Costing a
+study](https://mrc-ide.github.io/MMSpower/articles/tutorial-cost.md)).
 
 ## Part 2: Analysing the data
 
@@ -265,11 +385,11 @@ are seen, and its limits can fall below 0 or above 1.
 sets such limits to 0 or 1, which keeps the interval sensible, but the
 result is still less reliable than the other two methods in these
 situations. Clopper-Pearson, the default, is the cautious choice, and
-Agresti-Coull a good compromise.
+Agresti-Coull a good compromise. Use the same method at both stages:
 [`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
-sizes a study with the simpler Wald formula, so a Clopper-Pearson
-interval usually comes out a little wider than the margin of error the
-study was designed for. See
+takes the same `ci_method` argument, so a study sized for
+Clopper-Pearson (the default in both) gives back the planned margin of
+error when analysed with it. See
 [`?estimate_prevalence`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md)
 for the details.
 

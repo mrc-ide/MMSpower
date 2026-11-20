@@ -104,37 +104,72 @@ budget.</p>
 <h2 id="the-cost-model">The cost model<a class="anchor" aria-label="anchor" href="#the-cost-model"></a>
 </h2>
 <p><code><a href="../reference/estimate_cost.html">estimate_cost()</a></code> splits a study’s cost into two
-parts:</p>
+parts.</p>
+<p><strong>Stage costs.</strong> A sample passes through up to three
+stages, each with its own cost per person or sample:</p>
 <ul>
-<li>a <strong>variable cost</strong>, paid for every person enrolled:
-sample collection, laboratory testing, consumables and data
-management;</li>
-<li>a <strong>site cost</strong>, paid once for every site: a fixed cost
-(training, equipment, administration) plus a transport cost.</li>
+<li>
+<strong>screened</strong> (<code>n_screened</code>,
+<code>cost_per_screened</code>): everyone screened at enrolment,
+covering consent, interview and a rapid test or microscopy;</li>
+<li>
+<strong>collected</strong> (<code>n_collected</code>,
+<code>cost_per_collected</code>): everyone a sample is collected from,
+covering a dried blood spot or blood draw, storage and shipping;</li>
+<li>
+<strong>sequenced</strong> (<code>n_sequenced</code>,
+<code>cost_per_sequenced</code>): every sample taken through the
+molecular laboratory, covering extraction, PCR or sequencing and data
+management.</li>
 </ul>
-<p>With samples only:</p>
+<p>The stages are nested, not added on top of each other.
+<code>n_collected</code> is a subset of <code>n_screened</code>: for
+example, only those who test positive at screening have a sample
+collected. <code>n_sequenced</code> is a subset of
+<code>n_collected</code>: what is left after lost or failed samples. A
+person is counted at every stage they reach, so <code>n_screened</code>
+is at least <code>n_collected</code>, which is at least
+<code>n_sequenced</code>, and the function stops with an error
+otherwise. Each stage’s cost is the cost of that stage alone, not of
+everything up to it.</p>
+<p><strong>Site costs.</strong> Each site has a fixed cost (training,
+equipment, administration) and a transport cost.</p>
+<p>Give only the stages a study has. The design functions return the
+number of samples needed at analysis, so their <code>n</code> is
+<code>n_sequenced</code>. With a single all-in cost per sample, that one
+stage is enough:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">400</span>, cost_per_sample <span class="op">=</span> <span class="fl">40</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="fl">400</span>, cost_per_sequenced <span class="op">=</span> <span class="fl">40</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $total_cost</span></span>
 <span><span class="co">#&gt; [1] 16000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $variable_cost</span></span>
 <span><span class="co">#&gt; [1] 16000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;         0         0     16000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $site_cost</span></span>
 <span><span class="co">#&gt; [1] 0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $budget_remaining</span></span>
 <span><span class="co">#&gt; NULL</span></span></code></pre></div>
-<p>With sites, give the number of sites and the cost per site:</p>
+<p><code>stage_cost</code> gives the cost of each stage, and adds up to
+<code>variable_cost</code>. With sites, give the number of sites and the
+cost per site:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">400</span>, cost_per_sample <span class="op">=</span> <span class="fl">40</span>, n_sites <span class="op">=</span> <span class="fl">20</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="fl">400</span>, cost_per_sequenced <span class="op">=</span> <span class="fl">40</span>, n_sites <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>              fixed_cost_per_site <span class="op">=</span> <span class="fl">2000</span>, transport_cost_per_site <span class="op">=</span> <span class="fl">600</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $total_cost</span></span>
 <span><span class="co">#&gt; [1] 68000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $variable_cost</span></span>
 <span><span class="co">#&gt; [1] 16000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;         0         0     16000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $site_cost</span></span>
 <span><span class="co">#&gt; [1] 52000</span></span>
@@ -147,7 +182,7 @@ site. Adding a <code>budget</code> reports how much would be left over
 (negative if the study is over budget):</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">transport</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">200</span>, <span class="fl">200</span>, <span class="fl">300</span>, <span class="fl">400</span>, <span class="fl">600</span>, <span class="fl">800</span>, <span class="fl">1200</span>, <span class="fl">1500</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">240</span>, cost_per_sample <span class="op">=</span> <span class="fl">40</span>, n_sites <span class="op">=</span> <span class="fl">8</span>,</span>
+<span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="fl">240</span>, cost_per_sequenced <span class="op">=</span> <span class="fl">40</span>, n_sites <span class="op">=</span> <span class="fl">8</span>,</span>
 <span>              fixed_cost_per_site <span class="op">=</span> <span class="fl">2000</span>, transport_cost_per_site <span class="op">=</span> <span class="va">transport</span>,</span>
 <span>              budget <span class="op">=</span> <span class="fl">35000</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $total_cost</span></span>
@@ -156,11 +191,68 @@ site. Adding a <code>budget</code> reports how much would be left over
 <span><span class="co">#&gt; $variable_cost</span></span>
 <span><span class="co">#&gt; [1] 9600</span></span>
 <span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;         0         0      9600 </span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $site_cost</span></span>
 <span><span class="co">#&gt; [1] 21200</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $budget_remaining</span></span>
 <span><span class="co">#&gt; [1] 4200</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="costing-the-people-actually-enrolled">Costing the people actually enrolled<a class="anchor" aria-label="anchor" href="#costing-the-people-actually-enrolled"></a>
+</h2>
+<p>A design’s <code>n</code> is only the last stage. To reach it, a
+study has to collect samples from more people, to allow for losses, and
+screen more people still, if only those who test positive go on to have
+a sample collected. “Allowing for dropout and suspected cases” in the <a href="tutorial-prevalence.html">Estimating prevalence</a> tutorial works
+out these numbers; here we cost them.</p>
+<p>That tutorial’s design has 20 people per site, with an ICC of
+0.05:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d_prev</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>n_sites <span class="op">=</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n_sites</span>, n <span class="op">=</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n</span><span class="op">)</span></span>
+<span><span class="co">#&gt; n_sites       n </span></span>
+<span><span class="co">#&gt;      26     520</span></span></code></pre></div>
+<p>Work back from the analysis one stage at a time, per site so that
+every site delivers its share. With 10% of samples expected to be lost,
+divide by 0.9 to get the number collected; with 40% of those screened
+expected to test positive, divide again by 0.4 to get the number
+screened:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">per_site_sequenced</span> <span class="op">&lt;-</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n_per_site</span></span>
+<span><span class="va">per_site_collected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">per_site_sequenced</span> <span class="op">/</span> <span class="fl">0.9</span><span class="op">)</span></span>
+<span><span class="va">per_site_screened</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">per_site_collected</span> <span class="op">/</span> <span class="fl">0.4</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">n_sequenced</span> <span class="op">&lt;-</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="va">n_collected</span> <span class="op">&lt;-</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n_sites</span> <span class="op">*</span> <span class="va">per_site_collected</span></span>
+<span><span class="va">n_screened</span>  <span class="op">&lt;-</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n_sites</span> <span class="op">*</span> <span class="va">per_site_screened</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>screened <span class="op">=</span> <span class="va">n_screened</span>, collected <span class="op">=</span> <span class="va">n_collected</span>, sequenced <span class="op">=</span> <span class="va">n_sequenced</span><span class="op">)</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;      1508       598       520</span></span></code></pre></div>
+<p>Then cost all three stages, here 3 per person screened, 10 per sample
+collected and 40 per sample sequenced:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">staged</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_screened  <span class="op">=</span> <span class="va">n_screened</span>,  cost_per_screened  <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>                        n_collected <span class="op">=</span> <span class="va">n_collected</span>, cost_per_collected <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>                        n_sequenced <span class="op">=</span> <span class="va">n_sequenced</span>, cost_per_sequenced <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>                        n_sites <span class="op">=</span> <span class="va">d_prev</span><span class="op">$</span><span class="va">n_sites</span>, fixed_cost_per_site <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>                        transport_cost_per_site <span class="op">=</span> <span class="fl">600</span><span class="op">)</span></span>
+<span><span class="va">staged</span><span class="op">$</span><span class="va">stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;      4524      5980     20800</span></span>
+<span><span class="va">staged</span><span class="op">$</span><span class="va">total_cost</span></span>
+<span><span class="co">#&gt; [1] 98904</span></span></code></pre></div>
+<p>Screening 1,508 people and collecting 598 samples add 10,504 to the
+20,800 spent on sequencing. Costing only the 520 samples at analysis
+would have missed both stages.</p>
+<p>If samples are expected to fail in the laboratory rather than be lost
+before it, the failed ones are still paid for: cost
+<code>n_sequenced</code> as the number of samples sent to the
+laboratory, here <code>n_collected</code>, rather than the number
+expected to succeed.</p>
 </div>
 <div class="section level2">
 <h2 id="comparing-designs">Comparing designs<a class="anchor" aria-label="anchor" href="#comparing-designs"></a>
@@ -174,15 +266,15 @@ many sites; many people per site needs fewer sites, but a larger design
 effect means more people in total.</p>
 <p>Work out the design for each number of people per site from 5 to 60,
 and cost each one:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cost_per_sample</span> <span class="op">&lt;-</span> <span class="fl">40</span></span>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cost_per_sample</span> <span class="op">&lt;-</span> <span class="fl">40</span>     <span class="co"># all-in cost per sample sequenced</span></span>
 <span><span class="va">site_cost</span>       <span class="op">&lt;-</span> <span class="fl">2000</span>   <span class="co"># fixed cost per site</span></span>
 <span><span class="va">transport_cost</span>  <span class="op">&lt;-</span> <span class="fl">600</span>    <span class="co"># transport cost per site</span></span>
 <span></span>
 <span><span class="va">per_site</span> <span class="op">&lt;-</span> <span class="fl">5</span><span class="op">:</span><span class="fl">60</span></span>
 <span><span class="va">designs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">per_site</span>, <span class="kw">function</span><span class="op">(</span><span class="va">s</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">des</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.3</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_per_site <span class="op">=</span> <span class="va">s</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
-<span>  <span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">des</span><span class="op">$</span><span class="va">n</span>, cost_per_sample <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
+<span>  <span class="va">cost</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="va">des</span><span class="op">$</span><span class="va">n</span>, cost_per_sequenced <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
 <span>                        n_sites <span class="op">=</span> <span class="va">des</span><span class="op">$</span><span class="va">n_sites</span>,</span>
 <span>                        fixed_cost_per_site <span class="op">=</span> <span class="va">site_cost</span>,</span>
 <span>                        transport_cost_per_site <span class="op">=</span> <span class="va">transport_cost</span><span class="op">)</span></span>
@@ -191,18 +283,18 @@ and cost each one:</p>
 <span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">designs</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   n_per_site n_sites   n deff total_cost</span></span>
-<span><span class="co">#&gt; 1          5      78 390 1.20     218400</span></span>
-<span><span class="co">#&gt; 2          6      68 408 1.25     193120</span></span>
-<span><span class="co">#&gt; 3          7      60 420 1.30     172800</span></span>
-<span><span class="co">#&gt; 4          8      55 440 1.35     160600</span></span>
-<span><span class="co">#&gt; 5          9      51 459 1.40     150960</span></span>
-<span><span class="co">#&gt; 6         10      47 470 1.45     141000</span></span></code></pre></div>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<span><span class="co">#&gt; 1          5      82 410 1.20     229600</span></span>
+<span><span class="co">#&gt; 2          6      71 426 1.25     201640</span></span>
+<span><span class="co">#&gt; 3          7      64 448 1.30     184320</span></span>
+<span><span class="co">#&gt; 4          8      58 464 1.35     169360</span></span>
+<span><span class="co">#&gt; 5          9      53 477 1.40     156880</span></span>
+<span><span class="co">#&gt; 6         10      50 500 1.45     150000</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">best</span> <span class="op">&lt;-</span> <span class="va">designs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.min</a></span><span class="op">(</span><span class="va">designs</span><span class="op">$</span><span class="va">total_cost</span><span class="op">)</span>, <span class="op">]</span></span>
 <span><span class="va">best</span></span>
 <span><span class="co">#&gt;    n_per_site n_sites   n deff total_cost</span></span>
-<span><span class="co">#&gt; 35         39      24 936  2.9      99840</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<span><span class="co">#&gt; 32         36      26 936 2.75     105040</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">designs</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">n_per_site</span>, y <span class="op">=</span> <span class="va">total_cost</span> <span class="op">/</span> <span class="fl">1000</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
@@ -213,14 +305,14 @@ and cost each one:</p>
 <span>            colour <span class="op">=</span> <span class="st">"#6B7280"</span>, vjust <span class="op">=</span> <span class="op">-</span><span class="fl">1.4</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"People per site"</span>, y <span class="op">=</span> <span class="st">"Total cost (thousands)"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_classic</a></span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">13</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial-cost_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="Total study cost against people per site, falling steeply then levelling off, with the cheapest design marked." width="672" style="display: block; margin: auto;"></p>
+<p><img src="tutorial-cost_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="Total study cost against people per site, falling steeply then levelling off, with the cheapest design marked." width="672" style="display: block; margin: auto;"></p>
 <p>Every point on this curve gives the same precision. On the left,
-sampling 5 people per site needs 78 sites, and the site costs dominate.
+sampling 5 people per site needs 82 sites, and the site costs dominate.
 Moving right, each extra person per site saves sites, and the cost falls
 quickly. Past a point the saving stops: the design effect keeps growing,
 so the extra people needed to make up for it cost more than the sites
-they save. The cheapest design here is 24 sites of 39 people (936 in
-all, design effect 2.9), costing 99,840.</p>
+they save. The cheapest design here is 26 sites of 36 people (936 in
+all, design effect 2.75), costing 105,040.</p>
 <p>The curve is jagged because the number of sites is a whole number: a
 design that needs 23.1 sites pays for 24. Near the bottom the curve is
 also quite flat, so designs a little either side of the cheapest cost
@@ -240,14 +332,14 @@ less.</p>
 <code><a href="../reference/design_difference.html">design_difference()</a></code>, note that <code>n</code> is already
 the total across both groups, but <code>n_sites</code> is given per
 group, so the number of sites to cost is <code>sum(n_sites)</code>:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span>prevalence1 <span class="op">=</span> <span class="fl">0.10</span>, prevalence2 <span class="op">=</span> <span class="fl">0.20</span>,</span>
-<span>                        n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span>                        n_per_site1 <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">dd</span><span class="op">$</span><span class="va">n</span></span>
 <span><span class="co">#&gt; [1] 800</span></span>
 <span><span class="va">dd</span><span class="op">$</span><span class="va">n_sites</span></span>
 <span><span class="co">#&gt; [1] 20 20</span></span>
-<span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">dd</span><span class="op">$</span><span class="va">n</span>, cost_per_sample <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
+<span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="va">dd</span><span class="op">$</span><span class="va">n</span>, cost_per_sequenced <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
 <span>              n_sites <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">dd</span><span class="op">$</span><span class="va">n_sites</span><span class="op">)</span>,</span>
 <span>              fixed_cost_per_site <span class="op">=</span> <span class="va">site_cost</span>,</span>
 <span>              transport_cost_per_site <span class="op">=</span> <span class="va">transport_cost</span><span class="op">)</span></span>
@@ -256,6 +348,10 @@ group, so the number of sites to cost is <code>sum(n_sites)</code>:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $variable_cost</span></span>
 <span><span class="co">#&gt; [1] 32000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;         0         0     32000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $site_cost</span></span>
 <span><span class="co">#&gt; [1] 104000</span></span>
@@ -270,25 +366,25 @@ totals.</p>
 <h2 id="fitting-a-budget">Fitting a budget<a class="anchor" aria-label="anchor" href="#fitting-a-budget"></a>
 </h2>
 <p>To find which designs fit a fixed budget, keep the rows of the table
-above that come in under it. With a budget of 105,000:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">budget</span> <span class="op">&lt;-</span> <span class="fl">105000</span></span>
+above that come in under it. With a budget of 110,000:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">budget</span> <span class="op">&lt;-</span> <span class="fl">110000</span></span>
 <span><span class="va">fits</span> <span class="op">&lt;-</span> <span class="va">designs</span><span class="op">[</span><span class="va">designs</span><span class="op">$</span><span class="va">total_cost</span> <span class="op">&lt;=</span> <span class="va">budget</span>, <span class="op">]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">fits</span><span class="op">$</span><span class="va">n_per_site</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 24 54</span></span></code></pre></div>
-<p>28 of the 56 designs meet the precision target within budget, with
-between 24 and 54 people per site. Because the curve is jagged, not
+<span><span class="co">#&gt; [1] 25 54</span></span></code></pre></div>
+<p>25 of the 56 designs meet the precision target within budget, with
+between 25 and 54 people per site. Because the curve is jagged, not
 every value in that range fits; check the table rather than assuming it
 does. If no row fits, the target itself has to change: a wider margin of
 error, or a cheaper laboratory method. For the chosen design,
 <code>budget</code> shows what is left for contingencies:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="va">best</span><span class="op">$</span><span class="va">n</span>, cost_per_sample <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="va">best</span><span class="op">$</span><span class="va">n</span>, cost_per_sequenced <span class="op">=</span> <span class="va">cost_per_sample</span>,</span>
 <span>              n_sites <span class="op">=</span> <span class="va">best</span><span class="op">$</span><span class="va">n_sites</span>,</span>
 <span>              fixed_cost_per_site <span class="op">=</span> <span class="va">site_cost</span>,</span>
 <span>              transport_cost_per_site <span class="op">=</span> <span class="va">transport_cost</span>,</span>
 <span>              budget <span class="op">=</span> <span class="va">budget</span><span class="op">)</span><span class="op">$</span><span class="va">budget_remaining</span></span>
-<span><span class="co">#&gt; [1] 5160</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 4960</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

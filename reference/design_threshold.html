@@ -3,19 +3,22 @@
 expected in the population, returns the number of people needed for
 test_threshold() (with its default exact binomial test) to show
 that the prevalence is above (or below) the threshold with the target
-power.
-Three designs are supported:
-No clustering (n_sites and n_per_site both
-NULL, default)
+power; or, given a full design, returns the power it gives.
+What is solved for – leave out the one quantity you want:
+No sites
 Returns the number of people.
 
-Fixed number of people per site (n_per_site)
-Solves for
-the number of sites needed.
+n_per_site
+Returns the number of sites.
 
-Fixed number of sites (n_sites)
-Solves for the number of
-people needed per site.
+n_sites
+Returns the number of people per site.
+
+A full design
+Returns the power: give n (no sites),
+n_sites and n_per_site, or a vector n_per_site
+with one size per site (for sites of different sizes). Leave
+power at its default.
 
 
 
@@ -23,19 +26,22 @@ people needed per site.
 expected in the population, returns the number of people needed for
 test_threshold() (with its default exact binomial test) to show
 that the prevalence is above (or below) the threshold with the target
-power.
-Three designs are supported:
-No clustering (n_sites and n_per_site both
-NULL, default)
+power; or, given a full design, returns the power it gives.
+What is solved for – leave out the one quantity you want:
+No sites
 Returns the number of people.
 
-Fixed number of people per site (n_per_site)
-Solves for
-the number of sites needed.
+n_per_site
+Returns the number of sites.
 
-Fixed number of sites (n_sites)
-Solves for the number of
-people needed per site.
+n_sites
+Returns the number of people per site.
+
+A full design
+Returns the power: give n (no sites),
+n_sites and n_per_site, or a vector n_per_site
+with one size per site (for sites of different sizes). Leave
+power at its default.
 
 
 
@@ -96,18 +102,21 @@ people needed per site.
 expected in the population, returns the number of people needed for
 <code><a href="test_threshold.html">test_threshold()</a></code> (with its default exact binomial test) to show
 that the prevalence is above (or below) the threshold with the target
-power.</p>
-<p>Three designs are supported:</p><dl><dt>No clustering (<code>n_sites</code> and <code>n_per_site</code> both
-<code>NULL</code>, default)</dt>
+power; or, given a full design, returns the power it gives.</p>
+<p><strong>What is solved for</strong> – leave out the one quantity you want:</p><dl><dt>No sites</dt>
 <dd><p>Returns the number of people.</p></dd>
 
-<dt>Fixed number of people per site (<code>n_per_site</code>)</dt>
-<dd><p>Solves for
-the number of sites needed.</p></dd>
+<dt><code>n_per_site</code></dt>
+<dd><p>Returns the number of sites.</p></dd>
 
-<dt>Fixed number of sites (<code>n_sites</code>)</dt>
-<dd><p>Solves for the number of
-people needed per site.</p></dd>
+<dt><code>n_sites</code></dt>
+<dd><p>Returns the number of people per site.</p></dd>
+
+<dt>A full design</dt>
+<dd><p>Returns the power: give <code>n</code> (no sites),
+<code>n_sites</code> and <code>n_per_site</code>, or a vector <code>n_per_site</code>
+with one size per site (for sites of different sizes). Leave
+<code>power</code> at its default.</p></dd>
 
 
 </dl></div>
@@ -122,6 +131,7 @@ people needed per site.</p></dd>
 <span>  sensitivity <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  specificity <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  conf_level <span class="op">=</span> <span class="fl">0.95</span>,</span>
+<span>  n <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_sites <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_per_site <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  icc <span class="op">=</span> <span class="fl">0</span></span>
@@ -145,7 +155,8 @@ threshold). This is the value <code><a href="test_threshold.html">test_threshold
 
 
 <dt id="arg-power">power<a class="anchor" aria-label="anchor" href="#arg-power"></a></dt>
-<dd><p>Target power, in (0, 1); default 0.80.</p></dd>
+<dd><p>Target power, in (0, 1); default 0.80. Not used, and not to
+be given, with a full design.</p></dd>
 
 
 <dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
@@ -171,16 +182,21 @@ exceed 1.</p></dd>
 significance level of the test is 1 - <code>conf_level</code>.</p></dd>
 
 
+<dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
+<dd><p>Optional whole number: the number of people in a full design
+with no sites. Cannot be used with <code>n_sites</code> or <code>n_per_site</code>.</p></dd>
+
+
 <dt id="arg-n-sites">n_sites<a class="anchor" aria-label="anchor" href="#arg-n-sites"></a></dt>
-<dd><p>Optional whole number. Fixes the number of sites; the
-function solves for the number of people per site. Cannot be used with
-<code>n_per_site</code>.</p></dd>
+<dd><p>Optional whole number. Fixes the number of sites; alone,
+the function solves for the number of people per site.</p></dd>
 
 
 <dt id="arg-n-per-site">n_per_site<a class="anchor" aria-label="anchor" href="#arg-n-per-site"></a></dt>
-<dd><p>Optional whole number. Fixes the number of people per
-site; the function solves for the number of sites. Cannot be used with
-<code>n_sites</code>.</p></dd>
+<dd><p>Optional. People per site: one whole number (alone, the
+function solves for the number of sites), or a vector with one size per
+site, a full design with sites of different sizes (then leave out
+<code>n_sites</code>).</p></dd>
 
 
 <dt id="arg-icc">icc<a class="anchor" aria-label="anchor" href="#arg-icc"></a></dt>
@@ -209,7 +225,10 @@ clustering). An <code>icc</code> above 0 needs <code>n_sites</code> or
 
 <dt>n_eff</dt>
 <dd><p>Number of independent people needed: the exact answer
-with no clustering.</p></dd>
+with no clustering; for a full design, <code>n / deff</code>.</p></dd>
+
+<dt>power</dt>
+<dd><p>Power of the returned design.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -259,6 +278,14 @@ approximation: the effective sample size \(n / D_{eff}\) of the
 returned design is at least \(n_0\), but need not sit on the
 saw-tooth exactly where \(n_0\) does. The power assumes the analysis
 uses the same ICC.</p>
+<p><strong>Power of a full design.</strong> The exact power above needs a whole
+number of independent people, so the power of a design with sites is
+worked out at its effective size \(n / D_{eff}\) rounded down, which
+is slightly cautious. For sites of different sizes,
+\(D_{eff} = 1 + (n_w - 1) ICC\) with \(n_w = \sum s^2 / \sum s\) the
+size-weighted mean site size, as in <code><a href="test_threshold.html">test_threshold()</a></code>. The returned
+<code>power</code> of a design that was solved for is worked out the same way,
+so it is at least the target.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -293,6 +320,9 @@ of a screening test. <em>American Journal of Epidemiology</em>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_eff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 191</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $power</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8053581</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Higher power needs more people</span></span></span>
 <span class="r-in"><span><span class="fu">design_threshold</span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>, power <span class="op">=</span> <span class="fl">0.90</span><span class="op">)</span></span></span>
@@ -310,6 +340,9 @@ of a screening test. <em>American Journal of Epidemiology</em>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_eff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 256</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $power</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.9017371</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Below the threshold instead</span></span></span>
@@ -329,6 +362,9 @@ of a screening test. <em>American Journal of Epidemiology</em>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_eff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 203</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $power</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8588914</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Fixed number of people per site: how many sites?</span></span></span>
 <span class="r-in"><span><span class="fu">design_threshold</span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span></span>
@@ -347,6 +383,31 @@ of a screening test. <em>American Journal of Epidemiology</em>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_eff</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 191</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $power</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.8238663</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Full design: the power of 6 sites of 50</span></span></span>
+<span class="r-in"><span><span class="fu">design_threshold</span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span></span>
+<span class="r-in"><span>                 n_sites <span class="op">=</span> <span class="fl">6</span>, n_per_site <span class="op">=</span> <span class="fl">50</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $n</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 300</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $n_sites</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $n_per_site</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 50</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $deff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 3.45</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $n_eff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 86.95652</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $power</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.4949123</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 </code></pre></div>
     </div>

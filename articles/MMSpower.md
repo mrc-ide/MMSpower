@@ -22,12 +22,13 @@ within ±5 percentage points, with 10 people per site and an ICC of 0.05?
 
 ``` r
 
-design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+des <- design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
+des
 #> $n
-#> [1] 470
+#> [1] 500
 #> 
 #> $n_sites
-#> [1] 47
+#> [1] 50
 #> 
 #> $n_per_site
 #> [1] 10
@@ -36,29 +37,32 @@ design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 10, icc = 0.05)
 #> [1] 1.45
 #> 
 #> $n_eff
-#> [1] 323
+#> [1] 341
+#> 
+#> $moe
+#> [1] 0.04965355
 ```
 
 Once the data are in, estimate the prevalence and its confidence
-interval:
+interval (here, 3 positives at each of the 50 sites):
 
 ``` r
 
-estimate_prevalence(x = rep(3, 47), n = rep(10, 47), icc = 0.05)
+estimate_prevalence(x = rep(3, des$n_sites), n = rep(10, des$n_sites), icc = 0.05)
 #> $prevalence
 #> [1] 0.3
 #> 
 #> $ci_lower
-#> [1] 0.2506
+#> [1] 0.2520834
 #> 
 #> $ci_upper
-#> [1] 0.353099
+#> [1] 0.3513905
 #> 
 #> $moe
-#> [1] 0.05124951
+#> [1] 0.04965355
 #> 
 #> $n_eff
-#> [1] 324.1379
+#> [1] 344.8276
 #> 
 #> $icc
 #> [1] 0.05
@@ -92,6 +96,9 @@ design_threshold(threshold = 0.05, prevalence = 0.10)
 #> 
 #> $n_eff
 #> [1] 191
+#> 
+#> $power
+#> [1] 0.8053581
 ```
 
 Then test the data against the threshold:
@@ -151,7 +158,7 @@ design_detection(prevalence = 0.01)
 #> [1] 161
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8017257
 ```
 
 ## Comparing two groups
@@ -161,7 +168,7 @@ and 20% prevalence, with 30 sites per group and an ICC of 0.02?
 
 ``` r
 
-design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites = 30, icc = 0.02)
+design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites1 = 30, icc = 0.02)
 #> $n_per_group
 #> [1] 240 240
 #> 
@@ -179,6 +186,9 @@ design_difference(prevalence1 = 0.10, prevalence2 = 0.20, n_sites = 30, icc = 0.
 #> 
 #> $n_eff
 #> [1] 199 199
+#> 
+#> $power
+#> [1] 0.82185
 ```
 
 Then test for a difference:
@@ -231,21 +241,33 @@ test_difference(x1 = 24, n1 = 240, x2 = 48, n2 = 240, icc = 0.02)
 
 ## Costing a study
 
-Finally, cost a design from its sample size and number of sites:
+Finally, cost a design from its sample size and number of sites. The
+design’s `n` is the number of samples sequenced; here each costs 50 in
+all:
 
 ``` r
 
-estimate_cost(n = 470, cost_per_sample = 50, n_sites = 47,
+estimate_cost(n_sequenced = des$n, cost_per_sequenced = 50, n_sites = des$n_sites,
               fixed_cost_per_site = 500, transport_cost_per_site = 200)
 #> $total_cost
-#> [1] 56400
+#> [1] 60000
 #> 
 #> $variable_cost
-#> [1] 23500
+#> [1] 25000
+#> 
+#> $stage_cost
+#>  screened collected sequenced 
+#>         0         0     25000 
 #> 
 #> $site_cost
-#> [1] 32900
+#> [1] 35000
 #> 
 #> $budget_remaining
 #> NULL
 ```
+
+[`estimate_cost()`](https://mrc-ide.github.io/MMSpower/reference/estimate_cost.md)
+can also cost screening and sample collection as separate stages; see
+the [Costing a
+study](https://mrc-ide.github.io/MMSpower/articles/tutorial-cost.md)
+tutorial.

@@ -13,8 +13,9 @@ is then a survey large enough that, if the variant is present at some
 low prevalence, at least one case is very likely to be found.
 
 [`design_detection()`](https://mrc-ide.github.io/MMSpower/reference/design_detection.md)
-answers this. It also runs in reverse: given a survey that has already
-been done, it says how likely that survey was to find the variant.
+answers this. Given a full design instead, such as a survey that has
+already been done, it returns `detection_prob`: how likely that survey
+was to find the variant.
 
 ## Part 1: Designing the study
 
@@ -43,7 +44,7 @@ d0
 #> [1] 161
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8017257
 ```
 
 So 161 samples are needed. The calculation is simple: each sample has a
@@ -134,7 +135,7 @@ d_per
 #> [1] 161
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8130438
 ```
 
 The study needs 12 sites of 20 people, 240 samples in total, compared
@@ -162,7 +163,7 @@ d_sites
 #> [1] 161
 #> 
 #> $detection_prob
-#> [1] 0.8
+#> [1] 0.8040557
 ```
 
 Each of the 10 sites now needs 25 people, 250 samples in total.
@@ -198,12 +199,41 @@ design_detection(prevalence = 0.01, n_sites = 3, icc = 0.3)$n_per_site
 The answer is technically finite but far beyond any real survey. The
 only remedy is more sites.
 
+### Allowing for dropout and suspected cases
+
+As with the other design functions,
+[`design_detection()`](https://mrc-ide.github.io/MMSpower/reference/design_detection.md)
+gives the number of samples needed **at analysis**. To reach it, inflate
+for expected losses (withdrawn consent, lost or failed samples) and, if
+the variant is looked for only in confirmed infections, for the share of
+suspected cases that are confirmed. With 10% losses and 40% of suspected
+cases confirmed:
+
+``` r
+
+n_analysis  <- d0$n
+n_confirmed <- ceiling(n_analysis / (1 - 0.1))
+n_suspected <- ceiling(n_confirmed / 0.4)
+c(suspected = n_suspected, confirmed = n_confirmed, analysis = n_analysis)
+#> suspected confirmed  analysis 
+#>       448       179       161
+```
+
+So 448 suspected cases are enrolled, 179 confirmed cases are expected
+among them, and 161 samples should reach the analysis. With sites, do
+this per site rather than only for the total, so that every site still
+delivers its share. The [Estimating
+prevalence](https://mrc-ide.github.io/MMSpower/articles/tutorial-prevalence.md)
+tutorial works through this in more detail, including confirmed
+fractions that differ by site.
+
 ## Part 2: Interpreting a survey that found nothing
 
-The reverse mode is useful after a survey. Suppose 300 samples were
+The same function is useful after a survey. Suppose 300 samples were
 tested and no case of the mutation was found. How reassuring is that?
-Supply `n`, and the function reports the chance that the survey would
-have found the variant if it were present at 1%:
+Give the full design, here `n = 300`, and the function returns
+`detection_prob`, the chance that the survey would have found the
+variant if it were present at 1%:
 
 ``` r
 
@@ -219,7 +249,8 @@ of 20 people, with an ICC of 0.05:
 
 ``` r
 
-r_sites <- design_detection(prevalence = 0.01, n = 300, n_per_site = 20, icc = 0.05)
+r_sites <- design_detection(prevalence = 0.01, n_sites = 15, n_per_site = 20,
+                            icc = 0.05)
 r_sites$detection_prob
 #> [1] 0.8770652
 ```

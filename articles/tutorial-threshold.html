@@ -124,11 +124,16 @@ threshold, when it really is. The usual target is 80%:</p>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 191</span></span></code></pre></div>
-<p>So 191 samples are needed, with no clustering and a perfect test. The
-gap between the expected prevalence and the threshold is what matters
-most: the closer the true prevalence is to 5%, the harder it is to tell
-apart from 5%, and the sample size grows quickly.</p>
+<span><span class="co">#&gt; [1] 191</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8053581</span></span></code></pre></div>
+<p>So 191 samples are needed, with no clustering and a perfect test.
+<code>power</code> is the power this rounded design actually achieves,
+0.805, just above the 0.8 target. The gap between the expected
+prevalence and the threshold is what matters most: the closer the true
+prevalence is to 5%, the harder it is to tell apart from 5%, and the
+sample size grows quickly.</p>
 </div>
 <div class="section level2">
 <h2 id="why-power-is-a-saw-tooth">Why power is a saw-tooth<a class="anchor" aria-label="anchor" href="#why-power-is-a-saw-tooth"></a>
@@ -218,7 +223,10 @@ an ICC of 0.05, solve for the number of sites:</p>
 <span><span class="co">#&gt; [1] 1.95</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 191</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 191</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8238663</span></span></code></pre></div>
 <p>Or fix the number of sites and solve for samples per site:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
@@ -236,13 +244,23 @@ an ICC of 0.05, solve for the number of sites:</p>
 <span><span class="co">#&gt; [1] 2.65</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 191</span></span></code></pre></div>
-<p><code>n_eff</code> is the unclustered answer, 191. As with
-<code><a href="../reference/design_precision.html">design_precision()</a></code>, too few sites make the target
-unreachable, because each site is worth at most
+<span><span class="co">#&gt; [1] 191</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8116771</span></span></code></pre></div>
+<p><code>n_eff</code> is the unclustered answer, 191.</p>
+<p>To find the power of a design you already have, give the full design
+and leave out <code>power</code>. Fifteen sites of 20 samples fall a
+little short:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>                 n_sites <span class="op">=</span> <span class="fl">15</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">power</span></span>
+<span><span class="co">#&gt; [1] 0.7700449</span></span></code></pre></div>
+<p>As with <code><a href="../reference/design_precision.html">design_precision()</a></code>, too few sites make the
+target unreachable, because each site is worth at most
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mtext mathvariant="normal">ICC</mtext></mrow><annotation encoding="application/x-tex">1/\text{ICC}</annotation></semantics></math>
 independent samples:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
 <span>                 n_sites <span class="op">=</span> <span class="fl">8</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
@@ -255,7 +273,7 @@ independent samples:</p>
 <p>Suppose the survey used 19 sites of 20 samples, and records the
 number of samples with a deletion (<code>x</code>) and the number tested
 (<code>n</code>) at each site:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">6</span>, <span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">5</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">20</span>, <span class="fl">19</span><span class="op">)</span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -310,16 +328,17 @@ confident prevalence is at least 8%”.</p>
 <p>The Wald test uses a normal approximation instead of the binomial
 distribution (a t distribution with <code>df</code> degrees of freedom
 when the ICC is estimated):</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_wald</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"wald"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">res_wald</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"p_value"</span>, <span class="st">"ci_lower"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;  p_value ci_lower </span></span>
 <span><span class="co">#&gt;   0.0039   0.0777</span></span></code></pre></div>
-<p>With this much data the two agree. They can differ with small samples
-or a prevalence near 0, which is common for deletion surveys. An extreme
-case is a single site of 20 samples with no deletions, tested for being
-below 5%:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<p>With this much data the two reach the same conclusion, with similar
+lower bounds, although their p-values differ. They can differ with small
+samples or a prevalence near 0, which is common for deletion surveys. An
+extreme case is a single site of 20 samples with no deletions, tested
+for being below 5%:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">exact</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">20</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, alternative <span class="op">=</span> <span class="st">"less"</span><span class="op">)</span></span>
 <span><span class="va">wald</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">20</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, alternative <span class="op">=</span> <span class="st">"less"</span>,</span>
 <span>                        method <span class="op">=</span> <span class="st">"wald"</span><span class="op">)</span></span>
@@ -340,7 +359,7 @@ is the default, and it matches the power calculation in
 </h3>
 <p>Here the ICC was estimated from the data. It can also be supplied,
 for example from earlier surveys:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    p_value     reject prevalence   ci_lower   ci_upper      n_eff        icc </span></span>
 <span><span class="co">#&gt;     0.0002     1.0000     0.1158     0.0801     1.0000   194.8718     0.0500 </span></span>

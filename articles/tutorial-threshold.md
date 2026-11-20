@@ -42,12 +42,17 @@ d0
 #> 
 #> $n_eff
 #> [1] 191
+#> 
+#> $power
+#> [1] 0.8053581
 ```
 
-So 191 samples are needed, with no clustering and a perfect test. The
-gap between the expected prevalence and the threshold is what matters
-most: the closer the true prevalence is to 5%, the harder it is to tell
-apart from 5%, and the sample size grows quickly.
+So 191 samples are needed, with no clustering and a perfect test.
+`power` is the power this rounded design actually achieves, 0.805, just
+above the 0.8 target. The gap between the expected prevalence and the
+threshold is what matters most: the closer the true prevalence is to 5%,
+the harder it is to tell apart from 5%, and the sample size grows
+quickly.
 
 ## Why power is a saw-tooth
 
@@ -148,6 +153,9 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
 #> 
 #> $n_eff
 #> [1] 191
+#> 
+#> $power
+#> [1] 0.8238663
 ```
 
 Or fix the number of sites and solve for samples per site:
@@ -170,9 +178,24 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
 #> 
 #> $n_eff
 #> [1] 191
+#> 
+#> $power
+#> [1] 0.8116771
 ```
 
-`n_eff` is the unclustered answer, 191. As with
+`n_eff` is the unclustered answer, 191.
+
+To find the power of a design you already have, give the full design and
+leave out `power`. Fifteen sites of 20 samples fall a little short:
+
+``` r
+
+design_threshold(threshold = 0.05, prevalence = 0.10,
+                 n_sites = 15, n_per_site = 20, icc = 0.05)$power
+#> [1] 0.7700449
+```
+
+As with
 [`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md),
 too few sites make the target unreachable, because each site is worth at
 most $`1/\text{ICC}`$ independent samples:
@@ -258,10 +281,11 @@ round(unlist(res_wald[c("p_value", "ci_lower")]), 4)
 #>   0.0039   0.0777
 ```
 
-With this much data the two agree. They can differ with small samples or
-a prevalence near 0, which is common for deletion surveys. An extreme
-case is a single site of 20 samples with no deletions, tested for being
-below 5%:
+With this much data the two reach the same conclusion, with similar
+lower bounds, although their p-values differ. They can differ with small
+samples or a prevalence near 0, which is common for deletion surveys. An
+extreme case is a single site of 20 samples with no deletions, tested
+for being below 5%:
 
 ``` r
 

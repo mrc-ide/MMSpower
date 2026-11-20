@@ -113,7 +113,7 @@ perfect.</p>
 <code class="sourceCode R"><span><span class="va">d0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">d0</span></span>
 <span><span class="co">#&gt; $n</span></span>
-<span><span class="co">#&gt; [1] 246</span></span>
+<span><span class="co">#&gt; [1] 264</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_sites</span></span>
 <span><span class="co">#&gt; NULL</span></span>
@@ -125,13 +125,29 @@ perfect.</p>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 246</span></span></code></pre></div>
-<p>So 246 samples are needed. This is the familiar
+<span><span class="co">#&gt; [1] 264</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $moe</span></span>
+<span><span class="co">#&gt; [1] 0.04996977</span></span></code></pre></div>
+<p>So 264 samples are needed. By default <code><a href="../reference/design_precision.html">design_precision()</a></code>
+sizes the study for a Clopper-Pearson interval, the same default as
+<code><a href="../reference/estimate_prevalence.html">estimate_prevalence()</a></code>, so the analysis gives back the
+margin of error that was planned. There is no formula for this, so the
+function finds the sample size by a numerical search. The familiar
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>z</mi><mn>2</mn></msup><mi>p</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><msup><mtext mathvariant="normal">MOE</mtext><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">z^2 p(1-p) / \text{MOE}^2</annotation></semantics></math>
-formula, rounded up. Two things drive it: the margin of error (halving
-it roughly quadruples the sample size) and the expected prevalence (the
-sample size is largest at 50%). If the expected prevalence is uncertain,
-using a value closer to 50% is the cautious choice.</p>
+formula, rounded up, is the Wald version, which you get with
+<code>ci_method = "wald"</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, ci_method <span class="op">=</span> <span class="st">"wald"</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="co">#&gt; [1] 246</span></span></code></pre></div>
+<p>This is the number most textbooks and the MMS-SD workshop give. The
+Clopper-Pearson interval is a little wider, so it needs a few more
+samples. The result also gives <code>moe</code>, the margin of error the
+rounded design actually achieves, here 0.04997, just inside the target.
+Two things drive it: the margin of error (halving it roughly quadruples
+the sample size) and the expected prevalence (the sample size is largest
+at 50%). If the expected prevalence is uncertain, using a value closer
+to 50% is the cautious choice.</p>
 </div>
 <div class="section level3">
 <h3 id="an-imperfect-test">An imperfect test<a class="anchor" aria-label="anchor" href="#an-imperfect-test"></a>
@@ -139,12 +155,12 @@ using a value closer to 50% is the cautious choice.</p>
 <p>Molecular assays are good but not perfect. Suppose the assay has
 sensitivity 90% and specificity 95%: it misses some true positives, and
 some negatives are wrongly called positive.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>                           sensitivity <span class="op">=</span> <span class="fl">0.9</span>, specificity <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span>
 <span><span class="va">d_test</span><span class="op">$</span><span class="va">n</span></span>
-<span><span class="co">#&gt; [1] 365</span></span></code></pre></div>
-<p>The sample size rises from 246 to 365. The reason is that the
+<span><span class="co">#&gt; [1] 387</span></span></code></pre></div>
+<p>The sample size rises from 264 to 387. The reason is that the
 analysis will correct the measured prevalence back to the true scale
 (the Rogan-Gladen correction), and this correction stretches the
 confidence interval by a factor of
@@ -171,14 +187,14 @@ simple.</p>
 constrained in the field.</p>
 <p><strong>Fixing people per site.</strong> If each site can
 realistically collect 20 samples, solve for the number of sites:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">d_per</span></span>
 <span><span class="co">#&gt; $n</span></span>
-<span><span class="co">#&gt; [1] 480</span></span>
+<span><span class="co">#&gt; [1] 520</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_sites</span></span>
-<span><span class="co">#&gt; [1] 24</span></span>
+<span><span class="co">#&gt; [1] 26</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_per_site</span></span>
 <span><span class="co">#&gt; [1] 20</span></span>
@@ -187,30 +203,36 @@ realistically collect 20 samples, solve for the number of sites:</p>
 <span><span class="co">#&gt; [1] 1.95</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 246</span></span></code></pre></div>
-<p>The study needs 24 sites of 20 people, 480 samples in total.</p>
+<span><span class="co">#&gt; [1] 264</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $moe</span></span>
+<span><span class="co">#&gt; [1] 0.04971169</span></span></code></pre></div>
+<p>The study needs 26 sites of 20 people, 520 samples in total.</p>
 <p><strong>Fixing the number of sites.</strong> If the programme already
 has 20 sentinel sites, solve for the number of people per site:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">d_sites</span></span>
 <span><span class="co">#&gt; $n</span></span>
-<span><span class="co">#&gt; [1] 620</span></span>
+<span><span class="co">#&gt; [1] 740</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_sites</span></span>
 <span><span class="co">#&gt; [1] 20</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_per_site</span></span>
-<span><span class="co">#&gt; [1] 31</span></span>
+<span><span class="co">#&gt; [1] 37</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $deff</span></span>
-<span><span class="co">#&gt; [1] 2.5</span></span>
+<span><span class="co">#&gt; [1] 2.8</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 246</span></span></code></pre></div>
-<p>Each of the 20 sites now needs 31 people, 620 samples in total.</p>
+<span><span class="co">#&gt; [1] 264</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $moe</span></span>
+<span><span class="co">#&gt; [1] 0.04994193</span></span></code></pre></div>
+<p>Each of the 20 sites now needs 37 people, 740 samples in total.</p>
 <p>In both cases <code>n_eff</code> is the unclustered answer from the
-first section: the clustered design carries the same information as 246
+first section: the clustered design carries the same information as 264
 independent samples. Fixing the sites at 20 needs more samples in total
 than fixing 20 people per site, because the people per site go up, and
 so does the design effect.</p>
@@ -219,10 +241,10 @@ is a limit. Each site is worth at most
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mtext mathvariant="normal">ICC</mtext></mrow><annotation encoding="application/x-tex">1 / \text{ICC}</annotation></semantics></math>
 independent samples, however many people are tested there, so a small
 number of sites can never reach the target precision:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">10</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 5.5%.</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 5.8%.</span></span></code></pre></div>
 <p>The error reports the best margin of error that 10 sites can give.
 The options are to add sites, accept a wider margin of error, or (if
 there is evidence for it) assume a smaller ICC.</p>
@@ -233,20 +255,94 @@ there is evidence for it) assume a smaller ICC.</p>
 <p>The same precision can be reached with many different numbers of
 sites, and spreading the samples over more sites reduces the total
 needed:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">15</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
-<span><span class="co">#&gt; [1] 1305</span></span>
+<span><span class="co">#&gt; [1] 2070</span></span>
 <span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">30</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
-<span><span class="co">#&gt; [1] 420</span></span>
+<span><span class="co">#&gt; [1] 450</span></span>
 <span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_sites <span class="op">=</span> <span class="fl">100</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
 <span><span class="co">#&gt; [1] 300</span></span></code></pre></div>
-<p>With 15 sites the study needs 1305 samples; with 100 sites, only 300,
-close to the 246 an unclustered survey would need. Each new site brings
+<p>With 15 sites the study needs 2070 samples; with 100 sites, only 300,
+close to the 264 an unclustered survey would need. Each new site brings
 in fresh information, whereas each extra sample at a site partly repeats
 what that site has already shown. So, where the budget and logistics
 allow, aim for more sites with fewer people at each. Site visits cost
 money too, and the <a href="tutorial-cost.html">Costing a study</a>
 tutorial shows how to find the cheapest design.</p>
+</div>
+<div class="section level3">
+<h3 id="the-precision-of-a-design-you-already-have">The precision of a design you already have<a class="anchor" aria-label="anchor" href="#the-precision-of-a-design-you-already-have"></a>
+</h3>
+<p>Sometimes the design is set by circumstances: a network of sentinel
+sites that can each collect a fixed number of samples, say. Give the
+full design and leave out <code>moe</code>, and
+<code><a href="../reference/design_precision.html">design_precision()</a></code> returns the margin of error that design
+achieves:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d_have</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, n_sites <span class="op">=</span> <span class="fl">20</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_have</span><span class="op">$</span><span class="va">moe</span></span>
+<span><span class="co">#&gt; [1] 0.0569166</span></span></code></pre></div>
+<p>Twenty sites of 20 people give a margin of error of ±5.7 percentage
+points, a little wider than the 5-point target.</p>
+<p>Sites do not have to be the same size. Give <code>n_per_site</code>
+as one value per site:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d_uneven</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, n_per_site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">250</span>, <span class="fl">250</span>, <span class="fl">60</span>, <span class="fl">60</span>, <span class="fl">40</span>, <span class="fl">40</span><span class="op">)</span>,</span>
+<span>                             icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_uneven</span><span class="op">$</span><span class="va">moe</span></span>
+<span><span class="co">#&gt; [1] 0.1025958</span></span>
+<span></span>
+<span><span class="va">d_even</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.2</span>, n_sites <span class="op">=</span> <span class="fl">6</span>, n_per_site <span class="op">=</span> <span class="fl">117</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_even</span><span class="op">$</span><span class="va">moe</span></span>
+<span><span class="co">#&gt; [1] 0.08123823</span></span></code></pre></div>
+<p>These six sites hold 700 people and give a margin of error of ±10.3
+points. Spreading about the same number evenly, 6 sites of 117, gives
+±8.1. Large sites dominate the estimate, and many of their people repeat
+what that site has already shown, so uneven site sizes cost
+precision.</p>
+</div>
+<div class="section level3">
+<h3 id="allowing-for-dropout-and-suspected-cases">Allowing for dropout and suspected cases<a class="anchor" aria-label="anchor" href="#allowing-for-dropout-and-suspected-cases"></a>
+</h3>
+<p>The design functions give the number of samples needed <strong>at
+analysis</strong>. More people than that have to be enrolled, for two
+reasons.</p>
+<p>First, some samples are lost: consent is withdrawn, a sample is lost
+in transit, or the assay fails. If about 10% are expected to be lost,
+divide by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>−</mo><mn>0.1</mn></mrow><annotation encoding="application/x-tex">1 - 0.1</annotation></semantics></math>
+and round up. Do this per site, not only for the total, so that every
+site still delivers its share. Taking the design with 20 samples at each
+of 26 sites:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">per_site_analysis</span>  <span class="op">&lt;-</span> <span class="va">d_per</span><span class="op">$</span><span class="va">n_per_site</span></span>
+<span><span class="va">per_site_confirmed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">per_site_analysis</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">per_site_confirmed</span></span>
+<span><span class="co">#&gt; [1] 23</span></span></code></pre></div>
+<p>Second, the marker is measured only in confirmed <em>P.
+falciparum</em> infections, but people are enrolled as suspected cases,
+before the test result is known. If about 40% of suspected cases are
+confirmed, divide again by 0.4:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">per_site_suspected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">per_site_confirmed</span> <span class="op">/</span> <span class="fl">0.4</span><span class="op">)</span></span>
+<span><span class="va">per_site_suspected</span></span>
+<span><span class="co">#&gt; [1] 58</span></span></code></pre></div>
+<p>So each site enrols 58 suspected cases, expecting 23 of them to be
+confirmed, and 20 samples to reach the analysis. Across the 26 sites
+that is 1508 suspected cases enrolled, 598 confirmed cases enrolled and
+520 samples expected at analysis. Keep the three numbers apart when
+planning and reporting: the design was calculated for the last one.</p>
+<p>The confirmed fraction often differs between sites, for example with
+transmission intensity. Use each site’s own value:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">per_site_confirmed</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.6</span>, <span class="fl">0.4</span>, <span class="fl">0.25</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 39 58 92</span></span></code></pre></div>
+<p>A site where only a quarter of suspected cases are confirmed has to
+enrol 92 suspected cases to deliver the same 20 samples. When budgeting,
+cost the inflated numbers, since those are the people enrolled and
+tested: in <code><a href="../reference/estimate_cost.html">estimate_cost()</a></code>, the suspected cases are
+<code>n_screened</code>, the confirmed cases <code>n_collected</code>
+and the samples at analysis <code>n_sequenced</code> (see <a href="tutorial-cost.html">Costing a study</a>).</p>
 </div>
 </div>
 <div class="section level2">
@@ -255,7 +351,7 @@ tutorial shows how to find the cheapest design.</p>
 <p>Suppose the programme settles on 20 sites of about 30 people, and
 records the number of samples carrying the marker (<code>x</code>) and
 the number tested (<code>n</code>) at each site:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">9</span>, <span class="fl">6</span>, <span class="fl">2</span>, <span class="fl">11</span>, <span class="fl">7</span>, <span class="fl">5</span>, <span class="fl">8</span>, <span class="fl">3</span>, <span class="fl">6</span>, <span class="fl">10</span>, <span class="fl">4</span>, <span class="fl">7</span>, <span class="fl">5</span>, <span class="fl">12</span>, <span class="fl">6</span>, <span class="fl">3</span>, <span class="fl">8</span>, <span class="fl">5</span>, <span class="fl">7</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">30</span>, <span class="fl">32</span>, <span class="fl">28</span>, <span class="fl">31</span>, <span class="fl">30</span>, <span class="fl">29</span>, <span class="fl">33</span>, <span class="fl">30</span>, <span class="fl">27</span>, <span class="fl">31</span>, <span class="fl">30</span>, <span class="fl">32</span>, <span class="fl">29</span>, <span class="fl">30</span>, <span class="fl">31</span>, <span class="fl">28</span>, <span class="fl">30</span>, <span class="fl">30</span>, <span class="fl">32</span>, <span class="fl">29</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
@@ -263,7 +359,7 @@ the number tested (<code>n</code>) at each site:</p>
 </h3>
 <p>By default the ICC is estimated from the spread of the site
 prevalences, and an exact (Clopper-Pearson) interval is returned:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">est</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span><span class="op">)</span></span>
 <span><span class="va">est</span></span>
 <span><span class="co">#&gt; $prevalence</span></span>
@@ -302,7 +398,7 @@ below).</p>
 </h3>
 <p>Three interval methods are available. They give the same point
 estimate but different intervals:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, ci_method <span class="op">=</span> <span class="st">"clopper-pearson"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cp</span><span class="op">$</span><span class="va">ci_lower</span>, <span class="va">cp</span><span class="op">$</span><span class="va">ci_upper</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.1721390 0.2577502</span></span>
@@ -321,11 +417,12 @@ are seen, and its limits can fall below 0 or above 1.
 <code><a href="../reference/estimate_prevalence.html">estimate_prevalence()</a></code> sets such limits to 0 or 1, which
 keeps the interval sensible, but the result is still less reliable than
 the other two methods in these situations. Clopper-Pearson, the default,
-is the cautious choice, and Agresti-Coull a good compromise.
-<code><a href="../reference/design_precision.html">design_precision()</a></code> sizes a study with the simpler Wald
-formula, so a Clopper-Pearson interval usually comes out a little wider
-than the margin of error the study was designed for. See
-<code><a href="../reference/estimate_prevalence.html">?estimate_prevalence</a></code> for the details.</p>
+is the cautious choice, and Agresti-Coull a good compromise. Use the
+same method at both stages: <code><a href="../reference/design_precision.html">design_precision()</a></code> takes the
+same <code>ci_method</code> argument, so a study sized for
+Clopper-Pearson (the default in both) gives back the planned margin of
+error when analysed with it. See <code><a href="../reference/estimate_prevalence.html">?estimate_prevalence</a></code> for
+the details.</p>
 </div>
 <div class="section level3">
 <h3 id="supplied-or-estimated-icc">Supplied or estimated ICC?<a class="anchor" aria-label="anchor" href="#supplied-or-estimated-icc"></a>
@@ -338,7 +435,7 @@ With many sites this makes little difference, but with a handful the
 interval becomes very wide. So with few sites it is often better to
 supply a cautious value, for example from earlier surveys in similar
 settings:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">est_icc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">est_icc</span><span class="op">$</span><span class="va">ci_lower</span>, <span class="va">est_icc</span><span class="op">$</span><span class="va">ci_upper</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.1630936 0.2692575</span></span></code></pre></div>
@@ -353,7 +450,7 @@ shows how variable ICC estimates are with few sites.</p>
 <p>If the assay is imperfect, give its sensitivity and specificity, and
 the estimate and interval are corrected to the true-prevalence
 scale:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">est_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, sensitivity <span class="op">=</span> <span class="fl">0.9</span>, specificity <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">est_test</span><span class="op">$</span><span class="va">prevalence</span>, <span class="va">est_test</span><span class="op">$</span><span class="va">ci_lower</span>, <span class="va">est_test</span><span class="op">$</span><span class="va">ci_upper</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.1913230 0.1436929 0.2444121</span></span></code></pre></div>

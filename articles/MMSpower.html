@@ -109,12 +109,13 @@ its methods and formulas in full.</p>
 within ±5 percentage points, with 10 people per site and an ICC of
 0.05?</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.3</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_per_site <span class="op">=</span> <span class="fl">10</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">des</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_precision.html">design_precision</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.3</span>, moe <span class="op">=</span> <span class="fl">0.05</span>, n_per_site <span class="op">=</span> <span class="fl">10</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">des</span></span>
 <span><span class="co">#&gt; $n</span></span>
-<span><span class="co">#&gt; [1] 470</span></span>
+<span><span class="co">#&gt; [1] 500</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_sites</span></span>
-<span><span class="co">#&gt; [1] 47</span></span>
+<span><span class="co">#&gt; [1] 50</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_per_site</span></span>
 <span><span class="co">#&gt; [1] 10</span></span>
@@ -123,25 +124,28 @@ within ±5 percentage points, with 10 people per site and an ICC of
 <span><span class="co">#&gt; [1] 1.45</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 323</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 341</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $moe</span></span>
+<span><span class="co">#&gt; [1] 0.04965355</span></span></code></pre></div>
 <p>Once the data are in, estimate the prevalence and its confidence
-interval:</p>
+interval (here, 3 positives at each of the 50 sites):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">47</span><span class="op">)</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">47</span><span class="op">)</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_prevalence.html">estimate_prevalence</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">3</span>, <span class="va">des</span><span class="op">$</span><span class="va">n_sites</span><span class="op">)</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">10</span>, <span class="va">des</span><span class="op">$</span><span class="va">n_sites</span><span class="op">)</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $prevalence</span></span>
 <span><span class="co">#&gt; [1] 0.3</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $ci_lower</span></span>
-<span><span class="co">#&gt; [1] 0.2506</span></span>
+<span><span class="co">#&gt; [1] 0.2520834</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $ci_upper</span></span>
-<span><span class="co">#&gt; [1] 0.353099</span></span>
+<span><span class="co">#&gt; [1] 0.3513905</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $moe</span></span>
-<span><span class="co">#&gt; [1] 0.05124951</span></span>
+<span><span class="co">#&gt; [1] 0.04965355</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 324.1379</span></span>
+<span><span class="co">#&gt; [1] 344.8276</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $icc</span></span>
 <span><span class="co">#&gt; [1] 0.05</span></span>
@@ -172,7 +176,10 @@ threshold when it is really 10%, with 80% power?</p>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 191</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 191</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8053581</span></span></code></pre></div>
 <p>Then test the data against the threshold:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">18</span>, n <span class="op">=</span> <span class="fl">191</span>, threshold <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -226,7 +233,7 @@ case of a variant present in 1% of infections?</p>
 <span><span class="co">#&gt; [1] 161</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $detection_prob</span></span>
-<span><span class="co">#&gt; [1] 0.8</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.8017257</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="comparing-two-groups">Comparing two groups<a class="anchor" aria-label="anchor" href="#comparing-two-groups"></a>
@@ -234,7 +241,7 @@ case of a variant present in 1% of infections?</p>
 <p>How many people per group are needed to detect a difference between
 10% and 20% prevalence, with 30 sites per group and an ICC of 0.02?</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span>prevalence1 <span class="op">=</span> <span class="fl">0.10</span>, prevalence2 <span class="op">=</span> <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">30</span>, icc <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span>prevalence1 <span class="op">=</span> <span class="fl">0.10</span>, prevalence2 <span class="op">=</span> <span class="fl">0.20</span>, n_sites1 <span class="op">=</span> <span class="fl">30</span>, icc <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 240 240</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -251,7 +258,10 @@ case of a variant present in 1% of infections?</p>
 <span><span class="co">#&gt; [1] 1.14 1.14</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 199 199</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.82185</span></span></code></pre></div>
 <p>Then test for a difference:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/test_difference.html">test_difference</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">24</span>, n1 <span class="op">=</span> <span class="fl">240</span>, x2 <span class="op">=</span> <span class="fl">48</span>, n2 <span class="op">=</span> <span class="fl">240</span>, icc <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span></span>
@@ -300,21 +310,29 @@ case of a variant present in 1% of infections?</p>
 <div class="section level2">
 <h2 id="costing-a-study">Costing a study<a class="anchor" aria-label="anchor" href="#costing-a-study"></a>
 </h2>
-<p>Finally, cost a design from its sample size and number of sites:</p>
+<p>Finally, cost a design from its sample size and number of sites. The
+design’s <code>n</code> is the number of samples sequenced; here each
+costs 50 in all:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fl">470</span>, cost_per_sample <span class="op">=</span> <span class="fl">50</span>, n_sites <span class="op">=</span> <span class="fl">47</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/estimate_cost.html">estimate_cost</a></span><span class="op">(</span>n_sequenced <span class="op">=</span> <span class="va">des</span><span class="op">$</span><span class="va">n</span>, cost_per_sequenced <span class="op">=</span> <span class="fl">50</span>, n_sites <span class="op">=</span> <span class="va">des</span><span class="op">$</span><span class="va">n_sites</span>,</span>
 <span>              fixed_cost_per_site <span class="op">=</span> <span class="fl">500</span>, transport_cost_per_site <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $total_cost</span></span>
-<span><span class="co">#&gt; [1] 56400</span></span>
+<span><span class="co">#&gt; [1] 60000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $variable_cost</span></span>
-<span><span class="co">#&gt; [1] 23500</span></span>
+<span><span class="co">#&gt; [1] 25000</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $stage_cost</span></span>
+<span><span class="co">#&gt;  screened collected sequenced </span></span>
+<span><span class="co">#&gt;         0         0     25000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $site_cost</span></span>
-<span><span class="co">#&gt; [1] 32900</span></span>
+<span><span class="co">#&gt; [1] 35000</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $budget_remaining</span></span>
 <span><span class="co">#&gt; NULL</span></span></code></pre></div>
+<p><code><a href="../reference/estimate_cost.html">estimate_cost()</a></code> can also cost screening and sample
+collection as separate stages; see the <a href="tutorial-cost.html">Costing a study</a> tutorial.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

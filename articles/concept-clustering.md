@@ -62,7 +62,7 @@ effect.
 
 design_precision(prevalence = 0.3, moe = 0.05)
 #> $n
-#> [1] 323
+#> [1] 341
 #> 
 #> $n_sites
 #> NULL
@@ -74,13 +74,16 @@ design_precision(prevalence = 0.3, moe = 0.05)
 #> [1] 1
 #> 
 #> $n_eff
-#> [1] 323
+#> [1] 341
+#> 
+#> $moe
+#> [1] 0.04993769
 design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 20, icc = 0.05)
 #> $n
-#> [1] 640
+#> [1] 680
 #> 
 #> $n_sites
-#> [1] 32
+#> [1] 34
 #> 
 #> $n_per_site
 #> [1] 20
@@ -89,10 +92,13 @@ design_precision(prevalence = 0.3, moe = 0.05, n_per_site = 20, icc = 0.05)
 #> [1] 1.95
 #> 
 #> $n_eff
-#> [1] 323
+#> [1] 341
+#> 
+#> $moe
+#> [1] 0.04936963
 ```
 
-The `n_eff` element is the same, 323, in both: that is the information
+The `n_eff` element is the same, 341, in both: that is the information
 needed. The clustered design needs more people to supply it.
 
 ## Each site is worth at most 1 / ICC people
@@ -108,7 +114,7 @@ However many people you test at a site, it is worth at most $`1/\rho`$
 independent people: 20 with an ICC of 0.05, 10 with an ICC of 0.1.
 
 This puts a ceiling on what a fixed number of sites can achieve. The
-precision example above needs 323 independent people. With 10 sites and
+precision example above needs 341 independent people. With 10 sites and
 an ICC of 0.05, the most those sites can supply is $`10 / 0.05 = 200`$,
 so no number of people per site is enough:
 
@@ -116,7 +122,7 @@ so no number of people per site is enough:
 
 design_precision(prevalence = 0.3, moe = 0.05, n_sites = 10, icc = 0.05)
 #> Error:
-#> ! Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 6.4%.
+#> ! Target MOE of 5.0% is unachievable with 10 sites and ICC = 0.050; the minimum achievable MOE is 6.6%.
 ```
 
 The error reports the best margin of error that 10 sites can reach. When
@@ -128,7 +134,9 @@ $`m = n / k`$ gives the closed form used by
 n = \frac{n_0 \, k \, (1 - \rho)}{k - n_0 \rho},
 ```
 
-which needs $`k > n_0 \rho`$. Checking it by hand with 50 sites:
+which needs $`k > n_0 \rho`$. Checking it by hand with 50 sites, using
+the Wald formula for $`n_0`$ (the default Clopper-Pearson sizing finds
+$`n_0`$ by a numerical search instead, then applies the same step):
 
 ``` r
 
@@ -136,7 +144,8 @@ n0 <- qnorm(0.975)^2 * 0.3 * 0.7 / 0.05^2
 k  <- 50
 n0 * k * (1 - 0.05) / (k - n0 * 0.05)
 #> [1] 452.5919
-design_precision(prevalence = 0.3, moe = 0.05, n_sites = 50, icc = 0.05)
+design_precision(prevalence = 0.3, moe = 0.05, n_sites = 50, icc = 0.05,
+                 ci_method = "wald")
 #> $n
 #> [1] 500
 #> 
@@ -151,6 +160,9 @@ design_precision(prevalence = 0.3, moe = 0.05, n_sites = 50, icc = 0.05)
 #> 
 #> $n_eff
 #> [1] 323
+#> 
+#> $moe
+#> [1] 0.04836784
 ```
 
 The function rounds the number of people per site up, so its `n` is the
@@ -255,8 +267,13 @@ which would treat the people as independent.
 allows for this uncertainty: when it estimates the ICC, it widens the
 interval according to the number of sites (`df`, the number of sites
 minus one), so that intervals keep close to their stated coverage even
-with few sites. The price is width: with 3 sites the interval is very
-wide, an honest picture of how little 3 sites can say about clustering.
+with few sites. In the simulations reported in
+[`?estimate_prevalence`](https://mrc-ide.github.io/MMSpower/reference/estimate_prevalence.md)
+(true ICC 0.1, 50 people per site, prevalence 0.3), the 95%
+Clopper-Pearson interval contained the true prevalence 99% of the time
+with 3 sites, 96% with 5, and 95 to 96% with 10 or more. The price is
+width: with 3 sites the interval is very wide, an honest picture of how
+little 3 sites can say about clustering.
 
 ## Practical advice
 

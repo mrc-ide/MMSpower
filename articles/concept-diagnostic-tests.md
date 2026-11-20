@@ -108,13 +108,17 @@ An imperfect test shrinks every difference you are trying to detect, and
 also shrinks the gap between a prevalence and a threshold. To see a
 smaller difference you need more samples. For estimation the same idea
 applies in reverse: an error of $`\pm e`$ on the measured scale becomes
-$`\pm e / (Se + Sp - 1)`$ after correction. That is why
-[`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
-divides by $`(Se + Sp - 1)^2`$:
+$`\pm e / (Se + Sp - 1)`$ after correction. In the Wald formula for the
+sample size this appears as a division by $`(Se + Sp - 1)^2`$:
 
 ``` math
 n_0 = \frac{z^2 \, p_{app}(1-p_{app})}{MOE^2 \cdot (Se + Sp - 1)^2}.
 ```
+
+[`design_precision()`](https://mrc-ide.github.io/MMSpower/reference/design_precision.md)
+uses this formula with `ci_method = "wald"`. Its default,
+Clopper-Pearson, finds the sample size by a numerical search, but the
+effect of an imperfect test is the same.
 
 ## Specificity matters most at low prevalence
 
@@ -137,17 +141,17 @@ data.frame(specificity = spec,
            n_prev_5  = n_low,  ratio_5  = round(n_low / n_low[1], 2),
            n_prev_30 = n_high, ratio_30 = round(n_high / n_high[1], 2))
 #>    specificity n_prev_5 ratio_5 n_prev_30 ratio_30
-#> 1         1.00      482    1.00       347     1.00
-#> 2         0.99      585    1.21       360     1.04
-#> 3         0.98      690    1.43       373     1.07
-#> 4         0.97      797    1.65       386     1.11
-#> 5         0.96      907    1.88       400     1.15
-#> 6         0.95     1020    2.12       413     1.19
-#> 7         0.94     1135    2.35       427     1.23
-#> 8         0.93     1253    2.60       442     1.27
-#> 9         0.92     1374    2.85       457     1.32
-#> 10        0.91     1498    3.11       472     1.36
-#> 11        0.90     1625    3.37       487     1.40
+#> 1         1.00      536    1.00       366     1.00
+#> 2         0.99      639    1.19       379     1.04
+#> 3         0.98      744    1.39       392     1.07
+#> 4         0.97      851    1.59       405     1.11
+#> 5         0.96      962    1.79       419     1.14
+#> 6         0.95     1075    2.01       433     1.18
+#> 7         0.94     1190    2.22       447     1.22
+#> 8         0.93     1309    2.44       462     1.26
+#> 9         0.92     1430    2.67       477     1.30
+#> 10        0.91     1554    2.90       493     1.35
+#> 11        0.90     1682    3.14       508     1.39
 ```
 
 ``` r
@@ -164,7 +168,7 @@ legend("topleft", bty = "n", pch = 19, lwd = 2, col = c("#1B2A41", "#C0392B"),
 
 ![](concept-diagnostic-tests_files/figure-html/spec-plot-1.png)
 
-Dropping specificity to 0.9 multiplies the sample size by 3.4 at 5%
+Dropping specificity to 0.9 multiplies the sample size by 3.1 at 5%
 prevalence but only by 1.4 at 30%. At 5% prevalence a specificity of 0.9
 means false positives (about 10% of the 95% who are uninfected)
 outnumber the true positives, so most of what is measured is noise.

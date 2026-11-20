@@ -43,10 +43,14 @@ des
 #> 
 #> $n_eff
 #> [1] 199 199
+#> 
+#> $power
+#> [1] 0.8000726
 ```
 
 The answer is given per group (`n_per_group`, one value for each group)
-and as a total (`n`). With no clustering this is the same calculation as
+and as a total (`n`), with `power`, the power the rounded design
+actually achieves. With no clustering this is the same calculation as
 R’s [`power.prop.test()`](https://rdrr.io/r/stats/power.prop.test.html),
 which gives a fractional answer that
 [`design_difference()`](https://mrc-ide.github.io/MMSpower/reference/design_difference.md)
@@ -103,12 +107,13 @@ The design effect, `1 + (people per site - 1) * ICC`, says how many
 times more people a clustered design needs than an unclustered one.
 
 There are two ways to plan a clustered study. If you know how many
-people you can sample at each site, fix `n_per_site` and the function
-solves for the number of sites per group:
+people you can sample at each site, fix `n_per_site1` (group 2 takes the
+same value unless you give `n_per_site2`) and the function solves for
+the number of sites per group:
 
 ``` r
 
-d_per <- design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
+d_per <- design_difference(0.10, 0.20, n_per_site1 = 20, icc = 0.05)
 d_per
 #> $n_per_group
 #> [1] 400 400
@@ -127,18 +132,21 @@ d_per
 #> 
 #> $n_eff
 #> [1] 199 199
+#> 
+#> $power
+#> [1] 0.8119198
 ```
 
 Each group needs 20 sites of 20 people, 400 people per group and 800 in
 total.
 
 If the number of sites is fixed instead (for example, the health
-facilities already in a surveillance network), fix `n_sites` and the
+facilities already in a surveillance network), fix `n_sites1` and the
 function solves for the number of people per site:
 
 ``` r
 
-d_sites <- design_difference(0.10, 0.20, n_sites = 20, icc = 0.05)
+d_sites <- design_difference(0.10, 0.20, n_sites1 = 20, icc = 0.05)
 d_sites
 #> $n_per_group
 #> [1] 380 380
@@ -157,6 +165,9 @@ d_sites
 #> 
 #> $n_eff
 #> [1] 199 199
+#> 
+#> $power
+#> [1] 0.8020484
 ```
 
 Each of the 20 sites per group now needs 19 people, 380 people per group
@@ -169,11 +180,13 @@ and `deff` is the design effect that turns one into the other.
 
 The two groups need not share a design. Suppose region B has twice as
 many sites in the network, and earlier surveys suggest more clustering
-there. Give `n_sites` and `icc` as two values, `c(group 1, group 2)`:
+there. Give each group its own number of sites with `n_sites1` and
+`n_sites2`, and `icc` as two values, `c(group 1, group 2)`:
 
 ``` r
 
-diff_des <- design_difference(0.10, 0.20, n_sites = c(10, 20), icc = c(0.02, 0.05))
+diff_des <- design_difference(0.10, 0.20, n_sites1 = 10, n_sites2 = 20,
+                              icc = c(0.02, 0.05))
 diff_des
 #> $n_per_group
 #> [1] 270 540
@@ -192,13 +205,17 @@ diff_des
 #> 
 #> $n_eff
 #> [1] 155 309
+#> 
+#> $power
+#> [1] 0.800782
 ```
 
-Every element of the result is now a pair of values, one per group. The
-people per site is the same in both groups, so region B, with twice the
-sites, has twice the people. With the same people per site, its larger
-design effect comes from its higher ICC alone, and its `n_eff` is about
-twice region A’s, in the same ratio as the design.
+Most elements of the result are now pairs of values, one per group; `n`
+and `power` cover the whole study. The people per site is the same in
+both groups, so region B, with twice the sites, has twice the people.
+With the same people per site, its larger design effect comes from its
+higher ICC alone, and its `n_eff` is about twice region A’s, in the same
+ratio as the design.
 
 ## When too few sites cannot reach the target
 
@@ -213,16 +230,16 @@ reports the highest power that design can reach:
 
 ``` r
 
-design_difference(0.10, 0.20, n_sites = 8, icc = 0.05)
+design_difference(0.10, 0.20, n_sites1 = 8, icc = 0.05)
 #> Error:
-#> ! Target power of 80% cannot be reached with these sites and ICC; the highest power they can give is 70.9%. Increase `n_sites` or lower the ICC.
+#> ! Target power of 80% cannot be reached with these sites and ICC; the highest power they can give is 70.9%. Increase the number of sites or lower the ICC.
 ```
 
 Just above the limit, the answer is possible but not sensible:
 
 ``` r
 
-design_difference(0.10, 0.20, n_sites = 10, icc = 0.05)$n_per_site
+design_difference(0.10, 0.20, n_sites1 = 10, icc = 0.05)$n_per_site
 #> [1] 3647 3647
 ```
 
@@ -240,7 +257,7 @@ tests whether the prevalences differ. It takes the number of positives
 group.
 
 The data below are **simulated**, not real: 20 sites per group with 19
-people each (the `n_sites = 20` design above), true prevalences of 10%
+people each (the `n_sites1 = 20` design above), true prevalences of 10%
 and 20%, and an ICC of 0.05.
 
 ``` r

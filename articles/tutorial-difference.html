@@ -124,12 +124,16 @@ diagnostic test is perfect.</p>
 <span><span class="co">#&gt; [1] 1 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 199 199</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8000726</span></span></code></pre></div>
 <p>The answer is given per group (<code>n_per_group</code>, one value
-for each group) and as a total (<code>n</code>). With no clustering this
-is the same calculation as R’s <code><a href="https://rdrr.io/r/stats/power.prop.test.html" class="external-link">power.prop.test()</a></code>, which
-gives a fractional answer that <code><a href="../reference/design_difference.html">design_difference()</a></code> rounds
-up:</p>
+for each group) and as a total (<code>n</code>), with
+<code>power</code>, the power the rounded design actually achieves. With
+no clustering this is the same calculation as R’s
+<code><a href="https://rdrr.io/r/stats/power.prop.test.html" class="external-link">power.prop.test()</a></code>, which gives a fractional answer that
+<code><a href="../reference/design_difference.html">design_difference()</a></code> rounds up:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/power.prop.test.html" class="external-link">power.prop.test</a></span><span class="op">(</span>p1 <span class="op">=</span> <span class="fl">0.10</span>, p2 <span class="op">=</span> <span class="fl">0.20</span>, power <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
 <span><span class="co">#&gt; [1] 198.9634</span></span></code></pre></div>
@@ -175,10 +179,11 @@ this. The design effect, <code>1 + (people per site - 1) * ICC</code>,
 says how many times more people a clustered design needs than an
 unclustered one.</p>
 <p>There are two ways to plan a clustered study. If you know how many
-people you can sample at each site, fix <code>n_per_site</code> and the
+people you can sample at each site, fix <code>n_per_site1</code> (group
+2 takes the same value unless you give <code>n_per_site2</code>) and the
 function solves for the number of sites per group:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">d_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_per</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_per_site1 <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">d_per</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 400 400</span></span>
@@ -196,14 +201,17 @@ function solves for the number of sites per group:</p>
 <span><span class="co">#&gt; [1] 1.95 1.95</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 199 199</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8119198</span></span></code></pre></div>
 <p>Each group needs 20 sites of 20 people, 400 people per group and 800
 in total.</p>
 <p>If the number of sites is fixed instead (for example, the health
-facilities already in a surveillance network), fix <code>n_sites</code>
+facilities already in a surveillance network), fix <code>n_sites1</code>
 and the function solves for the number of people per site:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">d_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites1 <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">d_sites</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 380 380</span></span>
@@ -221,7 +229,10 @@ and the function solves for the number of people per site:</p>
 <span><span class="co">#&gt; [1] 1.9 1.9</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 199 199</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 199 199</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.8020484</span></span></code></pre></div>
 <p>Each of the 20 sites per group now needs 19 people, 380 people per
 group and 760 in total.</p>
 <p>In both cases <code>n_eff</code> is what each group would need
@@ -233,10 +244,12 @@ turns one into the other.</p>
 </h2>
 <p>The two groups need not share a design. Suppose region B has twice as
 many sites in the network, and earlier surveys suggest more clustering
-there. Give <code>n_sites</code> and <code>icc</code> as two values,
-<code>c(group 1, group 2)</code>:</p>
+there. Give each group its own number of sites with
+<code>n_sites1</code> and <code>n_sites2</code>, and <code>icc</code> as
+two values, <code>c(group 1, group 2)</code>:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">diff_des</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">20</span><span class="op">)</span>, icc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.02</span>, <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">diff_des</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites1 <span class="op">=</span> <span class="fl">10</span>, n_sites2 <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>                              icc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.02</span>, <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">diff_des</span></span>
 <span><span class="co">#&gt; $n_per_group</span></span>
 <span><span class="co">#&gt; [1] 270 540</span></span>
@@ -254,13 +267,16 @@ there. Give <code>n_sites</code> and <code>icc</code> as two values,
 <span><span class="co">#&gt; [1] 1.52 2.30</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $n_eff</span></span>
-<span><span class="co">#&gt; [1] 155 309</span></span></code></pre></div>
-<p>Every element of the result is now a pair of values, one per group.
-The people per site is the same in both groups, so region B, with twice
-the sites, has twice the people. With the same people per site, its
-larger design effect comes from its higher ICC alone, and its
-<code>n_eff</code> is about twice region A’s, in the same ratio as the
-design.</p>
+<span><span class="co">#&gt; [1] 155 309</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $power</span></span>
+<span><span class="co">#&gt; [1] 0.800782</span></span></code></pre></div>
+<p>Most elements of the result are now pairs of values, one per group;
+<code>n</code> and <code>power</code> cover the whole study. The people
+per site is the same in both groups, so region B, with twice the sites,
+has twice the people. With the same people per site, its larger design
+effect comes from its higher ICC alone, and its <code>n_eff</code> is
+about twice region A’s, in the same ratio as the design.</p>
 </div>
 <div class="section level2">
 <h2 id="when-too-few-sites-cannot-reach-the-target">When too few sites cannot reach the target<a class="anchor" aria-label="anchor" href="#when-too-few-sites-cannot-reach-the-target"></a>
@@ -274,12 +290,12 @@ people. So 8 sites per group can never give more than 160 independent
 people per group, which is not enough for 80% power here. The function
 says so, and reports the highest power that design can reach:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">8</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites1 <span class="op">=</span> <span class="fl">8</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Target power of 80% cannot be reached with these sites and ICC; the highest power they can give is 70.9%. Increase `n_sites` or lower the ICC.</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Target power of 80% cannot be reached with these sites and ICC; the highest power they can give is 70.9%. Increase the number of sites or lower the ICC.</span></span></code></pre></div>
 <p>Just above the limit, the answer is possible but not sensible:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites <span class="op">=</span> <span class="fl">10</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n_per_site</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_difference.html">design_difference</a></span><span class="op">(</span><span class="fl">0.10</span>, <span class="fl">0.20</span>, n_sites1 <span class="op">=</span> <span class="fl">10</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">n_per_site</span></span>
 <span><span class="co">#&gt; [1] 3647 3647</span></span></code></pre></div>
 <p>Ten sites can give at most 200 independent people per group, barely
 above the 199 needed, so thousands of people per site are required. If
@@ -294,7 +310,7 @@ the prevalences differ. It takes the number of positives
 (<code>x1</code>, <code>x2</code>) and the number tested
 (<code>n1</code>, <code>n2</code>) at each site in each group.</p>
 <p>The data below are <strong>simulated</strong>, not real: 20 sites per
-group with 19 people each (the <code>n_sites = 20</code> design above),
+group with 19 people each (the <code>n_sites1 = 20</code> design above),
 true prevalences of 10% and 20%, and an ICC of 0.05.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2026</span><span class="op">)</span></span>

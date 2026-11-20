@@ -212,9 +212,14 @@ applies in reverse: an error of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>±</mi><mi>e</mi></mrow><annotation encoding="application/x-tex">\pm e</annotation></semantics></math>
 on the measured scale becomes
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>±</mi><mi>e</mi><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>e</mi><mo>+</mo><mi>S</mi><mi>p</mi><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\pm e / (Se + Sp - 1)</annotation></semantics></math>
-after correction. That is why <code><a href="../reference/design_precision.html">design_precision()</a></code> divides by
+after correction. In the Wald formula for the sample size this appears
+as a division by
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>e</mi><mo>+</mo><mi>S</mi><mi>p</mi><mo>−</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">(Se + Sp - 1)^2</annotation></semantics></math>:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mn>0</mn></msub><mo>=</mo><mfrac><mrow><msup><mi>z</mi><mn>2</mn></msup><mspace width="0.167em"></mspace><msub><mi>p</mi><mrow><mi>a</mi><mi>p</mi><mi>p</mi></mrow></msub><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>p</mi><mrow><mi>a</mi><mi>p</mi><mi>p</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><mrow><mi>M</mi><mi>O</mi><msup><mi>E</mi><mn>2</mn></msup><mo>⋅</mo><mo stretchy="false" form="prefix">(</mo><mi>S</mi><mi>e</mi><mo>+</mo><mi>S</mi><mi>p</mi><mo>−</mo><mn>1</mn><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">n_0 = \frac{z^2 \, p_{app}(1-p_{app})}{MOE^2 \cdot (Se + Sp - 1)^2}.</annotation></semantics></math></p>
+<p><code><a href="../reference/design_precision.html">design_precision()</a></code> uses this formula with
+<code>ci_method = "wald"</code>. Its default, Clopper-Pearson, finds the
+sample size by a numerical search, but the effect of an imperfect test
+is the same.</p>
 </div>
 <div class="section level2">
 <h2 id="specificity-matters-most-at-low-prevalence">Specificity matters most at low prevalence<a class="anchor" aria-label="anchor" href="#specificity-matters-most-at-low-prevalence"></a>
@@ -235,17 +240,17 @@ its ratio to the sample size at perfect specificity.</p>
 <span>           n_prev_5  <span class="op">=</span> <span class="va">n_low</span>,  ratio_5  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">n_low</span> <span class="op">/</span> <span class="va">n_low</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>           n_prev_30 <span class="op">=</span> <span class="va">n_high</span>, ratio_30 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">n_high</span> <span class="op">/</span> <span class="va">n_high</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    specificity n_prev_5 ratio_5 n_prev_30 ratio_30</span></span>
-<span><span class="co">#&gt; 1         1.00      482    1.00       347     1.00</span></span>
-<span><span class="co">#&gt; 2         0.99      585    1.21       360     1.04</span></span>
-<span><span class="co">#&gt; 3         0.98      690    1.43       373     1.07</span></span>
-<span><span class="co">#&gt; 4         0.97      797    1.65       386     1.11</span></span>
-<span><span class="co">#&gt; 5         0.96      907    1.88       400     1.15</span></span>
-<span><span class="co">#&gt; 6         0.95     1020    2.12       413     1.19</span></span>
-<span><span class="co">#&gt; 7         0.94     1135    2.35       427     1.23</span></span>
-<span><span class="co">#&gt; 8         0.93     1253    2.60       442     1.27</span></span>
-<span><span class="co">#&gt; 9         0.92     1374    2.85       457     1.32</span></span>
-<span><span class="co">#&gt; 10        0.91     1498    3.11       472     1.36</span></span>
-<span><span class="co">#&gt; 11        0.90     1625    3.37       487     1.40</span></span></code></pre></div>
+<span><span class="co">#&gt; 1         1.00      536    1.00       366     1.00</span></span>
+<span><span class="co">#&gt; 2         0.99      639    1.19       379     1.04</span></span>
+<span><span class="co">#&gt; 3         0.98      744    1.39       392     1.07</span></span>
+<span><span class="co">#&gt; 4         0.97      851    1.59       405     1.11</span></span>
+<span><span class="co">#&gt; 5         0.96      962    1.79       419     1.14</span></span>
+<span><span class="co">#&gt; 6         0.95     1075    2.01       433     1.18</span></span>
+<span><span class="co">#&gt; 7         0.94     1190    2.22       447     1.22</span></span>
+<span><span class="co">#&gt; 8         0.93     1309    2.44       462     1.26</span></span>
+<span><span class="co">#&gt; 9         0.92     1430    2.67       477     1.30</span></span>
+<span><span class="co">#&gt; 10        0.91     1554    2.90       493     1.35</span></span>
+<span><span class="co">#&gt; 11        0.90     1682    3.14       508     1.39</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4.5</span>, <span class="fl">4.5</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, las <span class="op">=</span> <span class="fl">1</span>, bty <span class="op">=</span> <span class="st">"l"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">spec</span>, <span class="va">n_low</span> <span class="op">/</span> <span class="va">n_low</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"b"</span>, pch <span class="op">=</span> <span class="fl">19</span>, col <span class="op">=</span> <span class="st">"#1B2A41"</span>, lwd <span class="op">=</span> <span class="fl">2</span>,</span>
@@ -256,7 +261,7 @@ its ratio to the sample size at perfect specificity.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/legend.html" class="external-link">legend</a></span><span class="op">(</span><span class="st">"topleft"</span>, bty <span class="op">=</span> <span class="st">"n"</span>, pch <span class="op">=</span> <span class="fl">19</span>, lwd <span class="op">=</span> <span class="fl">2</span>, col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"#1B2A41"</span>, <span class="st">"#C0392B"</span><span class="op">)</span>,</span>
 <span>       legend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Prevalence 5%"</span>, <span class="st">"Prevalence 30%"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="concept-diagnostic-tests_files/figure-html/spec-plot-1.png" class="r-plt" alt="" width="672" style="display: block; margin: auto;"></p>
-<p>Dropping specificity to 0.9 multiplies the sample size by 3.4 at 5%
+<p>Dropping specificity to 0.9 multiplies the sample size by 3.1 at 5%
 prevalence but only by 1.4 at 30%. At 5% prevalence a specificity of 0.9
 means false positives (about 10% of the 95% who are uninfected)
 outnumber the true positives, so most of what is measured is noise.

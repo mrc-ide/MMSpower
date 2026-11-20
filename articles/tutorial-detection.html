@@ -99,9 +99,10 @@ new drug-resistance mutation has arrived in a region, or whether
 prevalence survey. The aim is then a survey large enough that, if the
 variant is present at some low prevalence, at least one case is very
 likely to be found.</p>
-<p><code><a href="../reference/design_detection.html">design_detection()</a></code> answers this. It also runs in
-reverse: given a survey that has already been done, it says how likely
-that survey was to find the variant.</p>
+<p><code><a href="../reference/design_detection.html">design_detection()</a></code> answers this. Given a full design
+instead, such as a survey that has already been done, it returns
+<code>detection_prob</code>: how likely that survey was to find the
+variant.</p>
 <div class="section level2">
 <h2 id="part-1-designing-the-study">Part 1: Designing the study<a class="anchor" aria-label="anchor" href="#part-1-designing-the-study"></a>
 </h2>
@@ -129,7 +130,7 @@ case if the mutation is present in 1% of infections:</p>
 <span><span class="co">#&gt; [1] 161</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $detection_prob</span></span>
-<span><span class="co">#&gt; [1] 0.8</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.8017257</span></span></code></pre></div>
 <p>So 161 samples are needed. The calculation is simple: each sample has
 a 1% chance of being a case, so the chance of missing every case among
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
@@ -211,7 +212,7 @@ samples:</p>
 <span><span class="co">#&gt; [1] 161</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $detection_prob</span></span>
-<span><span class="co">#&gt; [1] 0.8</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.8130438</span></span></code></pre></div>
 <p>The study needs 12 sites of 20 people, 240 samples in total, compared
 with 161 with no clustering.</p>
 <p><strong>Fixing the number of sites.</strong> If the programme can
@@ -235,7 +236,7 @@ visit 10 sites:</p>
 <span><span class="co">#&gt; [1] 161</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $detection_prob</span></span>
-<span><span class="co">#&gt; [1] 0.8</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.8040557</span></span></code></pre></div>
 <p>Each of the 10 sites now needs 25 people, 250 samples in total.</p>
 <p><strong>More sites, fewer samples.</strong> As for estimating
 prevalence, spreading the samples over more sites reduces the total
@@ -260,15 +261,39 @@ that:</p>
 <p>The answer is technically finite but far beyond any real survey. The
 only remedy is more sites.</p>
 </div>
+<div class="section level3">
+<h3 id="allowing-for-dropout-and-suspected-cases">Allowing for dropout and suspected cases<a class="anchor" aria-label="anchor" href="#allowing-for-dropout-and-suspected-cases"></a>
+</h3>
+<p>As with the other design functions, <code><a href="../reference/design_detection.html">design_detection()</a></code>
+gives the number of samples needed <strong>at analysis</strong>. To
+reach it, inflate for expected losses (withdrawn consent, lost or failed
+samples) and, if the variant is looked for only in confirmed infections,
+for the share of suspected cases that are confirmed. With 10% losses and
+40% of suspected cases confirmed:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">n_analysis</span>  <span class="op">&lt;-</span> <span class="va">d0</span><span class="op">$</span><span class="va">n</span></span>
+<span><span class="va">n_confirmed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">n_analysis</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">n_suspected</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">ceiling</a></span><span class="op">(</span><span class="va">n_confirmed</span> <span class="op">/</span> <span class="fl">0.4</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>suspected <span class="op">=</span> <span class="va">n_suspected</span>, confirmed <span class="op">=</span> <span class="va">n_confirmed</span>, analysis <span class="op">=</span> <span class="va">n_analysis</span><span class="op">)</span></span>
+<span><span class="co">#&gt; suspected confirmed  analysis </span></span>
+<span><span class="co">#&gt;       448       179       161</span></span></code></pre></div>
+<p>So 448 suspected cases are enrolled, 179 confirmed cases are expected
+among them, and 161 samples should reach the analysis. With sites, do
+this per site rather than only for the total, so that every site still
+delivers its share. The <a href="tutorial-prevalence.html">Estimating
+prevalence</a> tutorial works through this in more detail, including
+confirmed fractions that differ by site.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="part-2-interpreting-a-survey-that-found-nothing">Part 2: Interpreting a survey that found nothing<a class="anchor" aria-label="anchor" href="#part-2-interpreting-a-survey-that-found-nothing"></a>
 </h2>
-<p>The reverse mode is useful after a survey. Suppose 300 samples were
+<p>The same function is useful after a survey. Suppose 300 samples were
 tested and no case of the mutation was found. How reassuring is that?
-Supply <code>n</code>, and the function reports the chance that the
-survey would have found the variant if it were present at 1%:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+Give the full design, here <code>n = 300</code>, and the function
+returns <code>detection_prob</code>, the chance that the survey would
+have found the variant if it were present at 1%:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_detection.html">design_detection</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.01</span>, n <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
 <span><span class="va">r0</span><span class="op">$</span><span class="va">detection_prob</span></span>
 <span><span class="co">#&gt; [1] 0.9509591</span></span></code></pre></div>
@@ -276,8 +301,9 @@ survey would have found the variant if it were present at 1%:</p>
 chance of finding a 1% variant, so finding none is good evidence that
 the prevalence is below 1%. But if the same 300 samples came from 15
 sites of 20 people, with an ICC of 0.05:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">r_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_detection.html">design_detection</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.01</span>, n <span class="op">=</span> <span class="fl">300</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">r_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_detection.html">design_detection</a></span><span class="op">(</span>prevalence <span class="op">=</span> <span class="fl">0.01</span>, n_sites <span class="op">=</span> <span class="fl">15</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>                            icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">r_sites</span><span class="op">$</span><span class="va">detection_prob</span></span>
 <span><span class="co">#&gt; [1] 0.8770652</span></span></code></pre></div>
 <p>the chance falls to 88%. The same number of negative results is
