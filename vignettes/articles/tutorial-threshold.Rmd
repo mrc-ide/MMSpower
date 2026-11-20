@@ -31,7 +31,9 @@ d0 <- design_threshold(threshold = 0.05, prevalence = 0.10)
 d0
 ```
 
-So `r d0$n` samples are needed, with no clustering and a perfect test. The
+So `r d0$n` samples are needed, with no clustering and a perfect test.
+`power` is the power this rounded design actually achieves,
+`r round(d0$power, 3)`, just above the 0.8 target. The
 gap between the expected prevalence and the threshold is what matters most:
 the closer the true prevalence is to 5%, the harder it is to tell apart from
 5%, and the sample size grows quickly.
@@ -120,7 +122,17 @@ design_threshold(threshold = 0.05, prevalence = 0.10,
                  n_sites = 15, icc = 0.05)
 ```
 
-`n_eff` is the unclustered answer, `r d0$n_eff`. As with
+`n_eff` is the unclustered answer, `r d0$n_eff`.
+
+To find the power of a design you already have, give the full design and
+leave out `power`. Fifteen sites of 20 samples fall a little short:
+
+```{r}
+design_threshold(threshold = 0.05, prevalence = 0.10,
+                 n_sites = 15, n_per_site = 20, icc = 0.05)$power
+```
+
+As with
 `design_precision()`, too few sites make the target unreachable, because
 each site is worth at most $1/\text{ICC}$ independent samples:
 
@@ -173,7 +185,8 @@ res_wald <- test_threshold(x, n, threshold = 0.05, method = "wald")
 round(unlist(res_wald[c("p_value", "ci_lower")]), 4)
 ```
 
-With this much data the two agree. They can differ with small samples or a
+With this much data the two reach the same conclusion, with similar lower
+bounds, although their p-values differ. They can differ with small samples or a
 prevalence near 0, which is common for deletion surveys. An extreme case is
 a single site of 20 samples with no deletions, tested for being below 5%:
 

@@ -100,10 +100,14 @@ An imperfect test shrinks every difference you are trying to detect, and
 also shrinks the gap between a prevalence and a threshold. To see a
 smaller difference you need more samples. For estimation the same idea
 applies in reverse: an error of $\pm e$ on the measured scale becomes
-$\pm e / (Se + Sp - 1)$ after correction. That is why `design_precision()`
-divides by $(Se + Sp - 1)^2$:
+$\pm e / (Se + Sp - 1)$ after correction. In the Wald formula for the
+sample size this appears as a division by $(Se + Sp - 1)^2$:
 
 $$n_0 = \frac{z^2 \, p_{app}(1-p_{app})}{MOE^2 \cdot (Se + Sp - 1)^2}.$$
+
+`design_precision()` uses this formula with `ci_method = "wald"`. Its
+default, Clopper-Pearson, finds the sample size by a numerical search, but
+the effect of an imperfect test is the same.
 
 ## Specificity matters most at low prevalence
 

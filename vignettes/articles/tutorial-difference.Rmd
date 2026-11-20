@@ -30,7 +30,8 @@ des
 ```
 
 The answer is given per group (`n_per_group`, one value for each group) and
-as a total (`n`). With no clustering this is the same calculation as R's
+as a total (`n`), with `power`, the power the rounded design actually
+achieves. With no clustering this is the same calculation as R's
 `power.prop.test()`, which gives a fractional answer that
 `design_difference()` rounds up:
 
@@ -78,11 +79,12 @@ design effect, `1 + (people per site - 1) * ICC`, says how many times more
 people a clustered design needs than an unclustered one.
 
 There are two ways to plan a clustered study. If you know how many people
-you can sample at each site, fix `n_per_site` and the function solves for
+you can sample at each site, fix `n_per_site1` (group 2 takes the same
+value unless you give `n_per_site2`) and the function solves for
 the number of sites per group:
 
 ```{r}
-d_per <- design_difference(0.10, 0.20, n_per_site = 20, icc = 0.05)
+d_per <- design_difference(0.10, 0.20, n_per_site1 = 20, icc = 0.05)
 d_per
 ```
 
@@ -90,11 +92,11 @@ Each group needs `r d_per$n_sites[1]` sites of `r d_per$n_per_site[1]`
 people, `r d_per$n_per_group[1]` people per group and `r d_per$n` in total.
 
 If the number of sites is fixed instead (for example, the health facilities
-already in a surveillance network), fix `n_sites` and the function solves
+already in a surveillance network), fix `n_sites1` and the function solves
 for the number of people per site:
 
 ```{r}
-d_sites <- design_difference(0.10, 0.20, n_sites = 20, icc = 0.05)
+d_sites <- design_difference(0.10, 0.20, n_sites1 = 20, icc = 0.05)
 d_sites
 ```
 
@@ -109,14 +111,17 @@ In both cases `n_eff` is what each group would need without clustering, and
 
 The two groups need not share a design. Suppose region B has twice as many
 sites in the network, and earlier surveys suggest more clustering there.
-Give `n_sites` and `icc` as two values, `c(group 1, group 2)`:
+Give each group its own number of sites with `n_sites1` and `n_sites2`,
+and `icc` as two values, `c(group 1, group 2)`:
 
 ```{r}
-diff_des <- design_difference(0.10, 0.20, n_sites = c(10, 20), icc = c(0.02, 0.05))
+diff_des <- design_difference(0.10, 0.20, n_sites1 = 10, n_sites2 = 20,
+                              icc = c(0.02, 0.05))
 diff_des
 ```
 
-Every element of the result is now a pair of values, one per group. The
+Most elements of the result are now pairs of values, one per group; `n`
+and `power` cover the whole study. The
 people per site is the same in both groups, so region B, with twice the
 sites, has twice the people. With the same people per site, its larger
 design effect comes from its higher ICC alone, and its `n_eff` is about twice
@@ -134,13 +139,13 @@ which is not enough for 80% power here. The function says so, and reports
 the highest power that design can reach:
 
 ```{r, error = TRUE}
-design_difference(0.10, 0.20, n_sites = 8, icc = 0.05)
+design_difference(0.10, 0.20, n_sites1 = 8, icc = 0.05)
 ```
 
 Just above the limit, the answer is possible but not sensible:
 
 ```{r}
-design_difference(0.10, 0.20, n_sites = 10, icc = 0.05)$n_per_site
+design_difference(0.10, 0.20, n_sites1 = 10, icc = 0.05)$n_per_site
 ```
 
 Ten sites can give at most `r 10 / 0.05` independent people per group,
@@ -155,7 +160,7 @@ differ. It takes the number of positives (`x1`, `x2`) and the number tested
 (`n1`, `n2`) at each site in each group.
 
 The data below are **simulated**, not real: 20 sites per group with 19
-people each (the `n_sites = 20` design above), true prevalences of 10% and
+people each (the `n_sites1 = 20` design above), true prevalences of 10% and
 20%, and an ICC of 0.05.
 
 ```{r}
