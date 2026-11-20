@@ -9,8 +9,8 @@ Some surveillance questions are not about how common a variant is, but
 whether it is there at all. A programme may want to know whether a new
 drug-resistance mutation has arrived in a region, or whether *pfhrp2/3*
 deletions are present before planning a full prevalence survey. The aim
-is then a survey large enough that, if the variant is present at some
-low prevalence, at least one case is very likely to be found.
+is then to design a survey large enough that, if the variant is present
+at some low prevalence, at least one case is very likely to be found.
 
 [`design_detection()`](https://mrc-ide.github.io/MMSpower/reference/design_detection.md)
 answers this. Given a full design instead, such as a survey that has
@@ -52,8 +52,8 @@ So 161 samples are needed. The calculation is simple: each sample has a
 $`n`$ samples is $`(1 - 0.01)^n`$, and $`n`$ is chosen to make that at
 most 20%.
 
-The answer depends strongly on the target chance and on the prevalence
-to be detected:
+The answer depends strongly on the target detection probability and on
+the prevalence of the variant to be detected:
 
 ``` r
 
@@ -65,10 +65,10 @@ design_detection(prevalence = 0.02)$n
 #> [1] 80
 ```
 
-Raising the target from 80% to 95% takes 299 samples. Halving the
-prevalence to 0.5% roughly doubles the sample size, and doubling it to
-2% roughly halves it. The plot shows the chance of finding at least one
-case for different sample sizes:
+Raising the detection probability from 80% to 95% takes 299 samples.
+Halving the prevalence of the variant to 0.5% roughly doubles the sample
+size, and doubling it to 2% roughly halves it. The plot shows the chance
+of finding at least one case for different sample sizes:
 
 ``` r
 
@@ -87,10 +87,14 @@ legend("bottomright", bty = "n", lwd = 2,
 
 ![](tutorial-detection_files/figure-html/unnamed-chunk-4-1.png)
 
+To have an 80% chance of detecting at least one case, you would need 80
+samples at a variant prevalence of 2%, 161 at 1%, and 322 at 0.5%.
+
 ### An imperfect test
 
-A case is only found if the test detects it. With a sensitivity of 90%,
-each sample has a $`0.01 \times 0.9`$ chance of being a detected case:
+A case is only found if the test detects it. With a sensitivity of 90%
+and a prevalence of 1%, each sample has a $`0.01 \times 0.9`$ chance of
+being a detected case:
 
 ``` r
 
@@ -180,15 +184,15 @@ c(sites_5 = d5$n, sites_10 = d_sites$n, sites_20 = d20$n)
 #>      410      250      200
 ```
 
-Going from 5 to 20 sites cuts the total from 410 to 200, close to the
-161 an unclustered survey needs. Beyond that, the people per site are
-already small, and rounding up to whole people per site stops the total
-falling much further.
+Going from 5 to 20 sites cuts the total from 410 to 200, closer to the
+161 an unclustered survey needs. Beyond that, adding sites shrinks the
+people per site toward just a few, and because that number rounds up to
+a whole person at every site, the total barely falls further.
 
 With few sites and strong clustering, the numbers can become
 impractical. With only 3 sites and an ICC of 0.3, the variant may simply
-be absent from all three, and no number of people per site makes up for
-that:
+be absent from all three, and no practical number of people per site
+makes up for that:
 
 ``` r
 
@@ -196,8 +200,8 @@ design_detection(prevalence = 0.01, n_sites = 3, icc = 0.3)$n_per_site
 #> [1] 17821858014
 ```
 
-The answer is technically finite but far beyond any real survey. The
-only remedy is more sites.
+The answer is technically finite but far beyond any real survey. A fix
+is to add more sites.
 
 ### Allowing for dropout and suspected cases
 
@@ -220,20 +224,21 @@ c(suspected = n_suspected, confirmed = n_confirmed, analysis = n_analysis)
 ```
 
 So 448 suspected cases are enrolled, 179 confirmed cases are expected
-among them, and 161 samples should reach the analysis. With sites, do
-this per site rather than only for the total, so that every site still
-delivers its share. The [Estimating
+among them, and 161 samples should reach the analysis. Each step uses
+[`ceiling()`](https://rdrr.io/r/base/Round.html) to round up, since you
+cannot enrol part of a person and rounding down would leave the study
+short. With sites, do this per site rather than only for the total, so
+that every site still delivers its share. The [Estimating
 prevalence](https://mrc-ide.github.io/MMSpower/articles/tutorial-prevalence.md)
 tutorial works through this in more detail, including confirmed
 fractions that differ by site.
 
 ## Part 2: Interpreting a survey that found nothing
 
-The same function is useful after a survey. Suppose 300 samples were
-tested and no case of the mutation was found. How reassuring is that?
-Give the full design, here `n = 300`, and the function returns
-`detection_prob`, the chance that the survey would have found the
-variant if it were present at 1%:
+Suppose 300 samples were tested and no case of the mutation was found.
+How reassuring is that? Give the full design, here `n = 300`, and the
+function returns `detection_prob`, the chance that the survey would have
+found the variant if it were present at 1%:
 
 ``` r
 
@@ -242,10 +247,10 @@ r0$detection_prob
 #> [1] 0.9509591
 ```
 
-If the 300 samples were effectively independent, there was a 95% chance
+If the 300 samples were a simple random sample, there was a 95% chance
 of finding a 1% variant, so finding none is good evidence that the
-prevalence is below 1%. But if the same 300 samples came from 15 sites
-of 20 people, with an ICC of 0.05:
+prevalence is below 1%. But if the 300 samples came from clusters, for
+example 15 sites of 20 people, with an ICC of 0.05:
 
 ``` r
 
@@ -256,7 +261,7 @@ r_sites$detection_prob
 ```
 
 the chance falls to 88%. The same number of negative results is weaker
-evidence when they come from a few sites, because a variant concentrated
+evidence when they come from clusters, because a variant concentrated
 elsewhere could have been missed entirely. When reporting that a variant
 was not found, state the prevalence it could have been detected at, and
-with what chance, given how the samples were collected.
+with what chance.

@@ -106,8 +106,10 @@ binomial test by default.</p>
 <div class="section level2">
 <h2 id="how-many-samples">How many samples?<a class="anchor" aria-label="anchor" href="#how-many-samples"></a>
 </h2>
-<p>Power is the chance that the survey shows prevalence is above the
-threshold, when it really is. The usual target is 80%:</p>
+<p>Power is the chance that the survey correctly shows prevalence is
+above the threshold, when the true prevalence is above it. The usual
+target is 80%. Take the simplest case first: no clustering, a perfect
+test, a 5% threshold, and an expected prevalence of 10%:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span><span class="op">)</span></span>
 <span><span class="va">d0</span></span>
@@ -128,26 +130,29 @@ threshold, when it really is. The usual target is 80%:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $power</span></span>
 <span><span class="co">#&gt; [1] 0.8053581</span></span></code></pre></div>
-<p>So 191 samples are needed, with no clustering and a perfect test.
-<code>power</code> is the power this rounded design actually achieves,
-0.805, just above the 0.8 target. The gap between the expected
-prevalence and the threshold is what matters most: the closer the true
-prevalence is to 5%, the harder it is to tell apart from 5%, and the
-sample size grows quickly.</p>
+<p>So 191 samples are needed. <code>power</code> is the power this
+rounded design actually achieves, 0.805, just above the 0.8 target. The
+gap between the expected prevalence and the threshold is what matters
+most: the closer the true prevalence is to 5%, the harder it is to tell
+apart from 5%, and the sample size grows quickly.</p>
 </div>
 <div class="section level2">
 <h2 id="why-power-is-a-saw-tooth">Why power is a saw-tooth<a class="anchor" aria-label="anchor" href="#why-power-is-a-saw-tooth"></a>
 </h2>
 <p>With an exact test, power does not always go up when samples are
-added. The number of positives is a whole number, so the count needed to
-declare “above 5%” jumps up by one every so often, and each time it
-does, power drops a little. The plot shows exact power for every sample
-size from 1 to 300, for a true prevalence of 10% against the 5%
-threshold.</p>
+added. The test declares “above 5%” only once the number of positive
+samples reaches a cut-off. That cut-off is a whole number, so as the
+sample size grows it holds steady and then steps up by one; each step
+makes “above 5%” harder to reach, so power dips a little before climbing
+again. The plot shows exact power for every sample size from 2 to 300,
+for a true prevalence of 10% against the 5% threshold.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">n_grid</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">300</span></span>
-<span><span class="va">pw</span> <span class="op">&lt;-</span> <span class="fu">MMSpower</span><span class="fu">:::</span><span class="fu">.threshold_power</span><span class="op">(</span><span class="va">n_grid</span>, theta <span class="op">=</span> <span class="fl">0.05</span>, p <span class="op">=</span> <span class="fl">0.10</span>,</span>
-<span>                                  alternative <span class="op">=</span> <span class="st">"greater"</span>, alpha <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">n_grid</span> <span class="op">&lt;-</span> <span class="fl">2</span><span class="op">:</span><span class="fl">300</span></span>
+<span><span class="va">pw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">n_grid</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">n_grid</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">pw</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>                            n_sites <span class="op">=</span> <span class="fl">1</span>, n_per_site <span class="op">=</span> <span class="va">n_grid</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">)</span><span class="op">$</span><span class="va">power</span></span>
+<span><span class="op">}</span></span>
 <span><span class="va">n_first</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">n_grid</span><span class="op">[</span><span class="va">pw</span> <span class="op">&gt;=</span> <span class="fl">0.8</span><span class="op">]</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mar <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4.5</span>, <span class="fl">4.5</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, las <span class="op">=</span> <span class="fl">1</span>, bty <span class="op">=</span> <span class="st">"l"</span><span class="op">)</span></span>
@@ -166,40 +171,41 @@ sizes it falls back below 80%. <code><a href="../reference/design_threshold.html
 drops back below the target. This is the safe choice: in the field, a
 few samples are always lost or added (failed extractions, an extra day
 at a site), and with the returned size none of this can push the study
-below 80% power. Planning for 169 would leave the study on a knife
-edge.</p>
+below 80% power.</p>
 </div>
 <div class="section level2">
 <h2 id="showing-prevalence-is-below-a-threshold">Showing prevalence is below a threshold<a class="anchor" aria-label="anchor" href="#showing-prevalence-is-below-a-threshold"></a>
 </h2>
-<p>The question can also run the other way. After a switch of test, or
-to confirm that HRP2-based tests remain suitable, a programme may want
-to show that deletions are <strong>below</strong> 5%. Use
-<code>alternative = "less"</code>, with the expected prevalence below
-the threshold:</p>
+<p>The question can also run the other way. After a switch of test, a
+programme may want to confirm that deletions are now
+<strong>below</strong> 5%. Use <code>alternative = "less"</code>, with
+the expected prevalence below the threshold:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.02</span>, alternative <span class="op">=</span> <span class="st">"less"</span><span class="op">)</span><span class="op">$</span><span class="va">n</span></span>
 <span><span class="co">#&gt; [1] 286</span></span></code></pre></div>
-<p>Note that the burden of proof is reversed. Failing to show prevalence
-is above 5% is not the same as showing it is below 5%; each needs its
-own test, and its own sample size.</p>
+<p>The burden of proof is reversed. A one-sided test only concludes what
+it sets out to show when the evidence is strong, so failing to show
+prevalence is <em>above</em> 5% is not the same as showing it is
+<em>below</em> 5%, the data may simply be inconclusive. Each direction
+is a separate test with its own sample size.</p>
 </div>
 <div class="section level2">
 <h2 id="an-imperfect-test">An imperfect test<a class="anchor" aria-label="anchor" href="#an-imperfect-test"></a>
 </h2>
-<p>Deletions are usually confirmed by PCR, which is not perfect either.
-Suppose sensitivity is 90% and specificity 98%:</p>
+<p>The assay used to call a deletion is not perfect. Suppose it detects
+90% of true deletions (sensitivity) and correctly clears 98% of true
+non-deletions (specificity):</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">d_test</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
 <span>                           sensitivity <span class="op">=</span> <span class="fl">0.9</span>, specificity <span class="op">=</span> <span class="fl">0.98</span><span class="op">)</span></span>
 <span><span class="va">d_test</span><span class="op">$</span><span class="va">n</span></span>
 <span><span class="co">#&gt; [1] 277</span></span></code></pre></div>
-<p>The sample size rises from 191 to 277. The test works on the measured
-scale: a true prevalence of 10% and a threshold of 5% are both converted
-to the share of samples that would test positive. That squeezes the gap
-between them by a factor of
+<p>The sample size rises from 191 to 277. Power depends on the gap
+between the prevalence (10%) and the threshold (5%): a smaller gap needs
+more samples. An imperfect test measures both on the scale of what would
+test positive, which pulls 10% and 5% closer together by a factor of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mi>e</mi><mo>+</mo><mi>S</mi><mi>p</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">Se + Sp - 1</annotation></semantics></math>,
-and a smaller gap needs more samples.</p>
+so the gap shrinks and more samples are needed.</p>
 </div>
 <div class="section level2">
 <h2 id="clustering">Clustering<a class="anchor" aria-label="anchor" href="#clustering"></a>
@@ -208,8 +214,9 @@ and a smaller gap needs more samples.</p>
 ICC above 0 means more samples are needed. With 20 samples per site and
 an ICC of 0.05, solve for the number of sites:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
-<span>                 n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_ps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>                         n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_ps</span></span>
 <span><span class="co">#&gt; $n</span></span>
 <span><span class="co">#&gt; [1] 380</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -227,10 +234,14 @@ an ICC of 0.05, solve for the number of sites:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $power</span></span>
 <span><span class="co">#&gt; [1] 0.8238663</span></span></code></pre></div>
-<p>Or fix the number of sites and solve for samples per site:</p>
+<p>This needs 19 sites of 20 samples, 380 in total, against the 191 a
+simple random sample would need.</p>
+<p>Or fix the number of sites at 15 and solve for the samples per
+site:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
-<span>                 n_sites <span class="op">=</span> <span class="fl">15</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">d_ns</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>                         n_sites <span class="op">=</span> <span class="fl">15</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="va">d_ns</span></span>
 <span><span class="co">#&gt; $n</span></span>
 <span><span class="co">#&gt; [1] 510</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -248,14 +259,18 @@ an ICC of 0.05, solve for the number of sites:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $power</span></span>
 <span><span class="co">#&gt; [1] 0.8116771</span></span></code></pre></div>
-<p><code>n_eff</code> is the unclustered answer, 191.</p>
+<p>This needs 34 samples per site, 510 in total. Both examples report
+the same <code>n_eff</code>, 191.</p>
 <p>To find the power of a design you already have, give the full design
-and leave out <code>power</code>. Fifteen sites of 20 samples fall a
-little short:</p>
+and leave out <code>power</code>:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
-<span>                 n_sites <span class="op">=</span> <span class="fl">15</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">power</span></span>
+<code class="sourceCode R"><span><span class="va">p15</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/design_threshold.html">design_threshold</a></span><span class="op">(</span>threshold <span class="op">=</span> <span class="fl">0.05</span>, prevalence <span class="op">=</span> <span class="fl">0.10</span>,</span>
+<span>                        n_sites <span class="op">=</span> <span class="fl">15</span>, n_per_site <span class="op">=</span> <span class="fl">20</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">$</span><span class="va">power</span></span>
+<span><span class="va">p15</span></span>
 <span><span class="co">#&gt; [1] 0.7700449</span></span></code></pre></div>
+<p>Fifteen sites of 20 samples give a power of 0.77, short of the 0.80
+target: this design is a little too small, which is why solving for the
+number of sites above returned 19 sites.</p>
 <p>As with <code><a href="../reference/design_precision.html">design_precision()</a></code>, too few sites make the
 target unreachable, because each site is worth at most
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mtext mathvariant="normal">ICC</mtext></mrow><annotation encoding="application/x-tex">1/\text{ICC}</annotation></semantics></math>
@@ -265,14 +280,19 @@ independent samples:</p>
 <span>                 n_sites <span class="op">=</span> <span class="fl">8</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Target power is unreachable with 8 sites and ICC = 0.05: the sites are worth at most 160 independent people, but 191 are needed. Increase `n_sites` or lower the target power.</span></span></code></pre></div>
-<p>The power calculation assumes the analysis uses the same ICC.</p>
+<p>These sample sizes assume the data will be analysed with the same ICC
+used to design them (0.05). If the analysis instead estimates the ICC
+and it comes out higher, the effective sample size is smaller and the
+true power falls below the target.</p>
 </div>
 <div class="section level2">
 <h2 id="analysing-the-data">Analysing the data<a class="anchor" aria-label="anchor" href="#analysing-the-data"></a>
 </h2>
-<p>Suppose the survey used 19 sites of 20 samples, and records the
-number of samples with a deletion (<code>x</code>) and the number tested
-(<code>n</code>) at each site:</p>
+<p>The survey is now complete: 19 sites of 20 samples. We want to assess
+whether the prevalence is above the 5% threshold.
+<code><a href="../reference/test_threshold.html">test_threshold()</a></code> takes the number of samples with a
+deletion (<code>x</code>) and the number tested (<code>n</code>) at each
+site:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">5</span>, <span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">6</span>, <span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">5</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">20</span>, <span class="fl">19</span><span class="op">)</span></span>
@@ -319,25 +339,30 @@ is one-sided too: it runs from <code>ci_lower</code> = 8% up to 100%. It
 holds every threshold the test would not reject, so <code>reject</code>
 is <code>TRUE</code> exactly when the threshold lies outside the
 interval. Here 5% is below <code>ci_lower</code>, which agrees with the
-test. This gives a useful way to report the result: “we are 95%
-confident prevalence is at least 8%”.</p>
+test.</p>
 </div>
 <div class="section level3">
 <h3 id="exact-or-wald">Exact or Wald?<a class="anchor" aria-label="anchor" href="#exact-or-wald"></a>
 </h3>
-<p>The Wald test uses a normal approximation instead of the binomial
-distribution (a t distribution with <code>df</code> degrees of freedom
-when the ICC is estimated):</p>
+<p>The Wald test uses a normal approximation in place of the exact
+test’s binomial distribution when the ICC is supplied. When the ICC is
+estimated, it uses a t distribution with <code>df</code> (sites minus
+one) instead of the normal, to allow for the uncertainty in the
+estimated clustering. <code>res_wald</code> is the previous analysis
+redone with the Wald method; compare its p-value and lower bound with
+the exact test’s (<code>res</code>):</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_wald</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"wald"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">res_wald</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"p_value"</span>, <span class="st">"ci_lower"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  p_value ci_lower </span></span>
-<span><span class="co">#&gt;   0.0039   0.0777</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>exact <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">res</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"p_value"</span>, <span class="st">"ci_lower"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>      wald  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">res_wald</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"p_value"</span>, <span class="st">"ci_lower"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;            p_value   ci_lower</span></span>
+<span><span class="co">#&gt; exact 0.0002297787 0.07975905</span></span>
+<span><span class="co">#&gt; wald  0.0039031119 0.07767061</span></span></code></pre></div>
 <p>With this much data the two reach the same conclusion, with similar
-lower bounds, although their p-values differ. They can differ with small
-samples or a prevalence near 0, which is common for deletion surveys. An
-extreme case is a single site of 20 samples with no deletions, tested
-for being below 5%:</p>
+lower bounds, although their p-values differ. They can differ especially
+with small samples or a prevalence near 0, which is common for deletion
+surveys. An extreme case is a single site of 20 samples with no
+deletions, tested for being below 5%:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">exact</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">20</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, alternative <span class="op">=</span> <span class="st">"less"</span><span class="op">)</span></span>
 <span><span class="va">wald</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">20</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, alternative <span class="op">=</span> <span class="st">"less"</span>,</span>
@@ -351,38 +376,50 @@ for being below 5%:</p>
 has zero width and any threshold above 0 is rejected: it claims proof
 that prevalence is below 5% from just 20 samples. The exact test does
 not, and its interval runs up to 13.9%. This is why <code>"exact"</code>
-is the default, and it matches the power calculation in
-<code><a href="../reference/design_threshold.html">design_threshold()</a></code>.</p>
+is the default.</p>
 </div>
 <div class="section level3">
 <h3 id="supplying-the-icc">Supplying the ICC<a class="anchor" aria-label="anchor" href="#supplying-the-icc"></a>
 </h3>
-<p>Here the ICC was estimated from the data. It can also be supplied,
-for example from earlier surveys:</p>
+<p>Previously the ICC was estimated from the data. It can also be
+supplied, for example from earlier studies; here we assume an ICC of
+0.05:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">res_icc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/test_threshold.html">test_threshold</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span>, threshold <span class="op">=</span> <span class="fl">0.05</span>, icc <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">res_icc</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    p_value     reject prevalence   ci_lower   ci_upper      n_eff        icc </span></span>
 <span><span class="co">#&gt;     0.0002     1.0000     0.1158     0.0801     1.0000   194.8718     0.0500 </span></span>
 <span><span class="co">#&gt;       deff         df </span></span>
 <span><span class="co">#&gt;     1.9500        Inf</span></span></code></pre></div>
-<p>Either way the test keeps the false-alarm rate at or below 5%. The
-difference is power: an ICC estimated from only a few sites is
-uncertain, the test allows for that by becoming more cautious, and so it
-is less likely to detect a real excess. With few sites, a trustworthy
-ICC from earlier surveys gives a more powerful test.</p>
+<p>The supplied ICC appears as <code>icc</code> in the output, and
+<code>df</code> is now <code>Inf</code>: a known ICC carries no
+uncertainty, so the test adds no extra caution for it. When the ICC was
+estimated, <code>df</code> was the number of sites minus one, which made
+the test more cautious, and <code>n_eff</code> differs too because it
+depends on the ICC.</p>
+<p>Supplying the ICC or estimating it makes no difference to the
+false-alarm rate: either way the test wrongly declares “above 5%” at
+most 5% of the time. What changes is power. The caution the test takes
+for an uncertain estimated ICC, the finite <code>df</code> above, costs
+power, so a real excess is harder to detect. A trustworthy ICC from
+earlier surveys avoids that cost.</p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="when-to-use-drpower-instead">When to use DRpower instead<a class="anchor" aria-label="anchor" href="#when-to-use-drpower-instead"></a>
 </h2>
 <p>For <em>pfhrp2/3</em> deletion surveys with several sites and an
-unknown ICC, the help page for <code><a href="../reference/test_threshold.html">test_threshold()</a></code> suggests
-considering the <a href="https://mrc-ide.github.io/DRpower/" class="external-link">DRpower</a>
-package. It estimates prevalence and ICC together, and has more power,
-especially with few sites, at the cost of more false alarms when
-prevalence is close to the threshold. MMSpower is the simpler tool when
-the ICC can be supplied, or when a standard frequentist test is
-wanted.</p>
+unknown ICC, consider the <a href="https://mrc-ide.github.io/DRpower/" class="external-link">DRpower</a> package instead.
+DRpower fits a Bayesian beta-binomial model that estimates the
+prevalence and the ICC together, rather than fixing the ICC or plugging
+in a single estimate. It carries the uncertainty about the ICC through
+to the prevalence, and answers the threshold question directly, from the
+posterior probability that prevalence is above 5%. The pay-off is more
+power, especially with few sites; the cost is more false alarms when the
+true prevalence is close to the threshold.</p>
+<p>MMSpower is the better choice when you can supply the ICC from
+earlier surveys, or when you want a standard frequentist test whose
+false-alarm rate is held at or below the stated level.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
