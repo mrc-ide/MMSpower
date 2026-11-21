@@ -4,7 +4,14 @@ Version: 1.0.0
 Authors@R: 
     c(person("Sequoia", "Leuba", , "s.leuba21@imperial.ac.uk", role = c("aut", "cre")),
       person("Robert", "Verity", role = "aut"))
-Description: This package has basic functions needed for MMS power calculations.
+Description: Sample size, power and analysis calculations for malaria
+    molecular surveillance (MMS) studies. Designs studies to estimate a
+    prevalence to a given precision, to test a prevalence against a
+    threshold, to detect a rare variant, or to compare prevalence between
+    two groups, and analyses the resulting data. Allows for imperfect
+    diagnostic tests (sensitivity and specificity) and for clustered
+    sampling across sites through the intra-cluster correlation and design
+    effect. Also costs a study design by stage and by site.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
