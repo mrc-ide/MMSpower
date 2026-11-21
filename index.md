@@ -64,11 +64,16 @@ prevalence](https://mrc-ide.github.io/MMSpower/articles/tutorial-prevalence.md).
 
 ## Installation
 
+Install the latest release from GitHub with:
+
 ``` r
 
 # install.packages("remotes")
 remotes::install_github("mrc-ide/MMSpower")
 ```
+
+or the development version with
+`remotes::install_github("mrc-ide/MMSpower@develop")`.
 
 ## About
 
