@@ -19,12 +19,15 @@ design effect).
 
 ## Installation
 
-Install the development version from GitHub with:
+Install the latest release from GitHub with:
 
 ``` r
 # install.packages("remotes")
 remotes::install_github("mrc-ide/MMSpower")
 ```
+
+or the development version with
+`remotes::install_github("mrc-ide/MMSpower@develop")`.
 
 ## Example
 
