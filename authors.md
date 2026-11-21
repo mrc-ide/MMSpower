@@ -9,7 +9,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/mrc-ide/MMSpower/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/mrc-ide/MMSpower/blob/v1.0.0/DESCRIPTION)
 
 Leuba S, Verity R (2026). *MMSpower: Malaria Molecular Surveillance
 (MMS) Sample Size and Study Design Power Calculations*. R package
