@@ -58,10 +58,15 @@ through to analysis, starting with
 
 ## Installation
 
+Install the latest release from GitHub with:
+
 ```r
 # install.packages("remotes")
 remotes::install_github("mrc-ide/MMSpower")
 ```
+
+or the development version with
+`remotes::install_github("mrc-ide/MMSpower@develop")`.
 
 ## About
 
